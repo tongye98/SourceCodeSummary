@@ -2,7 +2,9 @@
 """
 Transformer layers
 """
+from inspect import modulesbyfile
 import math
+from turtle import forward
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -85,6 +87,132 @@ class MultiHeadedAttention(nn.Module):
         return output, attention_output_weights
 
 
+class PositionwiseFeedForward(nn.Module):
+    """
+    Position-wise Feed-forward layer
+    Projects to ff_size and then back dowm to input_dim.
+    Pre-LN and Post-LN Transformer cite "Understanding the Difficulity of Training Transformers"
+    """
+    def __init__(self, model_dim:int, ff_dim:int, dropout:float=0.1, layer_norm_position:str="post") -> None:
+        super().__init__()
+        self.layer_norm = nn.LayerNorm(model_dim, eps=1e-6)
+        self.pwff = nn.Sequential(
+            nn.Linear(model_dim, ff_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(ff_dim, model_dim),
+            nn.Dropout(dropout),
+        )
+        self.layer_norm_position = layer_norm_position
+        assert self.layer_norm_position in {"pre","post"}
+    
+    def forward(self, x:Tensor) -> Tensor:
+        """
+        Layer definition.
+        input x: [batch_size, seq_len, model_dim]
+        output: [batch_size, seq_len, model_dim]
+        """
+        residual = x
+        if self.layer_norm_position == "pre":
+            x = self.layer_norm(x)
+        x = self.pwff(x) + residual
+        if self.layer_norm_position == "post":
+            x = self.layer_norm(x)
+        return x
+
+class PositionalEncoding(nn.modules):
+    # TODO 
+    pass
 
 
-        
+
+class TransformerEncoderLayer(nn.Module):
+    """
+    Classical transformer Encoder layer
+    containing a Multi-Head attention layer and a position-wise feed-forward layer.
+    """
+    def __init__(self, model_dim:int, ff_dim:int, head_count:int, 
+                 dropout:float=0.1, layer_norm_position:str="post") -> None:
+        "layer_norm_position: either 'pre' or 'post' "
+        super().__init__()
+
+        self.layer_norm = nn.LayerNorm(model_dim, eps=1e-6)
+        self.src_src_attenion = MultiHeadedAttention(head_count, model_dim, dropout=dropout)
+        self.feed_forward = PositionwiseFeedForward(model_dim, ff_dim, dropout=dropout, layer_norm_position=layer_norm_position)
+        self.dropout = nn.Dropout(dropout)
+
+        self.layer_norm_position = layer_norm_position
+        assert self.layer_norm_position in {'pre','post'}
+    
+    def forward(self, input:Tensor, mask:Tensor) -> Tensor:
+        """
+        Forward pass for a single transformer encoder layer.
+        input [batch_size, src_len, model_dim]
+        mask [batch_size, 1, src_len]
+        return:
+            output [batch_size, src_len, model_dim]
+        """
+        residual = input
+        if self.layer_norm_position == "pre":
+            input = self.layer_norm(input)
+        attention_output, _ = self.src_src_attenion(input, input, input, mask)
+        feedforward_input = self.dropout(attention_output) + residual
+
+        if self.layer_norm_position == "post":
+            feedforward_input = self.layer_norm(feedforward_input)
+
+        output = self.feed_forward(feedforward_input)
+        return output
+
+
+class TransformerDecoderLayer(nn.Module):
+    """
+    Classical transformer Decoder Layer
+    """
+    def __init__(self, model_dim:int, ff_dim:int,head_count:int,
+                 dropout:float=0.1, layer_norm_position:str='post') -> None:
+        "layer norm position either 'pre' or 'post'."
+        super().__init__()
+        self.model_dim = model_dim
+        self.trg_trg_attention = MultiHeadedAttention(head_count, model_dim, dropout=dropout)
+        self.src_trg_attention = MultiHeadedAttention(head_count, model_dim, dropout=dropout)
+
+        self.feed_forward = PositionwiseFeedForward(model_dim, ff_dim, dropout=dropout, layer_norm_position=layer_norm_position)
+        self.dropout = nn.Dropout(dropout)
+        self.layer_norm = nn.LayerNorm(model_dim, eps=1e-6)
+
+        self.layer_norm_position = layer_norm_position
+        assert self.layer_norm_position in {'pre','post'}
+
+    def forward(self, input:Tensor, memory:Tensor,
+                src_mask: Tensor, trg_mask:Tensor) -> Tensor:
+        """
+        Forward pass for a single transformer decoer layer.
+        input [batch_size, trg_len, model_dim]
+        memory [batch_size, src_len, model_dim]
+        src_mask [batch_size, 1, src_len]
+        trg_mask [batch_size, 1, trg_len]
+        return:
+            output [batch_size, trg_len, model_dim]
+            cross_attention_weight [batch_size, trg_len, src_len]
+        """
+        residual = input
+        if self.layer_norm_position == 'pre':
+            input = self.layer_norm(input)
+        self_attention_output, _ = self.trg_trg_attention(input,input,input, mask=trg_mask)
+        cross_attention_input = self.dropout(self_attention_output) + residual
+
+        if self.layer_norm_position == 'post':
+            cross_attention_input = self.layer_norm(cross_attention_input)
+
+        cross_residual = cross_attention_input
+        if self.layer_norm_position == 'pre':
+            cross_attention_input = self.layer_norm(cross_attention_input)
+        cross_attention_output, cross_attention_weight = self.src_trg_attention(memory, memory, cross_attention_input,mask=src_mask)
+        feedforward_input = cross_attention_output + cross_residual
+
+        if self.layer_norm_position == 'post':
+            feedforward_input = self.layer_norm(feedforward_input)
+
+        output = self.feed_forward(feedforward_input)
+        return output, cross_attention_weight
