@@ -8,7 +8,7 @@ class TransformerEncoder(nn.Module):
     """
     def __init__(self, model_dim:int=512, ff_dim:int=2048, 
                  num_layers:int=6, head_count:int=8, dropout:float=0.1, 
-                 layer_norm_position:str='post', emb_dropout:float=0.1, freeze:bool=False) -> None:
+                 emb_dropout:float=0.1, layer_norm_position:str='post', freeze:bool=False) -> None:
         super().__init__()
 
         self.layers = nn.ModuleList([TransformerEncoderLayer(model_dim,ff_dim,head_count,dropout=dropout,
@@ -30,8 +30,8 @@ class TransformerEncoder(nn.Module):
         embed_src [batch_size, src_len, embed_size]
         mask: indicates padding areas (zeros where padding) [batch_size, 1, src_len]
         """
-        # FIXME  add positon embedding
         # TODO get each layer representation and attention score
+        embed_src = self.pe(embed_src)  # add position encoding
         input = self.emb_dropout(embed_src)
         for layer in self.layers:
             input = layer(input, mask)
@@ -44,4 +44,11 @@ class TransformerEncoder(nn.Module):
     def __repr__(self):
         return (f"{self.__class__.__name__}(num_layers={len(self.layers)}, "
                 f"head_count={self.head_count}, " 
-                f"layer_norm_position={self.layer_norm_position}")
+                f"layer_norm_position={self.layer_norm_position})")
+
+
+
+if __name__ == "__main__":
+    # test encoder
+    encoder = TransformerEncoder(512,2048,6,8,0.1,0.1,'post',False)
+    print(encoder)

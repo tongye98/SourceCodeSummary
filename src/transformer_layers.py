@@ -42,7 +42,7 @@ class MultiHeadedAttention(nn.Module):
         key  [batch_size, seq_len, hidden_size]
         value[batch_size, seq_len, hidden_size]
         query[batch_size, seq_len, hidden_size]
-        mask [batch_size, 1, seq_len] (pad position is false)
+        mask [batch_size, 1/seq_len, seq_len] (pad position is false)
 
         return 
             - output [batch_size, query_len, hidden_size]
@@ -120,10 +120,26 @@ class PositionwiseFeedForward(nn.Module):
             x = self.layer_norm(x)
         return x
 
-class PositionalEncoding(nn.modules):
-    # TODO 
-    pass
-
+class PositionalEncoding(nn.Module):
+    """
+    Pre-compute position encodings.(PE)
+    """
+    def __init__(self, model_dim:int=0, max_len:int=5000) -> None:
+        if model_dim % 2 != 0:
+            raise ValueError("Cannot use sin/cos positional encoding with odd dim!")
+        
+        pe = torch.zeros(max_len, model_dim) # pe [max_len, model_dim]
+        position = torch.arange(0, max_len).unsqueeze(1) # position [max_len,1]
+        div_term = torch.exp(torch.arange(0,model_dim,2,dtype=torch.float)*-(math.log(10000.0)/model_dim))
+        pe[:,0::2] = torch.sin(position.float() * div_term)
+        pe[:,1::2] = torch.cos(position.float() * div_term)
+        pe = pe.unsqueeze(0) # pe [1, max_len, model_dim]
+        super().__init__()
+        self.register_buffer("pe",pe)
+    
+    def forward(self, emb: Tensor) -> Tensor:
+        # emb: [batch_size, seq_len, model_dim]
+        return emb + self.pe[:, :emb.size(1)]
 
 
 class TransformerEncoderLayer(nn.Module):
@@ -191,7 +207,7 @@ class TransformerDecoderLayer(nn.Module):
         input [batch_size, trg_len, model_dim]
         memory [batch_size, src_len, model_dim]
         src_mask [batch_size, 1, src_len]
-        trg_mask [batch_size, 1, trg_len]
+        trg_mask [batch_size, trg_len, trg_len]
         return:
             output [batch_size, trg_len, model_dim]
             cross_attention_weight [batch_size, trg_len, src_len]
