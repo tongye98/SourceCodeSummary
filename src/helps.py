@@ -20,6 +20,9 @@ def subsequent_mask(size:int) -> Tensor:
     ones = torch.ones(size,size, dtype=torch.bool)
     return torch.tril(ones, out=ones).unsqueeze(0) 
 
+class ConfigurationError(Exception):
+    """Custom exception for misspecifications of configuration."""
+
 if __name__ == "__main__":
     # TEST 
     print(subsequent_mask(5))

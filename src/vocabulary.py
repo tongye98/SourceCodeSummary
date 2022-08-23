@@ -58,6 +58,12 @@ class Vocabulary(object):
                 self._itos.append(token)
                 self._stoi[token] = new_index
     
+    def is_unk(self,token:str) -> bool:
+        """
+        Check whether a token is covered by the vocabulary.
+        """
+        return self.lookup(token) == UNK_ID
+    
     def __len__(self) -> int:
         return len(self._itos)
     

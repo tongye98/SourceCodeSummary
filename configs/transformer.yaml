@@ -1,0 +1,31 @@
+model:
+    tied_softmax: False
+    tied_embeddings: False
+    encoder:
+        model_dim: 512
+        ff_dim: 2048
+        num_layers: 6
+        head_count: 8
+        layer_norm_position: "post"
+        freeze: False
+        dropout: 0.1
+        embeddings:
+            embedding_dim: 512
+            scale: True
+            freeze: False
+            dropout: 0.1
+            # load_pretrained
+    decoder:
+        model_dim: 512
+        ff_dim: 2048
+        num_layers: 6
+        head_count: 8
+        layer_norm_position: "post"
+        freeze: False
+        dropout: 0.1
+        embeddings:
+            embedding_dim: 512
+            scale: True
+            freeze: False
+            dropout: 0.1
+            # load_pretrained
