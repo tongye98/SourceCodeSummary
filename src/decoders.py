@@ -33,8 +33,8 @@ class TransformerDecoder(nn.Module):
         src_mask [batch_size, 1, src_len]
         trg_mask [batch_size, trg_len, trg_len]
         return:
-            output [batch_size, trg_len, vocab_size]
-            input [batch_size, trg_len, model_dim]
+            output [batch_size, trg_len, vocab_size]    after output layer
+            input [batch_size, trg_len, model_dim]      before output layer
             cross_attention_weight [batch_size, trg_len, src_len]
         """
         assert trg_mask is not None, "trg mask is required for Transformer decoder"
