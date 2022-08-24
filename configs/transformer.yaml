@@ -26,7 +26,6 @@ training:
     reset_scheduler: False
     reset_optimizer: False
     reset_iter_state: False
-
     # clip_grad_val: 
     # clip_grad_norm:
 

@@ -1,6 +1,6 @@
 import logging
 from modulefinder import Module
-from unittest import SkipTest, skip 
+import numpy as np
 import torch
 from torch import Tensor, nn 
 from pathlib import Path
@@ -10,6 +10,8 @@ from helps import set_seed, parse_train_arguments
 from model import build_model
 from torch.utils.tensorboard import SummaryWriter
 from builders import build_gradient_clipper, build_optimizer
+import heapq
+
 logger = logging.getLogger(__name__) 
 
 
@@ -97,6 +99,67 @@ class TrainManager(object):
         # optimization
         self.clip_grad_fun = build_gradient_clipper(train_cfg=cfg["training"])
         self.optimizer = build_optimizer(train_cfg=cfg["training"], parameters=self.model.parameters())
+
+        # save/delete checkpoints
+        self.num_ckpts = keep_best_ckpts
+        self.ckpt_queue = [] # heap queue      List[Tuple[float, Path]]
+
+        # early_stopping
+        self.early_stopping_metric = early_stopping_metric
+        if self.early_stopping_metric in ["ppl", "loss"]:
+            self.minimize_metric = True  # lower is better
+        elif self.early_stopping_metric in ["acc", "bleu"]:
+            self.minimize_metric = False # higher is better
+
+        # learning rate scheduling
+        self.scheduler, self.scheduler_step_at = build_scheduler()
+
+        # data & batch handling
+        self.seed = random_seed
+        self.shuffle = shuffle
+        self.epochs = epochs
+        self.max_updates = max_updates
+        self.batch_size = batch_size
+        self.batch_type = batch_type
+        self.learning_rate_min = learning_rate_min
+        self.normalization = normalization
+
+        # initialize training statistics
+        self.stats = self.TrainStatistics(
+            steps=0, is_min_lr=False, is_max_updates=False,
+            total_tokens=0, best_ckpt_iter=0, minimize_metric = self.minimize_metric,
+            best_ckpt_score=np.inf if self.minimize_metric else -np.inf,
+        )
+
+    class TrainStatistics:
+
+        def __init__(self, steps:int=0, is_min_lr:bool=False,
+                     is_max_update:bool=False, total_tokens:int=0,
+                     best_ckpt_iter:int=0, best_ckpt_score: float=np.inf,
+                     minimize_metric: bool=True) -> None:
+            self.steps = steps 
+            self.is_min_lr = is_min_lr
+            self.is_max_update = is_max_update
+            self.total_tokens = total_tokens
+            self.best_ckpt_iter = best_ckpt_iter
+            self.best_ckpt_score = best_ckpt_score
+            self.minimize_metric = minimize_metric
+        
+        def is_best(self, score) -> bool:
+            if self.minimize_metric:
+                is_best = score < self.best_ckpt_score
+            else: 
+                is_best = score > self.best_ckpt_score
+            return is_best
+        
+        def is_better(self, score: float, heap_queue: list):
+            assert len(heap_queue) > 0
+            if self.minimize_metric:
+                is_better = score < heapq.nlargest(1, heap_queue)[0][0]
+            else:
+                is_better = score > heapq.nsmallest(1, heap_queue)[0][0]
+            return is_better
+
 
 
 
