@@ -57,8 +57,8 @@ def train(cfg_file: str, skip_test:bool=False) -> None:
         logger.info("Skipping test after training the model!")
 
 
-
-
+class TrainManager(object):
+    
 
 
 
