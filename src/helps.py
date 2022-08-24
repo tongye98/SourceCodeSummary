@@ -1,15 +1,19 @@
+from cProfile import label
 from genericpath import isdir
 from importlib.resources import path
+from os import cpu_count
 import torch.nn as nn
 from torch import Tensor 
 import torch
-from typing import Union, Dict
+from typing import Union, Dict, Tuple
 from pathlib import Path
 import shutil
 import logging
 import yaml
 import random
 import numpy as np
+
+from src.training import train
 
 def freeze_params(module: nn.Module) -> None:
     """
@@ -79,13 +83,13 @@ def make_logger(log_dir: Path=None, mode:str="train") -> None:
     logger.info("Hello! This is Tong Ye's Transformer!")
     return None
 
-def log_cfg(cfg: Dict, prefix: str="cfg") -> None:
+def log_cfg(cfg: dict, prefix: str="cfg") -> None:
     """
     Write configuration to log.
     """
     logger = logging.getLogger(__name__)
     for key, value in cfg.items():
-        if isinstance(value, Dict):
+        if isinstance(value, dict):
             p = ".".join([prefix, key])
             log_cfg(value, prefix=p)
         else:
@@ -103,6 +107,61 @@ def set_seed(seed: int) -> None:
         torch.backends.cudnn.deterministic = True
         torch.cuda.manual_seed_all(seed)
 
+def parse_train_arguments(train_cfg:dict) -> Tuple:
+    logger = logging.getLogger(__name__)
+    model_dir = Path(train_cfg["model_dir"])
+    assert model_dir.is_dir(), f"{model_dir} not found!"
+
+    use_cuda = train_cfg["use_cuda"] and torch.cuda.is_available()
+    device = torch.device("cuda" if use_cuda else "cpu")
+    n_gpu = torch.cuda.device_count() if use_cuda else 0
+    num_workers = train_cfg.get("num_workers", 0)
+    if num_workers > 0:
+        num_workers = min(cpu_count(), num_workers)
+    
+    normalization = train_cfg.get("normalization", "batch")
+    if normalization not in ["batch","tokens"]:
+        raise ConfigurationError("Invalid 'normalization' option.")
+    
+    loss_type = train_cfg.get("loss","CrossEntropy")
+    label_smoothing = train_cfg.get("label_smoothing", 0.0)
+    if loss_type not in ["CrossEntropy"]:
+        raise ConfigurationError("Invalid 'loss'.")
+    
+    learning_rate_min = train_cfg.get("learning_rate_min", 1.0e-8)
+    
+    keep_best_ckpts = int(train_cfg.get("keep_best_ckpts",5))
+
+    logging_freq = train_cfg.get("logging_freq", 100)
+    validation_freq = train_cfg.get("validation_freq", 1000)
+    log_valid_sentences = train_cfg.get("log_valid_sentences", [0,1,2])
+
+    early_stopping_metric = train_cfg.get("early_stopping_metric", "bleu").lower()
+    if early_stopping_metric not in ["acc","loss","ppl","bleu"]:
+        raise ConfigurationError("Invalid setting for 'early_stopping_metric'.")
+    
+    shuffle = train_cfg.get("shuffle", True)
+    epochs = train_cfg.get("epochs", 100)
+    max_updates = train_cfg.get("max_updates", np.inf)
+    batch_size = train_cfg.get("batch_size", 32)
+    batch_type = train_cfg.get("batch_type", "sentence")
+    if batch_type not in ["sentence", "token"]:
+        raise ConfigurationError("Invalid 'batch_type'. ")
+    random_seed = train_cfg.get("random_seed", 980820)  
+    
+    reset_best_ckpt = train_cfg.get("reset_best_ckpt", False)
+    reset_scheduler = train_cfg.get("reset_scheduler", False)
+    reset_optimizer = train_cfg.get("reset_optimizer", False)
+    reset_iter_state = train_cfg.get("rest_iter_state", False)
+
+    return(model_dir, loss_type, label_smoothing,
+           normalization, learning_rate_min, keep_best_ckpts,
+           logging_freq, validation_freq, log_valid_sentences,
+           early_stopping_metric, shuffle, epochs, max_updates,
+           batch_size, batch_type, random_seed,
+           device, n_gpu, num_workers,
+           reset_best_ckpt, reset_scheduler,
+           reset_optimizer, reset_iter_state)
 
 
 

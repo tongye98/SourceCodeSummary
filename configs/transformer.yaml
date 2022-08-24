@@ -1,11 +1,34 @@
 data:
-    
+
 
 
 training:
     model_dir: "models/test"
     overwrite: True
     random_seed: 980820
+    use_cuda: True
+    num_workers: 4
+    normalization: "batch" # batch tokens
+    loss: "CrossEntropy"
+    label_smoothing: 0.0
+    learning_rate_min: 1.0e-8
+    keep_best_ckpts: 5
+    logging_freq: 100
+    validation_freq: 1000
+    log_valid_sentences: [0,1,2]
+    early_stopping_metric: "bleu"
+    shuffle: True
+    epochs: 100
+    max_updates: "np.inf"
+    batch_size: 32
+    batch_type: "sentence"
+    reset_best_ckpt: False
+    reset_scheduler: False
+    reset_optimizer: False
+    reset_iter_state: False
+
+    # clip_grad_val: 
+    # clip_grad_norm:
 
 
 
