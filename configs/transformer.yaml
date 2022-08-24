@@ -1,4 +1,23 @@
+data:
+    
+
+
+training:
+    model_dir: "models/test"
+    overwrite: True
+    random_seed: 980820
+
+
+
 model:
+    initializer: "xavier_uniform"     # xavier_uniform xavier_normal uniform normal
+    init_gain: 1.0 # for xavier
+    init_weight: 0.01 # for uniform normal
+    embed_initializer: "normal"
+    embed_init_gain: 1.0 # for xavier
+    embed_init_weight: 0.01
+    bias_initializer: "zeros"
+    bias_init_weight: 0.01
     tied_softmax: False
     tied_embeddings: False
     encoder:

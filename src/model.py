@@ -6,6 +6,7 @@ from src.embeddings import Embeddings
 from src.encoders import TransformerEncoder
 from src.decoders import TransformerDecoder 
 from src.helps import ConfigurationError
+from src.initialization import Initialize_model
 import logging
 from pathlib import Path
 import numpy as np
@@ -60,9 +61,10 @@ class Transformer(nn.Module):
             assert trg_input is not None and trg_mask is not None
             encode_output = self.encode(src_input, src_mask)
             decode_output, decode_input, cross_attention_weight = self.decode(trg_input, encode_output, src_mask, trg_mask)
+            # FIXME generator and copy generator 
             # decode_output [batch_size, trg_len, vocab_size]
             log_probs = F.log_softmax(decode_output, dim=-1)
-            #FIXME
+            #FIXME after data part is already.
             batch_loss = self.loss_function(log_probs, other)
             # return batch loss = sum over all elements in batch that are not pad
             return (batch_loss, log_probs)
@@ -184,7 +186,7 @@ def build_model(model_cfg: dict=None,
             raise ConfigurationError("For tied softmax, decoder embedding_dim == decoder hidden_size.")
     
     # Custom Initialization of model parameters.
-    # TODO
+    Initialize_model(model, model_cfg, src_pad_index, trg_pad_index)
 
     # Initializate embeddings from pre-trained embedding file.
     encoder_embed_path = encoder_cfg["embeddings"].get("load_pretrained",None)
