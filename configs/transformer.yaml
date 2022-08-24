@@ -22,6 +22,7 @@ training:
     max_updates: "np.inf"
     batch_size: 32
     batch_type: "sentence"
+    load_model: None
     reset_best_ckpt: False
     reset_scheduler: False
     reset_optimizer: False

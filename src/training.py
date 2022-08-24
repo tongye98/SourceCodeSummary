@@ -72,7 +72,7 @@ class TrainManager(object):
         logging_freq, validation_freq, log_valid_sentences,
         early_stopping_metric, shuffle, epochs, max_updates,
         batch_size, batch_type, random_seed,
-        device, n_gpu, num_workers,
+        device, n_gpu, num_workers,load_model,
         reset_best_ckpt, reset_scheduler,
         reset_optimizer, reset_iter_state) = parse_train_arguments(train_cfg=cfg["training"])
 
@@ -130,9 +130,21 @@ class TrainManager(object):
             total_tokens=0, best_ckpt_iter=0, minimize_metric = self.minimize_metric,
             best_ckpt_score=np.inf if self.minimize_metric else -np.inf,
         )
+        
+        if load_model is not None:
+            self.init_from_checkpoint(load_model,
+                reset_best_ckpt=reset_best_ckpt, reset_scheduler=reset_scheduler,
+                reset_optimizer=reset_optimizer, reset_iter_state=reset_iter_state)
+        
+        # multi-gpu training
+        # TODO 
+
+        # config for generation
+
+    def init_from_checkpoint():
+        pass
 
     class TrainStatistics:
-
         def __init__(self, steps:int=0, is_min_lr:bool=False,
                      is_max_update:bool=False, total_tokens:int=0,
                      best_ckpt_iter:int=0, best_ckpt_score: float=np.inf,

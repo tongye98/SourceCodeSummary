@@ -149,6 +149,11 @@ def parse_train_arguments(train_cfg:dict) -> Tuple:
         raise ConfigurationError("Invalid 'batch_type'. ")
     random_seed = train_cfg.get("random_seed", 980820)  
     
+    load_model = train_cfg.get("load_model",None)
+    if load_model is not None:
+        load_model = Path(load_model)
+        assert load_model.is_file()
+
     reset_best_ckpt = train_cfg.get("reset_best_ckpt", False)
     reset_scheduler = train_cfg.get("reset_scheduler", False)
     reset_optimizer = train_cfg.get("reset_optimizer", False)
@@ -159,7 +164,7 @@ def parse_train_arguments(train_cfg:dict) -> Tuple:
            logging_freq, validation_freq, log_valid_sentences,
            early_stopping_metric, shuffle, epochs, max_updates,
            batch_size, batch_type, random_seed,
-           device, n_gpu, num_workers,
+           device, n_gpu, num_workers,load_model,
            reset_best_ckpt, reset_scheduler,
            reset_optimizer, reset_iter_state)
 
