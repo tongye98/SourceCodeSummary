@@ -14,6 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 from builders import build_gradient_clipper, build_optimizer
 import heapq
 import math
+import time
 
 logger = logging.getLogger(__name__) 
 
@@ -269,7 +270,82 @@ class TrainManager(object):
                     self.device.type, self.n_gpu,
                     self.batch_size // self.n_gpu,)
         try:
-            pass
+            for epoch_no in range(self.epochs):
+                logger.info("Epoch %d", epoch_no + 1)
+
+                self.model.train()
+                self.model.zero_grad()
+
+                if self.scheduler_step_at == "epoch":
+                    self.scheduler.step(epoch=epoch_no)
+                
+                # Statistic for each epoch.
+                start_time = time.time()
+                valid_duration_time = 0
+                start_tokens = self.stats.total_tokens
+                epoch_loss = 0
+                total_batch_loss = 0
+
+                for i, batch_data in enumerate(self.train_iter):
+                    batch_loss = self.train_step(batch_data)
+                    total_batch_loss += batch_loss
+
+                    # clip gradients (in-place)
+                    if self.clip_grad_fun is not None:
+                        self.clip_grad_fun(parameters=self.model.parameters())
+                    
+                    # make gradient step
+                    # Note: loss.backward() inside self.train_step()
+                    self.optimizer.step()
+
+                    # decay learning_rate(lr)
+                    # FIXME why not under logging ?
+                    if self.scheduler_step_at == "step":
+                        self.scheduler.step(self.stats.steps)
+                    
+                    # reset gradients
+                    self.model.zero_grad()
+
+                    # increment step counter
+                    self.stats.steps += 1
+                    if self.stats.steps >= self.max_updates:
+                        self.stats.is_max_update == True
+                    
+                    # log learning process and write tensorboard
+                    if self.stats.steps % self.logging_freq == 0:
+                        elapse_time = time.time() - start_time - valid_duration_time
+                        elapse_token_num = self.stats.total_tokens - start_tokens
+                        # FIXME why is total batch loss
+                        self.tb_writer.add_scalar("Train/batch_loss", total_batch_loss, self.stats.steps)
+                    
+                        logger.info("Epoch %3d, Step: %8d, Batch Loss: %12.6f, Lr: %.6f, Tokens per sec: %8.0f",
+                        epoch_no + 1, self.stats.steps, total_batch_loss, self.optimizer.param_groups[0]["lr"],
+                        elapse_token_num / elapse_time)
+
+                        start_time = time.time()
+                        start_tokens = self.stats.total_tokens
+                    
+                    # validate on the entire dev dataset
+                    if self.stats.steps % self.validation_freq == 0:
+                        valid_duration_time = self.validate(valid_data)
+                    
+                    # check current leraning rate(lr)
+                    current_lr = self.optimizer.param_groups[0]["lr"]
+                    if current_lr < self.learning_rate_min:
+                        self.stats.is_min_lr = True 
+                    
+                    self.tb_writer.add_scalar("Train/learning_rate",current_lr, self.stats.steps)
+
+                    if self.stats.is_min_lr or self.stats.is_max_update:
+                        
+                    
+
+
+
+
+
+    
+
         except KeyboardInterrupt:
             self.save_model_checkpoint(False, float("nan"))
 
