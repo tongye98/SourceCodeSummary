@@ -335,23 +335,33 @@ class TrainManager(object):
                         self.stats.is_min_lr = True 
                     
                     self.tb_writer.add_scalar("Train/learning_rate",current_lr, self.stats.steps)
-
-                    if self.stats.is_min_lr or self.stats.is_max_update:
-                        
+                
+                # check after a whole epoch.
+                if self.stats.is_min_lr or self.stats.is_max_update:
+                    log_string = (f"minimum learning rate {self.learning_rate_min}"
+                                    if self.stats.is_min_lr else 
+                                    f"maximun number of updates(steps) {self.max_updates}")
+                    logger.info("Training enede since %s was reached!", log_string)
+                    break 
                     
+                logger.info("Epoch %3d: total training loss %.2f", epoch_no + 1, epoch_loss)
+            else: # normal ended after training.
+                logger.info("Training ended after %3d epoches!", epoch_no + 1)
 
-
-
-
-
-    
-
+            logger.info("Best Validation result (greedy) at step %8d: %6.2f %s.",
+                        self.stats.best_ckpt_iter, self.stats.best_ckpt_score, self.early_stopping_metric)
+                    
         except KeyboardInterrupt:
             self.save_model_checkpoint(False, float("nan"))
 
-
         return None 
 
+    def train_step():
+        pass 
+
+    def validate():
+        pass 
+    
     class TrainStatistics:
         def __init__(self, steps:int=0, is_min_lr:bool=False,
                      is_max_update:bool=False, total_tokens:int=0,
