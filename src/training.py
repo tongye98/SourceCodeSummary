@@ -127,7 +127,7 @@ class TrainManager(object):
         self.learning_rate_min = learning_rate_min
         self.normalization = normalization
 
-        # FIXME MEANING?
+        # for train data sampler.
         self.train_iter, self.train_iter_state = None, None
 
         # initialize training statistics
@@ -251,6 +251,30 @@ class TrainManager(object):
         
         if self.device.type == "cuda":
             self.model.to(self.device)
+        
+    def train_and_validate(self, train_data:Dataset, valid_data:Dataset) -> None:
+        """
+        Train the model and validate it from time to time on the validation set.
+        """
+        self.train_iter = make_data_iter()
+        if self.train_iter_state is not None:
+            self.train_iter.batch_sampler.sampler.generator.set_state(
+                self.train_iter_state.cpu())
+        
+        # train and validate main loop
+        logger.info("Train stats:\n"
+                    "\tdevice: %s\n"
+                    "\tn_gpu: %d\n"
+                    "\tbatch_size per device: %d\n",
+                    self.device.type, self.n_gpu,
+                    self.batch_size // self.n_gpu,)
+        try:
+            pass
+        except KeyboardInterrupt:
+            self.save_model_checkpoint(False, float("nan"))
+
+
+        return None 
 
     class TrainStatistics:
         def __init__(self, steps:int=0, is_min_lr:bool=False,
@@ -279,16 +303,6 @@ class TrainManager(object):
             else:
                 is_better = score > heapq.nsmallest(1, heap_queue)[0][0]
             return is_better
-
-
-
-
-
-
-
-
-
-
 
 if __name__ == "__main__":
     cfg_file = "configs/transformer.yaml"
