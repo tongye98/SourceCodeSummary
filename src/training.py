@@ -281,7 +281,7 @@ class TrainManager(object):
                 
                 # Statistic for each epoch.
                 start_time = time.time()
-                valid_duration_time = 0
+                total_valid_duration_time = 0
                 start_tokens = self.stats.total_tokens
                 epoch_loss = 0
                 total_batch_loss = 0
@@ -313,7 +313,7 @@ class TrainManager(object):
                     
                     # log learning process and write tensorboard
                     if self.stats.steps % self.logging_freq == 0:
-                        elapse_time = time.time() - start_time - valid_duration_time
+                        elapse_time = time.time() - start_time - total_valid_duration_time
                         elapse_token_num = self.stats.total_tokens - start_tokens
                         # FIXME why is total batch loss
                         self.tb_writer.add_scalar("Train/batch_loss", total_batch_loss, self.stats.steps)
@@ -324,10 +324,13 @@ class TrainManager(object):
 
                         start_time = time.time()
                         start_tokens = self.stats.total_tokens
+                        # one log process may include more than one validation, so need total valid time.
+                        total_valid_duration_time = 0
                     
                     # validate on the entire dev dataset
                     if self.stats.steps % self.validation_freq == 0:
                         valid_duration_time = self.validate(valid_data)
+                        total_valid_duration_time += valid_duration_time
                     
                     # check current leraning rate(lr)
                     current_lr = self.optimizer.param_groups[0]["lr"]
@@ -356,12 +359,93 @@ class TrainManager(object):
 
         return None 
 
-    def train_step():
-        pass 
+    def train_step(self, batch_data):
+        """
+        Train the model on one batch: compute loss
+        """
+        # reactivate training.
+        self.model.train()
 
-    def validate():
-        pass 
+        # get loss (run as during training with teacher forcing)
+        batch_loss, log_probs = self.model(return_type="loss", src_input=None, trg_input=None,
+                   src_mask=None, trg_mask=None, encoder_output = None)
+        
+        # FIXME should normalizer batch_loss ?
+
+        batch_loss.backward()
+
+        # increment token counter
+        self.stats.total_tokens += batch_data.ntokens
+
+        return batch_loss.item()
+
+    def validate(self, valid_data: Dataset):
+        """
+        Validate on the valid dataset.
+        return the validate time.
+        """
+        validate_start_time = time.time()
+        (valid_scores, valid_references, valid_hypothesis, 
+         valid_hypothesis_raw, valid_sequence_scores, 
+         valid_attention_scores,) = predict(model=self.model, data=valid_data, compute_loss=True,
+                                            device=self.device, n_gpu=self.n_gpu, 
+                                            normalization=self.normalization, cfg=self.valid_cfg)
+        valid_duration_time = time.time() - validate_start_time
+        
+        # write eval_metric and corresponding score to tensorboard
+        for eval_metric, score in valid_scores.items():
+            if not math.isnan(score):
+                self.tb_writer.add_scalar(f"Valid/{eval_metric}", score, self.stats.steps)
+        
+        # the most important metric
+        ckpt_score = valid_scores[self.early_stopping_metric]
+
+        # set scheduler
+        if self.scheduler_step_at == "validation":
+            self.scheduler.step(metrics=ckpt_score)
+        
+        # update new best
+        new_best = self.stats.is_best(ckpt_score)
+        if new_best:
+            self.stats.best_ckpt_score = ckpt_score
+            self.stats.best_ckpt_iter = self.stats.steps
+            logger.info("Hooray! New best validation score [%s]!", self.early_stopping_metric)
+
+        # save checkpoints
+        is_better = self.stats.is_better(ckpt_score, self.ckpt_queue)
+        if is_better:
+            self.save_model_checkpoint(new_best, ckpt_score)
+        
+        # append to validation report 
+        self.add_validation_report(valid_scores=valid_scores, new_best=new_best)
+        self.log_examples()
+
+        # store validation set outputs
+        # TODO
+
+        # store attention plot for selected valid sentences
+        # TODO
+
+        return valid_duration_time
     
+    def add_validation_report(self, valid_scores:dict, new_best: bool) -> None:
+        """
+        Append a one-line report to validation logging file.
+        """
+        current_lr = self.optimizer.param_groups[0]["lr"]
+        valid_file = Path(self.model_dir) / "validation.log"
+        with valid_file.open("a", encoding="utf-8") as fg:
+            score_string = "\t".join([f"Steps: {self.stats.steps}"] + 
+            [f"{eval_metric}: {score:.5f}" for eval_metric, score in valid_scores.items()] +
+            [f"LR: {current_lr:.8f}", "*" if new_best else ""])
+            fg.write(f"{score_string}\n") 
+
+        return None
+
+    def log_examples(self, hypotheses):
+
+        return None
+
     class TrainStatistics:
         def __init__(self, steps:int=0, is_min_lr:bool=False,
                      is_max_update:bool=False, total_tokens:int=0,
