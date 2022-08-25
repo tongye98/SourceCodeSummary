@@ -1,6 +1,7 @@
 from cProfile import label
 from genericpath import isdir
 from importlib.resources import path
+from logging.handlers import TimedRotatingFileHandler
 from os import cpu_count
 import torch.nn as nn
 from torch import Tensor 
@@ -178,9 +179,31 @@ def load_model_checkpoint(path:Path, device:torch.device) -> Dict:
     logger.info("Load model from %s.", path.resolve())
     return model_checkpoint
 
+def symlink_update(target:Path, link_name: Path):
+    """
+    find the file that the symlink currently points to, sets it to 
+    the new target, and return the previous target if it exists.
+    target: a path to a file that we want the symlink to point to.
+        no parent dir, filename only, i.e. "1000.ckpt"
+    link_name: the name of the symlink that we want to update.
+        link_name with parent dir, i.e. "models/my_model/best.ckpt"
+    """
+    if link_name.is_symlink():
+        current_last = link_name.resolve()
+        link_name.unlink()
+        link_name.symlink_to(target)
+        return current_last
+    link_name.symlink_to(target)
+    return None 
 
-
-
+def delete_ckpt(path:Path) -> None:
+    logger = logging.getLogger(__name__)
+    try:
+        logger.info("Delete %s", path.as_posix())
+        path.unlink()
+    except FileNotFoundError as error:
+        logger.warning("Want to delete old checkpoint %s"
+            "but file does not exist. (%s)", path, error)
 
 if __name__ == "__main__":
     # TEST 

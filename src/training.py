@@ -1,6 +1,6 @@
 import logging
 from modulefinder import Module
-from pydoc import ModuleScanner
+from os import symlink
 import numpy as np
 import torch
 from torch import Tensor, nn 
@@ -8,10 +8,12 @@ from pathlib import Path
 import shutil
 from helps import load_config,make_model_dir,make_logger, log_cfg
 from helps import set_seed, parse_train_arguments, load_model_checkpoint
+from helps import symlink_update, delete_ckpt
 from model import build_model
 from torch.utils.tensorboard import SummaryWriter
 from builders import build_gradient_clipper, build_optimizer
 import heapq
+import math
 
 logger = logging.getLogger(__name__) 
 
@@ -125,6 +127,9 @@ class TrainManager(object):
         self.learning_rate_min = learning_rate_min
         self.normalization = normalization
 
+        # FIXME MEANING?
+        self.train_iter, self.train_iter_state = None, None
+
         # initialize training statistics
         self.stats = self.TrainStatistics(
             steps=0, is_min_lr=False, is_max_updates=False,
@@ -158,7 +163,52 @@ class TrainManager(object):
         new_best: for update best.ckpt
         score: Validation score which is used as key of heap queue.
         """
+        model_path = Path(self.model_dir) / f"{self.stats.steps}.ckpt"
+        # FIXME for multi gpu
+        model_state_dict = self.model.state_dict()
+        global_state = {
+            "steps": self.stats.steps,
+            "total_tokens": self.stats.total_tokens,
+            "best_ckpt_score": self.stats.best_ckpt_score,
+            "best_ckpt_iteration": self.stats.best_ckpt_iter,
+            "model_state": model_state_dict,
+            "optimizer_state": self.optimizer.state_dict(),
+            "scheduler_state": self.scheduler.state_dict(),
+            "train_iter_state":self.train_iter.batch_sampler.sampler.generator.get_state(),
+        }
+        torch.save(global_state, model_path.as_posix())
         
+        # how to update queue and keep the best number of ckpt.
+        symlink_target = Path(f"{self.stats.steps}.ckpt")
+        last_path = Path(self.model_dir) / "latest.ckpt"
+        prev_path = symlink_update(symlink_target, last_path)
+        best_path = Path(self.model_dir) / "best.ckpt"
+        if new_best:
+            prev_path = symlink_update(symlink_target, best_path)
+            assert best_path.resolve().stem == str(self.stats.best_ckpt_iter)
+        
+        # push and pop from the heap quene.
+        to_delete = None
+        if not math.isnan(score) and self.num_ckpts > 0:
+            if len(self.ckpt_queue) < self.num_ckpts: # no need pop, only push
+                heapq.heappush(self.ckpt_queue, (score, model_path))
+            else: # first pop the worst, then push
+                if self.minimize_metric: # smaller, better
+                    heapq.heapify(self.ckpt_queue)
+                    to_delete = heapq._heapify_max(self.ckpt_queue)
+                    heapq.heappush(self.ckpt_queue,(score, model_path))
+                else: # bigger, better
+                    to_delete = heapq.heappushpop(self.ckpt_queue,(score, model_path))
+            
+            if to_delete is not None:
+                assert to_delete[1] != model_path # don't delete the last ckpt
+                if to_delete[1].stem != best_path.resolve().stem:
+                    delete_ckpt(to_delete[1])  # don't delete the best ckpt
+            
+            assert len(self.ckpt_queue) <= self.num_ckpts
+
+            if prev_path is not None and prev_path.stem not in [c[1].stem for c in self.ckpt_queue]:
+                delete_ckpt(prev_path)
 
     def init_from_checkpoint(self, path=Path, 
                              reset_best_ckpt:bool=False, reset_scheduler:bool=False,
