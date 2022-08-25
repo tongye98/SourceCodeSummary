@@ -6,7 +6,7 @@ from os import cpu_count
 import torch.nn as nn
 from torch import Tensor 
 import torch
-from typing import Union, Dict, Tuple
+from typing import Union, Dict, Tuple, List
 from pathlib import Path
 import shutil
 import logging
@@ -204,6 +204,16 @@ def delete_ckpt(path:Path) -> None:
     except FileNotFoundError as error:
         logger.warning("Want to delete old checkpoint %s"
             "but file does not exist. (%s)", path, error)
+
+def write_validation_output_to_file(path:Path, array: List[str]) -> None:
+    """
+    Write list of strings to file.
+    array: list of strings.
+    """
+    with path.open("w", encoding="utf-8") as fg:
+        for entry in array:
+            fg.write(f"{entry}\n")
+
 
 if __name__ == "__main__":
     # TEST 

@@ -6,9 +6,10 @@ import torch
 from torch import Tensor, nn 
 from pathlib import Path
 import shutil
+from typing import List
 from helps import load_config,make_model_dir,make_logger, log_cfg
 from helps import set_seed, parse_train_arguments, load_model_checkpoint
-from helps import symlink_update, delete_ckpt
+from helps import symlink_update, delete_ckpt, write_validation_output_to_file
 from model import build_model
 from torch.utils.tensorboard import SummaryWriter
 from builders import build_gradient_clipper, build_optimizer
@@ -385,8 +386,8 @@ class TrainManager(object):
         return the validate time.
         """
         validate_start_time = time.time()
-        (valid_scores, valid_references, valid_hypothesis, 
-         valid_hypothesis_raw, valid_sequence_scores, 
+        (valid_scores, valid_references, valid_hypotheses, 
+         valid_hypotheses_raw, valid_sequence_scores, 
          valid_attention_scores,) = predict(model=self.model, data=valid_data, compute_loss=True,
                                             device=self.device, n_gpu=self.n_gpu, 
                                             normalization=self.normalization, cfg=self.valid_cfg)
@@ -418,10 +419,12 @@ class TrainManager(object):
         
         # append to validation report 
         self.add_validation_report(valid_scores=valid_scores, new_best=new_best)
-        self.log_examples()
+        self.log_examples(valid_hypotheses, valid_references,
+                          valid_hypotheses_raw, data=valid_data)
 
         # store validation set outputs
-        # TODO
+        validate_output_path = Path(self.model_dir) / f"{self.stats.steps}.hyps"
+        write_validation_output_to_file(validate_output_path, valid_hypotheses)
 
         # store attention plot for selected valid sentences
         # TODO
@@ -442,7 +445,30 @@ class TrainManager(object):
 
         return None
 
-    def log_examples(self, hypotheses):
+    def log_examples(self, hypotheses:List[str], references:List[str],
+                     hypotheses_raw: List[List[str]], data:Dataset) -> None:
+        """
+        Log the first self.log_valid_sentences from given examples.
+        hypotheses: decoded hypotheses (list of strings)
+        hypotheses_raw: raw hypotheses (list of list of tokens)
+        references: decoded references (list of strings)
+        """
+        for id in self.log_valid_sentences:
+            if id >= len(hypotheses):
+                continue
+            logger.info("Example #%d", id)
+
+            # tokenized text
+            tokenized_src = data.get_item(idx=id, lang=data.src_lang)
+            tokenized_trg = data.get_item(idx=id, lang=data.trg_lang)
+            logger.debug("\tTokenized source:  %s", tokenized_src)
+            logger.debug("\tTokenized reference:  %s", tokenized_trg)
+            logger.debug("\tTokenized hypothesis:  %s", hypotheses_raw[id])
+            # FIXME what is tokenized and what is detokenized.
+            # detokenized text
+            logger.info("\tSource:  %s",data.src[id])
+            logger.info("\tReference:  %s", references[id])
+            logger.info("\tHypothesis: %s", hypotheses[id])
 
         return None
 
