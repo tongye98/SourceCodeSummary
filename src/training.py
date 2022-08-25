@@ -1,12 +1,13 @@
 import logging
 from modulefinder import Module
+from pydoc import ModuleScanner
 import numpy as np
 import torch
 from torch import Tensor, nn 
 from pathlib import Path
 import shutil
 from helps import load_config,make_model_dir,make_logger, log_cfg
-from helps import set_seed, parse_train_arguments
+from helps import set_seed, parse_train_arguments, load_model_checkpoint
 from model import build_model
 from torch.utils.tensorboard import SummaryWriter
 from builders import build_gradient_clipper, build_optimizer
@@ -140,9 +141,66 @@ class TrainManager(object):
         # TODO 
 
         # config for generation
+        self.valid_cfg = cfg["testing"].copy()
+        self.valid_cfg["beam_size"] = 1 # 1 means greedy decoding during train loop
+        self.valid_cfg["batch_size"] = self.batch_size
+        self.valid_cfg["batch_type"] = self.batch_type
+        self.valid_cfg["n_best"] == 1   # only the best one
+        
+        self.valid_cfg["generate_unk"] = True
 
-    def init_from_checkpoint():
-        pass
+    def save_model_checkpoint(self, new_best:bool, score:float) -> None:
+        """
+        Save model's current parameters and the training state to a checkpoint.
+        The training state contains the total number of training steps, the total number of
+        training tokens, the best checkpoint score and iteration so far, and optimizer and scheduler states.
+
+        new_best: for update best.ckpt
+        score: Validation score which is used as key of heap queue.
+        """
+        
+
+    def init_from_checkpoint(self, path=Path, 
+                             reset_best_ckpt:bool=False, reset_scheduler:bool=False,
+                             reset_optimizer:bool=False, reset_iter_state:bool=False):
+        """
+        Initialize the training from a given checkpoint file.
+        The checkpoint file contain not only model parameters, but also
+        scheduler and optimizer states.
+        """
+        logger.info("Loading model from %s", path)
+        model_checkpoint = load_model_checkpoint(path=path, device=self.device)
+
+        # restore model and optimizer parameters
+        self.model.load_state_dict(model_checkpoint["model_state"])
+
+        if not reset_optimizer:
+            self.optimizer.load_state_dict(model_checkpoint["model_state"])
+        else:
+            logger.info("Reset Optimizer.")
+        
+        if not reset_scheduler:
+            if model_checkpoint["scheduler_state"] is not None and self.scheduler is not None:
+                self.scheduler.load_state_dict(model_checkpoint["scheduler_state"])
+        else:
+            logger.info("Reset Scheduler.")
+        
+        if not reset_best_ckpt:
+            self.stats.best_ckpt_score = model_checkpoint["best_ckpt_score"]
+            self.stats.best_ckpt_iter = model_checkpoint["best_ckpt_iteration"]
+        else:
+            logger.info("Reset tracking of the best checkpoint.")
+        
+        if not reset_iter_state:
+            assert "train_iter_state" in model_checkpoint
+            self.stats.steps = model_checkpoint["steps"]
+            self.stats.total_tokens = model_checkpoint["total_tokens"]
+            self.train_iter_state = model_checkpoint["train_iter_state"]
+        else:
+            logger.info("Reset data iterator (random seed: {%d}).", self.seed)
+        
+        if self.device.type == "cuda":
+            self.model.to(self.device)
 
     class TrainStatistics:
         def __init__(self, steps:int=0, is_min_lr:bool=False,

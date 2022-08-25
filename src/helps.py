@@ -168,7 +168,15 @@ def parse_train_arguments(train_cfg:dict) -> Tuple:
            reset_best_ckpt, reset_scheduler,
            reset_optimizer, reset_iter_state)
 
-
+def load_model_checkpoint(path:Path, device:torch.device) -> Dict:
+    """
+    Load model from saved model checkpoint
+    """
+    logger = logging.getLogger(__name__)
+    assert path.is_file(), f"model checkpoint {path} not found!"
+    model_checkpoint = torch.load(path.as_posix(), map_location=device)
+    logger.info("Load model from %s.", path.resolve())
+    return model_checkpoint
 
 
 

@@ -30,7 +30,8 @@ training:
     # clip_grad_val: 
     # clip_grad_norm:
 
-
+testing:
+    
 
 model:
     initializer: "xavier_uniform"     # xavier_uniform xavier_normal uniform normal
