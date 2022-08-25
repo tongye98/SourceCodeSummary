@@ -6,7 +6,7 @@ from os import cpu_count
 import torch.nn as nn
 from torch import Tensor 
 import torch
-from typing import Union, Dict, Tuple, List
+from typing import NoReturn, Union, Dict, Tuple, List
 from pathlib import Path
 import shutil
 import logging
@@ -168,6 +168,51 @@ def parse_train_arguments(train_cfg:dict) -> Tuple:
            device, n_gpu, num_workers,load_model,
            reset_best_ckpt, reset_scheduler,
            reset_optimizer, reset_iter_state)
+
+def parse_test_arguments(test_cfg:dict) -> Tuple:
+    """Parse test args."""
+    logger = logging.getLogger(__name__)
+    batch_size = test_cfg.get("batch_size",64)
+    batch_type = test_cfg.get("batch_type", "sentence")
+    if batch_type not in ["sentence", "token"]:
+        raise ConfigurationError("Invalid batch type option.")
+    if batch_type == "setence" and batch_size > 1000:
+        logger.warning("test batch size is too huge.")
+    
+    max_output_length = test_cfg.get("max_output_length", 30)
+    min_output_length = test_cfg.get("min_output_length", 1)
+
+    if "eval_metrics" in test_cfg.keys():
+        eval_metrics = [metric.strip().lower() for metric in test_cfg["eval_metrics"]]
+    
+    for eval_metric in eval_metrics:
+        if eval_metric not in ["bleu", "meteor", "rouge-l"]:
+            raise ConfigurationError("eval metric is Invalid.")
+    
+    # beam search options
+    n_best = test_cfg.get("n_best", 1)
+    beam_size = test_cfg.get("beam_size", 1)
+    beam_alpah = test_cfg.get("beam_alpha", -1)
+    assert beam_size > 0 and n_best > 0 and n_best <= beam_size, "Invalid beam search options."
+
+    # control options
+    return_attention = test_cfg.get("return_attention", False)
+    # FIXME what is return prob?
+    return_prob = test_cfg.get("return_prob", "none")
+    if return_prob not in ["hyp","ref","none"]:
+        raise ConfigurationError("Invalid return_prob")
+    generate_unk = test_cfg.get("generate_unk", True)
+    repetition_penalty = test_cfg.get("repetition_penalty", -1)
+    if repetition_penalty < 1 and repetition_penalty != -1:
+        raise ConfigurationError("Invalid repetition_penalty.")
+    no_repeat_ngram_size = test_cfg.get("no_repeat_ngram_size", -1)
+
+    return (batch_size, batch_type, max_output_length, min_output_length,
+            eval_metrics, beam_size, beam_alpah, n_best, return_attention, 
+            return_prob, generate_unk, repetition_penalty, no_repeat_ngram_size)
+
+
+
 
 def load_model_checkpoint(path:Path, device:torch.device) -> Dict:
     """
