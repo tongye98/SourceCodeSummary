@@ -7,6 +7,8 @@ data:
         language: "en"
         level: "word" # word bpe
         tokenizer_type: "sentencepiece" # subword-nmt sentencepiece
+        vocab_min_freq: 1
+        vocab_max_size: 
     trg: 
         language: "de"
 

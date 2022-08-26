@@ -17,6 +17,9 @@ def build_dataset(dataset_type: str, path:str,
 
     return dataset
 
+
+
+# BaseDataset is child of torch.utils.data.Dataset.
 class BaseDataset(Dataset):
     """
     BaseDataset which loads and looks up data.

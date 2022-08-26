@@ -7,7 +7,9 @@ import torch
 from tokenizers import build_tokenizer
 from datasets import build_dataset
 from vocabulary import build_vocab
-from helps import log_data_info
+from helps import ConfigurationError, log_data_info
+from torch.utils.data import Dataset, Sampler, DataLoader
+from torch.utils.data import SequentialSampler, RandomSampler
 
 logger = logging.getLogger(__name__)
 
@@ -74,8 +76,29 @@ def load_data(data_cfg: dict):
 
     return train_data, dev_data, test_data, src_vocab, trg_vocab
 
-def make_data_iter():
-    pass 
+def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,) -> DataLoader:
+    """
+    Return a torch DataLoader for a torch Dataset.
+    """
+    assert isinstance(dataset, Dataset), "For pytorch, dataset is based on torch.utils.data.Dataset"
+
+    if dataset.split_mode == "train" and shuffle is True:
+        generator = torch.Generator()
+        generator.manual_seed(sampler_seed)
+        sampler = RandomSampler(dataset, replacement=False,generator=generator)
+    else:
+        sampler = SequentialSampler(dataset)
+    
+    if batch_type == "sentence":
+        pass
+    elif batch_type == "token":
+        pass 
+    else:
+        raise ConfigurationError("Invalid batch_type")
+    
+    return DataLoader(dataset,)
+
+    
 
 def collate_fn():
     pass
