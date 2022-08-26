@@ -7,6 +7,9 @@ from unittest import skip
 import numpy as np
 from typing import Dict, List, Tuple
 import unicodedata
+import sys
+from collections import Counter
+from helps import flatten, sort_and_cut
 
 from constants import (
     UNK_TOKEN,
@@ -20,6 +23,41 @@ from constants import (
 )
 
 logger = logging.getLogger(__name__)
+
+def build_vocab(data_cfg:Dict, dataset):
+    """
+    Build vocabulary for src side and trg side.
+    Note: vocabulary either from file(todo) or dataset.
+    """
+
+    src_vocab = build_language_vocab(data_cfg["src"], dataset, data_cfg["src"]["language"])
+    trg_vocab = build_language_vocab(data_cfg["trg"], dataset, data_cfg["trg"]["language"])
+
+    return src_vocab, trg_vocab
+
+def build_language_vocab(cfg, dataset, language):
+
+    min_freq = cfg.get("vocab_min_freq", 1)
+    max_size = cfg.get("vocab_max_size", sys.maxsize)
+    assert max_size > 0
+
+    if dataset is not None:
+        # FIXME how to use tokenizer.
+        sentences = [sentence.split(" ") for sentence in dataset.data[language]]
+        # senteces: list of list of tokens (nested)
+        counter = Counter(flatten(sentences))
+        unique_tokens = sort_and_cut(counter, max_size, min_freq)
+    else:
+        raise Exception("Please provide dataset to build a vocabulary.")
+    
+    vocab = Vocabulary(unique_tokens)
+    assert len(vocab) <= max_size + len(vocab.specials)
+
+    # check for all except for UNK token whether they are OOVs
+    for s in vocab.specials[1:]:
+        assert not vocab.is_unk(s)
+
+    return vocab
 
 class Vocabulary(object):
     """vocabulary class mapping between tokens and indices."""

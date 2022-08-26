@@ -1,8 +1,10 @@
 from cProfile import label
+import functools
 from genericpath import isdir
 from importlib.resources import path
 from logging.handlers import TimedRotatingFileHandler
 from os import cpu_count
+from sys import maxsize
 import torch.nn as nn
 from torch import Tensor 
 import torch
@@ -13,6 +15,8 @@ import logging
 import yaml
 import random
 import numpy as np
+import operator
+from collections import Counter
 
 
 def freeze_params(module: nn.Module) -> None:
@@ -210,9 +214,6 @@ def parse_test_arguments(test_cfg:dict) -> Tuple:
             eval_metrics, beam_size, beam_alpah, n_best, return_attention, 
             return_prob, generate_unk, repetition_penalty, no_repeat_ngram_size)
 
-
-
-
 def load_model_checkpoint(path:Path, device:torch.device) -> Dict:
     """
     Load model from saved model checkpoint
@@ -266,9 +267,54 @@ def read_list_from_file(path:Path):
     """
     return [line.rstrip("\n") for line in path.read_text(encoding="utf-8").splitlines()]
 
+def flatten(array):
+    # flatten a nested 2D list.
+    return functools.reduce(operator.iconcat, array, [])
 
+def sort_and_cut(counter, max_size:int, min_freq:int) -> List[str]:
+    """
+    Cut counter to most frequent, sorted numerically and alphabetically.
+    return: list of valid tokens
+    """
+    if min_freq > -1:
+        counter = Counter({t: c for t, c in counter.item() if c >= min_freq})
+    
+    # sort by frequency, then alphabetically
+    tokens_and_frequencies = sorted(counter.item(),key=lambda tup: tup[0])
+    tokens_and_frequencies.sort(key=lambda tup: tup[1], reverse=True)
+
+    # cut off
+    vocab_tokens = [i[0] for i in tokens_and_frequencies[:max_size]]
+    assert len(vocab_tokens) <= max_size, "vocab tokens must <= max_size."
+    return vocab_tokens
+
+def log_data_info(train_data, dev_data, test_data,
+                  src_vocab, trg_vocab) -> None:
+    """
+    Log statistics of data and vocabulary.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info("Train dataset: %s", train_data)
+    logger.info("Valid dataset: %s", dev_data)
+    logger.info(" Test dataset: %s", test_data)
+
+    if train_data:
+        src = train_data.get_item(idx=0, language=train_data.src_language)
+        trg = train_data.get_item(idx=0, language=train_data.trg_language)
+        logger.info("First training example: %s%s", src, trg)
+
+
+    logger.info("Number of unique Src tokens (vocab size): %d", len(src_vocab))
+    logger.info("Number of unique Trg tokens (vocab size): %d", len(trg_vocab))
+
+    logger.info("First 10 Src tokens: %s", src_vocab.log_vocab(10))
+    logger.info("First 10 Trg tokens: %s", trg_vocab.log_vocab(10))
 
 if __name__ == "__main__":
     # TEST 
     print(subsequent_mask(5))
-    print(read_list_from_file(Path('data/test_datasets/train.txt')))
+    sentences = read_list_from_file(Path('data/test_datasets/train.txt'))
+    print(sentences)
+    sentences = [sentence.split(" ") for sentence in sentences]
+    print(sentences)
+    print(flatten(sentences))

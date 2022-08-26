@@ -30,7 +30,7 @@ class BaseDataset(Dataset):
 
     def __len__(self) -> int:
         raise NotImplementedError
-        
+
     def __repr__(self) -> str:
         return (f"{self.__class__.__name__}(len={self.__len__()}, "
                 f"src_lang={self.src_language}, trg_lang={self.trg_language})")
@@ -45,8 +45,8 @@ class PlaintextDataset(BaseDataset):
         """"
         loda data and tokenize data.
         return data(is a dict)
-            data["src"] = ["hello world","xxx"]
-            data["trg"] = ["i am", "xxx"]
+            data["en"] = ["hello world","xxx"]
+            data["de"] = ["i am", "xxx"]
         """
         def pre_process(sentences_list, language):
             if self.tokenizer[language] is not None:

@@ -2,10 +2,12 @@
 """
 Data module
 """
-from dataclasses import dataclass
 import logging
 import torch 
 from tokenizers import build_tokenizer
+from datasets import build_dataset
+from vocabulary import build_vocab
+from helps import log_data_info
 
 logger = logging.getLogger(__name__)
 
@@ -58,15 +60,18 @@ def load_data(data_cfg: dict):
     dev_data = None
     if dev_data_path is not None:
         logger.info("Loading dev dataset...")
-        dev_data = build_dataset()
+        dev_data = build_dataset(dataset_type=dataset_type, path=dev_data_path,
+                                 src_language=src_language, trg_language=trg_language)
     
     # test data
     if test_data_path is not None:
         logger.info("Load test dataset...")
-        test_data = build_dataset()
+        test_data = build_dataset(dataset_type=dataset_type, path=test_data_path,
+                                 src_language=src_language, trg_language=trg_language)
     
     logger.info("Dataset has loaded.")
-    log_data_info()
+    log_data_info(train_data, dev_data, test_data, src_vocab, trg_vocab)
+
     return train_data, dev_data, test_data, src_vocab, trg_vocab
 
 def make_data_iter():
