@@ -31,6 +31,15 @@ class BaseDataset(Dataset):
         self.src_language = src_language
         self.trg_language = trg_language
 
+    def __getitem__(self, index):
+        
+        src = self.get_item(idx=index, language=self.src_language)
+        trg = self.get_item(idx=index, language=self.trg_language)
+        return (src, trg)
+    
+    def get_item(self, idx:int, language:str):
+        raise NotImplementedError
+
     def __len__(self) -> int:
         raise NotImplementedError
 

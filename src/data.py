@@ -9,7 +9,8 @@ from datasets import build_dataset
 from vocabulary import build_vocab
 from helps import ConfigurationError, log_data_info
 from torch.utils.data import Dataset, Sampler, DataLoader
-from torch.utils.data import SequentialSampler, RandomSampler
+from torch.utils.data import SequentialSampler, RandomSampler, BatchSampler
+from typing import List, Union, Tuple, Iterator, Iterable
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,8 @@ def load_data(data_cfg: dict):
 
     return train_data, dev_data, test_data, src_vocab, trg_vocab
 
-def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,) -> DataLoader:
+def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,
+                   batch_size,num_workers) -> DataLoader:
     """
     Return a torch DataLoader for a torch Dataset.
     """
@@ -90,15 +92,55 @@ def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,) -> DataL
         sampler = SequentialSampler(dataset)
     
     if batch_type == "sentence":
-        pass
+        batch_sampler = SentenceBatchSampler(sampler, batch_size=batch_size, drop_last=False)
     elif batch_type == "token":
-        pass 
+        batch_sampler = TokenBatchSampler(sampler, batch_size=batch_size, drop_last=False)
     else:
         raise ConfigurationError("Invalid batch_type")
     
-    return DataLoader(dataset,)
+    return DataLoader(dataset, batch_sampler=batch_sampler, shuffle=False, num_workers=num_workers,
+                      pin_memory=True, collate_fn=collate_fn)
 
+class SentenceBatchSampler(BatchSampler):
+    def __init__(self, sampler: Union[Sampler[int], Iterable[int]], batch_size: int, drop_last: bool) -> None:
+        super().__init__(sampler, batch_size, drop_last)
     
+    def __iter__(self) -> Iterator[List[int]]:
+        batch = []
+        for idx in self.sampler:
+            batch.append(idx)
+            if len(batch) == self.batch_size:
+                yield batch
+                batch = []
+        if len(batch) > 0 and not self.drop_last:
+            yield batch
+    
+    def __len__(self) -> int:
+        return super().__len__()
 
-def collate_fn():
-    pass
+class TokenBatchSampler(BatchSampler):
+    def __init__(self, sampler: Union[Sampler[int], Iterable[int]], batch_size: int, drop_last: bool) -> None:
+        super().__init__(sampler, batch_size, drop_last)
+    
+    def __iter__(self) -> Iterator[List[int]]:
+        batch = []
+        for idx in self.sampler:
+            batch.append(idx)
+            if len(batch) == self.batch_size:
+                yield batch
+                batch = []
+        if len(batch) > 0 and not self.drop_last:
+            yield batch
+    
+    def __len__(self) -> int:
+        return super().__len__()
+
+def collate_fn(batch: List[Tuple]):
+    """
+    Custom collate function.
+    DataLoader每次迭代的返回值就是collate_fn的返回值.
+    """
+    batch = [ (src, trg) for (src, trg) in batch]
+    # you can stack batch and any operation on batch 
+    # FIXME make batch to tensor.
+    return batch

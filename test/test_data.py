@@ -1,5 +1,5 @@
 from torch.utils.data import Dataset, Sampler, DataLoader
-from torch.utils.data import SequentialSampler, RandomSampler
+from torch.utils.data import SequentialSampler, RandomSampler, BatchSampler
 import torch 
 
 def test_SequentialSampler(dataset):
@@ -22,6 +22,10 @@ def test_RandomSampler(dataset, seed=980820):
     for i, index in enumerate(sampler):
         print("index: {}, data: {}".format(str(index), str(dataset[index])))
     print("test RamdomSampler is {}".format("OK!" if test_result == True else "ERROR!"))
+
+def test_DataLoader():
+    # DataLoader return value just is the return value of collate_fn
+    pass
 
 
 
