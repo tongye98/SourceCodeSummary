@@ -5,6 +5,7 @@ Data module
 from dataclasses import dataclass
 import logging
 import torch 
+from tokenizers import build_tokenizer
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +41,14 @@ def load_data(data_cfg: dict):
     logger.info("Build tokenizer...")
     tokenizer = build_tokenizer(data_cfg)
 
+    dataset_type = data_cfg.get("dataset_type", "plain")
+
     # train data 
     train_data = None 
     if train_data_path is not None:
         logger.info("Loading train dataset...")
-        train_data = build_dataset()
+        train_data = build_dataset(dataset_type=dataset_type,path=train_data_path,
+                                   src_language=src_language, trg_language=trg_language)
     
     # build vocabulary
     logger.info("Building vocabulary...")

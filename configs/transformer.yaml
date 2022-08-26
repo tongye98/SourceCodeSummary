@@ -4,6 +4,8 @@ data:
     test_data_path: None 
     src:
         language: "en"
+        level: "word" # word bpe
+        tokenizer_type: "sentencepiece" # subword-nmt sentencepiece
     trg: 
         language: "de"
 
