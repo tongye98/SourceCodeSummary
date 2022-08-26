@@ -14,7 +14,6 @@ import yaml
 import random
 import numpy as np
 
-from src.training import train
 
 def freeze_params(module: nn.Module) -> None:
     """
@@ -259,7 +258,17 @@ def write_validation_output_to_file(path:Path, array: List[str]) -> None:
         for entry in array:
             fg.write(f"{entry}\n")
 
+def read_list_from_file(path:Path):
+    """
+    Read list of string from file.
+    return list of strings.
+        i.e. ['hello world', 'i am xxx']
+    """
+    return [line.rstrip("\n") for line in path.read_text(encoding="utf-8").splitlines()]
+
+
 
 if __name__ == "__main__":
     # TEST 
     print(subsequent_mask(5))
+    print(read_list_from_file(Path('data/test_datasets/train.txt')))
