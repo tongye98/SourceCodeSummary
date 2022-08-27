@@ -310,6 +310,14 @@ def log_data_info(train_data, dev_data, test_data,
     logger.info("First 10 Src tokens: %s", src_vocab.log_vocab(10))
     logger.info("First 10 Trg tokens: %s", trg_vocab.log_vocab(10))
 
+def write_list_to_file(file_path:Path, array:List[str]) -> None:
+    """
+    write list of str to file.
+    """
+    with file_path.open("w", encoding="utf-8") as fg:
+        for item in array:
+            fg.write(f"{item}\n")
+
 if __name__ == "__main__":
     # TEST 
     print(subsequent_mask(5))

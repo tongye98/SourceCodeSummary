@@ -3,13 +3,14 @@
 Vocabulary module
 """
 import logging
-from unittest import skip
+from pathlib import Path
 import numpy as np
 from typing import Dict, List, Tuple
 import unicodedata
 import sys
 from collections import Counter
 from helps import flatten, sort_and_cut
+from helps import write_list_to_file
 
 from constants import (
     UNK_TOKEN,
@@ -101,6 +102,9 @@ class Vocabulary(object):
         Check whether a token is covered by the vocabulary.
         """
         return self.lookup(token) == UNK_ID
+    
+    def to_file(self, file_path: Path) -> None:
+        write_list_to_file(file_path, self._itos)
     
     def __len__(self) -> int:
         return len(self._itos)

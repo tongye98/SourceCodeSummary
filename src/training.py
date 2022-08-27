@@ -12,7 +12,7 @@ from helps import load_config,make_model_dir,make_logger, log_cfg
 from helps import set_seed, parse_train_arguments, load_model_checkpoint
 from helps import symlink_update, delete_ckpt, write_validation_output_to_file
 from prediction import predict
-from src.data import load_data, make_data_iter
+from datas import load_data, make_data_iter
 from model import build_model
 from torch.utils.tensorboard import SummaryWriter
 from builders import build_gradient_clipper, build_optimizer
@@ -21,7 +21,6 @@ import math
 import time
 
 logger = logging.getLogger(__name__) 
-
 
 def train(cfg_file: str, skip_test:bool=False) -> None:
     """
@@ -50,7 +49,9 @@ def train(cfg_file: str, skip_test:bool=False) -> None:
 
     # store the vocabs and tokenizers
     # TODO
-
+    src_vocab.to_file(model_dir / "src_vocab.txt")
+    trg_vocab.to_file(model_dir / "trg_vocab.txt")
+    assert False
     # build an transformer(encoder-decoder) model
     model = build_model(model_cfg=cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab)
 
@@ -361,6 +362,7 @@ class TrainManager(object):
         except KeyboardInterrupt:
             self.save_model_checkpoint(False, float("nan"))
 
+        self.tb_writer.close()
         return None 
 
     def train_step(self, batch_data):
@@ -505,4 +507,4 @@ class TrainManager(object):
 
 if __name__ == "__main__":
     cfg_file = "configs/transformer.yaml"
-    train(cfg_file=cfg_file)
+    train(cfg_file=cfg_file, skip_test=True)
