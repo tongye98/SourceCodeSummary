@@ -1,15 +1,17 @@
+from typing import Dict, List
 from helps import ConfigurationError, read_list_from_file
 from torch.utils.data import Dataset
 from pathlib import Path
 
 def build_dataset(dataset_type: str, path:str,
-                  src_language: str, trg_language: str):
+                  src_language: str, trg_language: str,
+                  tokenizer: Dict) -> Dataset:
     """
     Build a dataset.
     """
     dataset = None 
     if dataset_type == "plain":
-        dataset = PlaintextDataset(path, src_language, trg_language)
+        dataset = PlaintextDataset(path, src_language, trg_language, tokenizer)
     elif dataset_type == "other":
         # TODO need to expand
         raise NotImplementedError
@@ -17,7 +19,6 @@ def build_dataset(dataset_type: str, path:str,
         raise ConfigurationError("Invalid dataset_type.")
 
     return dataset
-
 
 
 # BaseDataset is child of torch.utils.data.Dataset.
@@ -33,7 +34,6 @@ class BaseDataset(Dataset):
         self.trg_language = trg_language
 
     def __getitem__(self, index):
-        
         src = self.get_item(idx=index, language=self.src_language)
         trg = self.get_item(idx=index, language=self.trg_language)
         return (src, trg)
@@ -49,9 +49,10 @@ class BaseDataset(Dataset):
                 f"src_lang={self.src_language}, trg_lang={self.trg_language})")
 
 class PlaintextDataset(BaseDataset):
-    def __init__(self, path: str, src_language: str, trg_language: str) -> None:
+    def __init__(self, path: str, src_language: str, trg_language: str, tokenizer: Dict) -> None:
         super().__init__(path, src_language, trg_language)
 
+        self.tokenizer = tokenizer
         self.data = self.load_data(path)
     
     def load_data(self,path:str):
@@ -65,6 +66,7 @@ class PlaintextDataset(BaseDataset):
             if self.tokenizer[language] is not None:
                 sentences_list = [self.tokenizer[language].pre_process(sentence) 
                                     for sentence in sentences_list if len(sentence) > 0]
+            return sentences_list
 
         path = Path(path)
 
@@ -82,15 +84,15 @@ class PlaintextDataset(BaseDataset):
 
         return data
     
-    def get_item(self, idx:int, language:str) -> str:
-        return self.data[language][idx]
+    def get_item(self, idx:int, language:str) -> List[str]:
+        # call tokernizer to process the sampled sample.
+        return self.tokenizer[language](self.data[language][idx])
     
     def __len__(self) -> int:
         return len(self.data[self.src_language])
 
 
 if __name__ == "__main__":
-    build_dataset("plain","data/train",'code','summary')
     # dataset
     #       |- train.code
     #       |- train.summary
@@ -101,3 +103,9 @@ if __name__ == "__main__":
     # train_data_path: dataset/train
     # dev_data_path: dataset/dev
     # test_data_path: dataset/test
+
+    path = "data/rencos_python/train"
+    train_data = build_dataset(dataset_type="plain", path=path, src_language="code",trg_language="summary")
+    print(train_data)
+    print(len(train_data))
+    print(train_data[10])

@@ -53,7 +53,8 @@ def load_data(data_cfg: dict):
     if train_data_path is not None:
         logger.info("Loading train dataset...")
         train_data = build_dataset(dataset_type=dataset_type,path=train_data_path,
-                                   src_language=src_language, trg_language=trg_language)
+                                   src_language=src_language, trg_language=trg_language,
+                                   tokenizer=tokenizer)
     
     # build vocabulary
     logger.info("Building vocabulary...")
@@ -64,13 +65,15 @@ def load_data(data_cfg: dict):
     if dev_data_path is not None:
         logger.info("Loading dev dataset...")
         dev_data = build_dataset(dataset_type=dataset_type, path=dev_data_path,
-                                 src_language=src_language, trg_language=trg_language)
+                                 src_language=src_language, trg_language=trg_language,
+                                 tokenizer=tokenizer)
     
     # test data
     if test_data_path is not None:
         logger.info("Load test dataset...")
         test_data = build_dataset(dataset_type=dataset_type, path=test_data_path,
-                                 src_language=src_language, trg_language=trg_language)
+                                 src_language=src_language, trg_language=trg_language,
+                                 tokenizer=tokenizer)
     
     logger.info("Dataset has loaded.")
     log_data_info(train_data, dev_data, test_data, src_vocab, trg_vocab)

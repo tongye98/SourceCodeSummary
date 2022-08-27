@@ -1,5 +1,5 @@
 import logging
-from typing import Dict
+from typing import Dict, List
 from helps import ConfigurationError
 from pathlib import Path
 logger = logging.getLogger(__name__)
@@ -49,6 +49,25 @@ class BasicTokenizer(object):
         self.normalize = normalize
         self.max_length = max_length
         self.min_length = min_length
+    
+    def pre_process(self, sentence:str) -> str:
+        """
+        Pre-process setence. 
+        Lowercase, normalize.
+        """
+        if self.normalize:
+            sentence = sentence.strip()
+        if self.lowercase:
+            sentence = sentence.lower()
+        
+        return sentence
+    
+    def __call__(self, sentence: str) -> List[str]:
+        """
+        Tokenize single sentence.
+        """
+        sentence_token = sentence.split(self.SPACE)
+        return sentence_token
 
     def __repr__(self):
         return (f"{self.__class__.__name__}(level={self.level}, "
