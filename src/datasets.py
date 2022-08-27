@@ -1,6 +1,7 @@
 from helps import ConfigurationError, read_list_from_file
 from torch.utils.data import Dataset
 from pathlib import Path
+
 def build_dataset(dataset_type: str, path:str,
                   src_language: str, trg_language: str):
     """
