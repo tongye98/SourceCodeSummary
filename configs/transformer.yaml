@@ -36,7 +36,7 @@ training:
     normalization: "batch" # batch,tokens
     loss: "CrossEntropy"
     label_smoothing: 0.0
-    scheduling: None # "ReduceLROnPlateau", "StepLR", "ExponentialLR"
+    scheduling: "ExponentialLR" # "ReduceLROnPlateau", "StepLR", "ExponentialLR"
     mode: "max"  # for schedule="ReduceLROnPlateau"
     factor: 0.5 # for schedule="ReduceLROnPlateau"
     patience: 5 # for scheduling = 'ReduceLROnPlatea'

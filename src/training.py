@@ -57,7 +57,7 @@ def train(cfg_file: str, skip_test:bool=False) -> None:
 
     # for training management.
     trainer = TrainManager(model=model, cfg=cfg)
-    assert False
+
     # train the model
     trainer.train_and_validate(train_data=train_data, valid_data=dev_data)
 
@@ -138,7 +138,7 @@ class TrainManager(object):
 
         # initialize training statistics
         self.stats = self.TrainStatistics(
-            steps=0, is_min_lr=False, is_max_updates=False,
+            steps=0, is_min_lr=False, is_max_update=False,
             total_tokens=0, best_ckpt_iter=0, minimize_metric = self.minimize_metric,
             best_ckpt_score=np.inf if self.minimize_metric else -np.inf,
         )
@@ -262,7 +262,9 @@ class TrainManager(object):
         """
         Train the model and validate it from time to time on the validation set.
         """
-        self.train_iter = make_data_iter()
+        self.train_iter = make_data_iter(dataset=train_data, sampler_seed=self.seed, shuffle=self.shuffle,
+                                         batch_type=self.batch_type, batch_size=self.batch_size, num_workers=self.num_workers)
+
         if self.train_iter_state is not None:
             self.train_iter.batch_sampler.sampler.generator.set_state(
                 self.train_iter_state.cpu())
