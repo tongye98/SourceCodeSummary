@@ -11,6 +11,7 @@ import sys
 from collections import Counter
 from helps import flatten, sort_and_cut
 from helps import write_list_to_file
+import time
 
 from constants import (
     UNK_TOKEN,
@@ -51,7 +52,10 @@ def build_language_vocab(cfg, dataset, language):
     else:
         raise Exception("Please provide dataset to build a vocabulary.")
     
+    start = time.time()
     vocab = Vocabulary(unique_tokens)
+    end = time.time()
+    logger.info("Spend time on get vocabulary = {}s".format(round(end-start,2)))
     assert len(vocab) <= max_size + len(vocab.specials)
 
     # check for all except for UNK token whether they are OOVs
@@ -142,6 +146,10 @@ class Vocabulary(object):
         """
         return [self.array_to_sentence(array=array, cut_at_eos=cut_at_eos, skip_pad=skip_pad) 
                 for array in arrays]
+
+    def log_vocab(self, number:int) -> str:
+        "First number tokens in Vocabulary"
+        return " ".join(f"({id}) {token}" for id, token in enumerate(self._itos[:number]))
 
     def __repr__(self) -> str:
         return (f"{self.__class__.__name__}(len={self.__len__()}, "

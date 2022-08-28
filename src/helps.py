@@ -115,7 +115,7 @@ def parse_train_arguments(train_cfg:dict) -> Tuple:
     logger = logging.getLogger(__name__)
     model_dir = Path(train_cfg["model_dir"])
     assert model_dir.is_dir(), f"{model_dir} not found!"
-    tensorboard_dir = Path(train_cfg["tensorboard_dir"],None)
+    tensorboard_dir = Path(train_cfg["tensorboard_dir"])
 
     use_cuda = train_cfg["use_cuda"] and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
@@ -278,7 +278,7 @@ def sort_and_cut(counter, max_size:int, min_freq:int) -> List[str]:
     return: list of valid tokens
     """
     if min_freq > -1:
-        counter = Counter({t: c for t, c in counter.item() if c >= min_freq})
+        counter = Counter({t: c for t, c in counter.items() if c >= min_freq})
     
     # sort by frequency, then alphabetically
     tokens_and_frequencies = sorted(counter.items(),key=lambda tup: tup[0])
@@ -302,7 +302,9 @@ def log_data_info(train_data, dev_data, test_data,
     if train_data:
         src = train_data.get_item(idx=0, language=train_data.src_language)
         trg = train_data.get_item(idx=0, language=train_data.trg_language)
-        logger.info("First training example: %s%s", src, trg)
+        src_print = "\n\t[SRC] " + " ".join(src)
+        trg_print = "\n\t[TRG] " + " ".join(trg)
+        logger.info("First training example: %s%s", src_print, trg_print)
 
 
     logger.info("Number of unique Src tokens (vocab size): %d", len(src_vocab))

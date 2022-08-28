@@ -51,13 +51,13 @@ def train(cfg_file: str, skip_test:bool=False) -> None:
     # TODO
     src_vocab.to_file(model_dir / "src_vocab.txt")
     trg_vocab.to_file(model_dir / "trg_vocab.txt")
-    assert False
+
     # build an transformer(encoder-decoder) model
     model = build_model(model_cfg=cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab)
 
     # for training management.
     trainer = TrainManager(model=model, cfg=cfg)
-
+    assert False
     # train the model
     trainer.train_and_validate(train_data=train_data, valid_data=dev_data)
 
