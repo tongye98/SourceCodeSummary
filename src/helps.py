@@ -115,6 +115,7 @@ def parse_train_arguments(train_cfg:dict) -> Tuple:
     logger = logging.getLogger(__name__)
     model_dir = Path(train_cfg["model_dir"])
     assert model_dir.is_dir(), f"{model_dir} not found!"
+    tensorboard_dir = Path(train_cfg["tensorboard_file"],None)
 
     use_cuda = train_cfg["use_cuda"] and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
@@ -163,7 +164,7 @@ def parse_train_arguments(train_cfg:dict) -> Tuple:
     reset_optimizer = train_cfg.get("reset_optimizer", False)
     reset_iter_state = train_cfg.get("rest_iter_state", False)
 
-    return(model_dir, loss_type, label_smoothing,
+    return(model_dir, tensorboard_dir ,loss_type, label_smoothing,
            normalization, learning_rate_min, keep_best_ckpts,
            logging_freq, validation_freq, log_valid_sentences,
            early_stopping_metric, shuffle, epochs, max_updates,

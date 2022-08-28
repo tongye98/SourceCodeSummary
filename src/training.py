@@ -76,7 +76,7 @@ class TrainManager(object):
     """
     def __init__(self, model:Module, cfg: dict) -> None:
 
-        (model_dir, loss_type, label_smoothing,
+        (model_dir, tensorboard_dir,loss_type, label_smoothing,
         normalization, learning_rate_min, keep_best_ckpts,
         logging_freq, validation_freq, log_valid_sentences,
         early_stopping_metric, shuffle, epochs, max_updates,
@@ -90,7 +90,7 @@ class TrainManager(object):
         self.validation_freq = validation_freq
         self.log_valid_sentences = log_valid_sentences
         # FIXME tensorboard how to use with pytorch
-        self.tb_writer = SummaryWriter(log_dir=(model_dir/"tensorboard").as_posix())
+        self.tb_writer = SummaryWriter(log_dir=tensorboard_dir.as_posix())
 
         # model
         self.model = model
