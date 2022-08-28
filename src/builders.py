@@ -5,6 +5,7 @@ from typing import Generator
 import torch
 import logging
 from helps import ConfigurationError
+from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, ExponentialLR
 
 logger = logging.getLogger(__name__)
 
@@ -51,13 +52,22 @@ def build_scheduler(train_cfg:dict, optimizer:Optimizer):
     scheduler, scheduler_step_at = None, None
     scheduler_name = train_cfg.get("scheduling", None)
     assert scheduler_name in ["StepLR", "ExponentialLR", "ReduceLROnPlateau"], "Invalid scheduling."
-    if scheduler_name == "plateau":
-        scheduler = None
+    if scheduler_name == "ReduceLROnPlateau":
+        mode = train_cfg.get("mode", "max")
+        factor = train_cfg.get("factor", 0.5)
+        patience = train_cfg.get("patience", 5)
+        scheduler = ReduceLROnPlateau(optimizer, mode=mode, factor=factor, patience=patience,
+                        threshold=0.0001, threshold_mode='abs', eps=1e-8)
         scheduler_step_at = "validation"
-    elif scheduler_name == "decaying":
-        pass 
-    elif scheduler_name == "noam":
-        pass 
+    elif scheduler_name == "StepLR":
+        step_size = train_cfg.get("step_size", 5)
+        gamma = train_cfg.get("gamma", 0.1)
+        scheduler = StepLR(optimizer, step_size=step_size, gamma=gamma)
+        scheduler_step_at = "epoch"  
+    elif scheduler_name == "ExponentialLR":
+        gamma  = train_cfg.get("gamma", 0.98)
+        scheduler = ExponentialLR(optimizer, gamma=gamma)
+        scheduler_step_at = "epoch"
     else:
         raise ConfigurationError("Invalid scheduling setting.")
         
