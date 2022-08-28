@@ -80,7 +80,7 @@ def make_logger(log_dir: Path=None, mode:str="train") -> None:
                 logger.addHandler(fh)
 
     sh = logging.StreamHandler()
-    sh.setLevel(logging.INFO)
+    sh.setLevel(logging.INFO) # FIXME change to INFO when have done.
     sh.setFormatter(formatter)
     logger.addHandler(sh)
 
@@ -153,8 +153,8 @@ def parse_train_arguments(train_cfg:dict) -> Tuple:
     if batch_type not in ["sentence", "token"]:
         raise ConfigurationError("Invalid 'batch_type'. ")
     random_seed = train_cfg.get("random_seed", 980820)  
-    
-    load_model = train_cfg.get("load_model",None)
+
+    load_model = train_cfg.get("load_model", None)
     if load_model is not None:
         load_model = Path(load_model)
         assert load_model.is_file()

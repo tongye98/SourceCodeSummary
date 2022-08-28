@@ -1,3 +1,4 @@
+from typing import Tuple
 import torch
 from torch import Tensor, nn
 import torch.nn.functional as F
@@ -10,6 +11,7 @@ from initialization import Initialize_model
 import logging
 from pathlib import Path
 import numpy as np
+from loss import XentLoss
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +37,8 @@ class Transformer(nn.Module):
         return self._loss_function
     
     @loss_function.setter
-    def loss_function(self, loss_type:str, label_smoothing:float):
+    def loss_function(self, tuple_loss: Tuple):
+        loss_type, label_smoothing = tuple_loss
         assert loss_type == "CrossEntropy"
         #FIXME
         self._loss_function = XentLoss(pad_index=self.pad_index,
@@ -65,7 +68,7 @@ class Transformer(nn.Module):
             # decode_output [batch_size, trg_len, vocab_size]
             log_probs = F.log_softmax(decode_output, dim=-1)
             #FIXME after data part is already.
-            batch_loss = self.loss_function(log_probs, other)
+            batch_loss = self.loss_function(log_probs, target=None)
             # return batch loss = sum over all elements in batch that are not pad
             return (batch_loss, log_probs)
         elif return_type == "encode":

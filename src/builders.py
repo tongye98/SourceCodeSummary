@@ -39,3 +39,26 @@ def build_optimizer(train_cfg:dict, parameters: Generator)  -> Optimizer:
         
     logger.info("%s(%s)", optimizer.__class__.__name__, ", ".join([f"{key}={value}" for key,value in kwargs.items()]))
     return optimizer
+
+def build_scheduler(train_cfg:dict, optimizer:Optimizer):
+    """
+    Create a learning rate scheduler if specified in train config and determine
+    when a scheduler step should be executed.
+    return:
+        - scheduler: scheduler object
+        - scheduler_step_at: "validation", "epoch", "step" or "none"
+    """
+    scheduler, scheduler_step_at = None, None
+    scheduler_name = train_cfg.get("scheduling", None)
+    assert scheduler_name in ["StepLR", "ExponentialLR", "ReduceLROnPlateau"], "Invalid scheduling."
+    if scheduler_name == "plateau":
+        scheduler = None
+        scheduler_step_at = "validation"
+    elif scheduler_name == "decaying":
+        pass 
+    elif scheduler_name == "noam":
+        pass 
+    else:
+        raise ConfigurationError("Invalid scheduling setting.")
+        
+    return scheduler, scheduler_step_at

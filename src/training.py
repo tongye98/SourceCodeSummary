@@ -15,7 +15,7 @@ from prediction import predict
 from datas import load_data, make_data_iter
 from model import build_model
 from torch.utils.tensorboard import SummaryWriter
-from builders import build_gradient_clipper, build_optimizer
+from builders import build_gradient_clipper, build_optimizer, build_scheduler
 import heapq
 import math
 import time
@@ -76,7 +76,7 @@ class TrainManager(object):
     """
     def __init__(self, model:Module, cfg: dict) -> None:
 
-        (model_dir, tensorboard_dir,loss_type, label_smoothing,
+        (model_dir, tensorboard_dir, loss_type, label_smoothing,
         normalization, learning_rate_min, keep_best_ckpts,
         logging_freq, validation_freq, log_valid_sentences,
         early_stopping_metric, shuffle, epochs, max_updates,
@@ -121,7 +121,7 @@ class TrainManager(object):
             self.minimize_metric = False # higher is better
 
         # learning rate scheduling
-        self.scheduler, self.scheduler_step_at = build_scheduler()
+        self.scheduler, self.scheduler_step_at = build_scheduler(train_cfg=cfg["training"],optimizer=self.optimizer)
 
         # data & batch handling
         self.seed = random_seed

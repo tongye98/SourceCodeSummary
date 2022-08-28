@@ -27,9 +27,16 @@ def test_DataLoader():
     # DataLoader return value just is the return value of collate_fn
     pass
 
+def test_None():
+    if None:
+        print("None is true.")
+    else:
+        print("None is false.")
+
 
 
 if __name__ == "__main__":
     dataset = [17, 22, 3, 41, 8]
     test_SequentialSampler(dataset)
     test_RandomSampler(dataset)
+    test_None()
