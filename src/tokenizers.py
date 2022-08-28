@@ -5,18 +5,23 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 from constants import BOS_TOKEN, EOS_TOKEN, PAD_TOKEN, UNK_TOKEN
+
 class BasicTokenizer(object):
     SPACE = chr(32)  # ' ': half-width white space (ascii)
     SPACE_ESCAPE = chr(9601)  # '▁': sentencepiece default
     SPECIALS = [BOS_TOKEN, EOS_TOKEN, PAD_TOKEN, UNK_TOKEN]
 
     def __init__(self, level:str="word", lowercase:bool=False,
-                 normalize: bool=False, max_length: int=-1, min_length:int=1) -> None:
+                 normalize: bool=False, max_length: int=-1, min_length:int=1,
+                 filter_or_truncate: str="truncate") -> None:
         self.level = level
         self.lowercase = lowercase
         self.normalize = normalize
         self.max_length = max_length
         self.min_length = min_length
+        self.filter_or_truncate = filter_or_truncate
+        assert self.filter_or_truncate in ["filter", "truncate"], "Invalid filter_or_truncate!"
+
     
     def pre_process(self, sentence:str) -> str:
         """
@@ -30,11 +35,24 @@ class BasicTokenizer(object):
         
         return sentence
     
+    def filter_or_truncate_by_length(self, sentence_token:List[str]) -> List[str]:
+        if self.filter_or_truncate == "filter":
+            if len(sentence_token) < self.min_length or len(sentence_token) > self.max_length:
+                sentence_token = None
+        elif self.filter_or_truncate == "truncate":
+            sentence_token = sentence_token[:self.max_length]
+        else:
+            return None 
+
+        return sentence_token
+
     def __call__(self, sentence: str) -> List[str]:
         """
         Tokenize single sentence.
         """
         sentence_token = sentence.split(self.SPACE)
+        sentence_token = self.filter_or_truncate_by_length(sentence_token)
+
         return sentence_token
 
     def __repr__(self):
@@ -79,7 +97,9 @@ def build_language_tokenizer(cfg: Dict):
     tokenizer = None 
 
     if cfg["level"] == "word":
-        tokenizer = BasicTokenizer()
+        tokenizer = BasicTokenizer(level=cfg["level"],lowercase=cfg["lowercase"],
+                                   normalize=cfg["normalize"], max_length=cfg["max_length"],
+                                   min_length=cfg["min_length"], filter_or_truncate=cfg["filter_or_truncate"])
     elif cfg["level"] == "bpe":
         tokenizer_type = cfg.get("tokenizer_type", "sentencepiece")
         if tokenizer_type == "sentencepiece":

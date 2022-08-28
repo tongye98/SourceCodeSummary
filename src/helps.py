@@ -8,7 +8,7 @@ from sys import maxsize
 import torch.nn as nn
 from torch import Tensor 
 import torch
-from typing import NoReturn, Union, Dict, Tuple, List
+from typing import Union, Dict, Tuple, List
 from pathlib import Path
 import shutil
 import logging
@@ -115,7 +115,7 @@ def parse_train_arguments(train_cfg:dict) -> Tuple:
     logger = logging.getLogger(__name__)
     model_dir = Path(train_cfg["model_dir"])
     assert model_dir.is_dir(), f"{model_dir} not found!"
-    tensorboard_dir = Path(train_cfg["tensorboard_file"],None)
+    tensorboard_dir = Path(train_cfg["tensorboard_dir"],None)
 
     use_cuda = train_cfg["use_cuda"] and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
@@ -281,7 +281,7 @@ def sort_and_cut(counter, max_size:int, min_freq:int) -> List[str]:
         counter = Counter({t: c for t, c in counter.item() if c >= min_freq})
     
     # sort by frequency, then alphabetically
-    tokens_and_frequencies = sorted(counter.item(),key=lambda tup: tup[0])
+    tokens_and_frequencies = sorted(counter.items(),key=lambda tup: tup[0])
     tokens_and_frequencies.sort(key=lambda tup: tup[1], reverse=True)
 
     # cut off

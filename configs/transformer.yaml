@@ -9,16 +9,26 @@ data:
         tokenizer_type: "sentencepiece" # subword-nmt sentencepiece
         vocab_min_freq: 1
         vocab_max_size: 50000
+        lowercase: True
+        normalize: True # tokernizer pre-process sentence.strip()
+        max_length: 100
+        min_length: 1
+        filter_or_truncate: "truncate"
     trg: 
         language: "summary"
         level: "word"
         tokenizer_type: "sentencepiece"
         vocab_min_freq: 1
         vocab_max_size: 30000
+        lowercase: True
+        normalize: True 
+        max_length: 50
+        min_length: 1
+        filter_or_truncate: "truncate"
 
 training:
     model_dir: "models/rencos_python/test1"
-    tensorboard_file: "models/tensorboard_log/rencos_python_test1"
+    tensorboard_dir: "models/tensorboard_log/rencos_python_test1"
     overwrite: True
     random_seed: 980820
     use_cuda: True

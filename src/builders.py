@@ -4,8 +4,10 @@ from torch.optim import Optimizer
 from typing import Generator
 import torch
 import logging
-from src.helps import ConfigurationError
+from helps import ConfigurationError
+
 logger = logging.getLogger(__name__)
+
 def build_gradient_clipper(train_cfg: dict):
     """
     Define the function for gradient clipping as specified in configuration.
