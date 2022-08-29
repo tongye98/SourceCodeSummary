@@ -5,13 +5,13 @@ from pathlib import Path
 
 def build_dataset(dataset_type: str, path:str,
                   src_language: str, trg_language: str,
-                  tokenizer: Dict) -> Dataset:
+                  tokenizer: Dict, sentences_to_vocab_ids:Dict) -> Dataset:
     """
     Build a dataset.
     """
     dataset = None 
     if dataset_type == "plain":
-        dataset = PlaintextDataset(path, src_language, trg_language, tokenizer)
+        dataset = PlaintextDataset(path, src_language, trg_language, tokenizer, sentences_to_vocab_ids)
     elif dataset_type == "other":
         # TODO need to expand
         raise NotImplementedError
@@ -49,10 +49,15 @@ class BaseDataset(Dataset):
                 f"src_lang={self.src_language}, trg_lang={self.trg_language})")
 
 class PlaintextDataset(BaseDataset):
-    def __init__(self, path: str, src_language: str, trg_language: str, tokenizer: Dict) -> None:
+    def __init__(self, path: str, src_language: str, trg_language: str, 
+                 tokenizer: Dict, sentences_to_vocab_ids: Dict = None) -> None:
         super().__init__(path, src_language, trg_language)
 
         self.tokenizer = tokenizer
+        # place holder for senteces_to_vocab_ids
+        place_holder = {self.src_language:None, self.trg_language:None}
+        self.sentences_to_vocab_ids = place_holder if sentences_to_vocab_ids is None else sentences_to_vocab_ids
+
         self.data = self.load_data(path)
     
     def load_data(self,path:str):
