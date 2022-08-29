@@ -71,7 +71,7 @@ testing:
     beam_size: 5
     beam_alpha: -1
     return_attention: False
-    return_prob: "hyp" # hyp, ref, none
+    return_prob: "hypotheses" # hypotheses, references, none
     generate_unk: True
     repetition_penalty: 2 # >1, -1 means no repetition penalty.
     no_repeat_ngram_size: -1

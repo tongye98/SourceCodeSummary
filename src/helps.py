@@ -188,7 +188,7 @@ def parse_train_arguments(train_cfg:dict) -> Tuple:
 def parse_test_arguments(test_cfg:dict) -> Tuple:
     """Parse test args."""
     logger = logging.getLogger(__name__)
-    batch_size = test_cfg.get("batch_size",64)
+    batch_size = test_cfg.get("batch_size", 64)
     batch_type = test_cfg.get("batch_type", "sentence")
     if batch_type not in ["sentence", "token"]:
         raise ConfigurationError("Invalid batch type option.")
@@ -215,7 +215,7 @@ def parse_test_arguments(test_cfg:dict) -> Tuple:
     return_attention = test_cfg.get("return_attention", False)
     # FIXME what is return prob?
     return_prob = test_cfg.get("return_prob", "none")
-    if return_prob not in ["hyp","ref","none"]:
+    if return_prob not in ["hypotheses","references","none"]:
         raise ConfigurationError("Invalid return_prob")
     generate_unk = test_cfg.get("generate_unk", True)
     repetition_penalty = test_cfg.get("repetition_penalty", -1)

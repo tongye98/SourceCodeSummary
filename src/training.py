@@ -296,6 +296,8 @@ class TrainManager(object):
                 total_batch_loss = 0
 
                 for i, batch_data in enumerate(self.train_iter):
+                    # FIXME sort batch by src length and keep track of order
+                    # batch.sort_by_src_length()
                     normalized_batch_loss = self.train_step(batch_data)
                     total_batch_loss += normalized_batch_loss
 
@@ -408,9 +410,9 @@ class TrainManager(object):
         validate_start_time = time.time()
         (valid_scores, valid_references, valid_hypotheses, 
          valid_hypotheses_raw, valid_sequence_scores, 
-         valid_attention_scores,) = predict(model=self.model, data=valid_data, compute_loss=True,
-                                            device=self.device, n_gpu=self.n_gpu, 
-                                            normalization=self.normalization, cfg=self.valid_cfg)
+         valid_attention_scores,) = predict(model=self.model, data=valid_data, device=self.device, 
+                                            n_gpu=self.n_gpu, compute_loss=True, normalization=self.normalization, 
+                                            num_workers=self.num_workers, cfg=self.valid_cfg)
         valid_duration_time = time.time() - validate_start_time
         
         # write eval_metric and corresponding score to tensorboard
