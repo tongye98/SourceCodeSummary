@@ -69,7 +69,7 @@ class Transformer(nn.Module):
             log_probs = F.log_softmax(decode_output, dim=-1)
             #FIXME after data part is already.
             batch_loss = self.loss_function(log_probs, target=trg_truth)
-            # return batch loss = sum over all elements in batch that are not pad
+            # return batch loss = sum over all sentences of all tokens in the batch that are not pad
             return (batch_loss, log_probs)
         elif return_type == "encode":
             assert src_input is not None and src_mask is not None

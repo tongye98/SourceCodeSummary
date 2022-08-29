@@ -23,6 +23,7 @@ print('-'* 50)
 # ###
 logsoftmax = F.log_softmax(x, dim=-1)
 loss = nn.NLLLoss(reduction='sum')
+# [batch_size, vocab_size, seq_len]
 nllloss = loss(logsoftmax.permute(0,2,1), target) # don't need to one-hot for target.
 print(nllloss)
 print('-'* 50)
