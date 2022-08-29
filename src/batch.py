@@ -22,7 +22,7 @@ class Batch(object):
         self.src = src
         self.src_length = src_length
         self.src_mask = (self.src != PAD_ID).unsqueeze(1)
-        # src_mask unpad is true, pad is false (batch, 1, src_length)
+        # src_mask unpad is true, pad is false (batch, 1, pad_src_length)
         self.nseqs = self.src.size(0)
 
         # example: trg -> <bos> a b <pad> <eos>

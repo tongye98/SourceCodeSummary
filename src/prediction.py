@@ -85,7 +85,8 @@ def predict(model, data:Dataset, device:torch.device,
             # run search as during inference to produce translations(summary)
             output, hyp_scores, attention_scores = search(model=model, batch_data=batch_data,
                                                           beam_size=beam_size, beam_alpha=beam_alpha,
-                                                          max_output_length=max_output_length, n_best=n_best,
+                                                          max_output_length=max_output_length, 
+                                                          min_output_length=min_output_length, n_best=n_best,
                                                           return_attention=return_attention, return_prob=return_prob,
                                                           generate_unk=generate_unk, repetition_penalty=repetition_penalty,
                                                           no_repeat_ngram_size=no_repeat_ngram_size)
