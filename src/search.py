@@ -2,9 +2,11 @@
 """
 Search Module
 """
+from lib2to3.pgen2.pgen import generate_grammar
 from batch import Batch
 import torch 
 import torch.nn.functional as F
+from helps import tile
 
 def search(model, batch_data: Batch, 
            beam_size: int, beam_alpha: float, 
@@ -30,7 +32,8 @@ def search(model, batch_data: Batch,
             greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length, generate_unk, 
                           return_attention, return_prob, repetition_penalty, no_repeat_ngram_size)
         else:
-            beam_search()
+            beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, beam_size, beam_alpha,
+                        n_best, generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size)
         
         return None 
 
@@ -40,7 +43,7 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
     """
     Transformer Greedy function.
     :param: model: Transformer Model
-    :param: encode_output: [batch_size, src_len, model_dim]
+    :param: encoder_output: [batch_size, src_len, model_dim]
     :param: src_mask: [batch_size, 1, src_len] # src_len is padded src length
     return
         - stacked_output [batch_size, steps/max_output_length]
@@ -123,8 +126,127 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
     return stacked_output, stacked_scores, stacked_attention
 
 
-def beam_search():
+def beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, beam_size, beam_alpha,
+                n_best, generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size):
     """
     Transformer Beam Search function.
+    In each decoding step, find the k most likely partial hypotheses.
+    Inspired by OpenNMT-py, adapted for Transformer.
+    :param: model: Transformer Model
+    :param: encoder_output: [batch_size, src_len, model_dim]
+    :param: src_mask: [batch_size, 1, src_len] # src_len is padded src length
     """
+    assert beam_size > 0, "Beam size must be > 0."
+    assert n_best <= beam_size, f"Can only return {beam_size} best hypotheses."
+
+    unk_index = model.unk_index
+    pad_index = model.pad_index
+    bos_index = model.bos_index 
+    eos_index = model.eos_index
+    batch_size = src_mask.size(0)
+
+    trg_vocab_size = model.decoder.output_size
+    trg_mask = None 
+    device = encoder_output.device
+
+    encoder_output = tile(encoder_output.contiguous(), beam_size, dim=0)
+    # encoder_output [batch_size*beam_size, src_len, model_dim] i.e. [a,a,a,b,b,b]
+    src_mask = tile(src_mask, beam_size, dim=0)
+    # src_mask [batch_size*beam_size, 1, src_len]
+
+    trg_mask = src_mask.new_ones((1,1,1))
+
+    batch_offset = torch.arange(batch_size, dtype=torch.long, device=device) # [0,1,2,... batch_size-1]
+    beam_offset = torch.arange(0, batch_size*beam_size, step=beam_size, dtype=torch.long, device=device)
+    # beam_offset [0,5,10,15,....] i.e. beam_size=5
+
+    # keep track of the top beam size hypotheses to expand for each element
+    # in the batch to be futher decoded (that are still "alive")
+    alive_sentences = torch.full((batch_size*beam_size, 1), bos_index, dtype=torch.long, device=device)
+    # alive_sentences [batch_size*beam_size, hyp_len] now is [batch_size*beam_size, 1]
+
+    top_k_log_probs = torch.zeors(batch_size, beam_size, device=device)
+    top_k_log_probs[:, 1:] = float("-inf")
+
+    # Structure that holds finished hypotheses.
+    hypotheses = [[] for _ in range(batch_size)]
+
+    # Indicator if the generation is finished.
+    is_finished = torch.fill((batch_size, beam_size), value=False, dtype=torch.bool, device=device)
+
+    for step in range(max_output_length):
+        # feed the complete predicted sentences so far.
+        decoder_input = alive_sentences
+        with torch.no_grad():
+            output, input, cross_attention_weight = model(return_type="decode", trg_input=decoder_input, encoder_output=encoder_output,
+                                                          src_mask=src_mask, trg_mask=trg_mask)
+            # output: after output layer [batch_size*beam_size, trg_len, vocab_size] -> [batch_size*beam_size, step+1, vocab_size]
+            # input: before output layer [batch_size*beam_size, trg_len, model_dim] -> [batch_size*beam_size, step+1, model_dim]
+            # cross_attention_weight [batch_size*beam_size, trg_len, src_len] -> [batch_size*beam_size, step+1, src_len]
+
+            # for the transformer we made predictions for all time steps up to this point,
+            # so we only want to know about the last time step.
+            output = output[:, -1] # output [batch_size*beam_size, vocab_size]
+
+        # compute log probability distribution over trg vocab
+        log_probs = F.log_softmax(output, dim=-1)
+        # log_probs [batch_size*beam_size, vocab_size]
+
+        if not generate_unk:
+            log_probs[:, unk_index] = float("-inf")
+        # don't genereate EOS symbol until we reach min_output_length
+        if step < min_output_length:
+            log_probs[:, eos_index] = float("-inf")
+        
+        #TODO
+        # no_repeat_ngram_size
+        # repetition_penalty
+
+        log_probs += top_k_log_probs.view(-1).unsqueeze(1)
+        current_scores = log_probs.clone()
+
+        # compute length penalty
+        if beam_alpha > 0:
+            length_penalty = ((5.0 + (step+1)) / 6.0)**beam_alpha
+            current_scores /= length_penalty
+        
+        # flatten log_probs into a list of possibilities
+        current_scores = current_scores.reshape(-1, beam_size*trg_vocab_size)
+        # current_scores [batch_size, beam_size*vocab_size]
+
+        # pick currently best top k hypotheses
+        topk_scores, topk_ids =current_scores.topk(beam_size, dim=-1)
+        # topk_scores [batch_size, beam_size]
+        # topk_ids [batch_size, beam_size]
+
+        if beam_alpha > 0:
+            top_k_log_probs = topk_scores * length_penalty
+        else: 
+            top_k_log_probs = topk_scores.clone()
+        
+        # Reconstruct beam origin and true word ids from flatten order
+        topk_beam_index = topk_ids.div(trg_vocab_size, rounding_mode="floor")
+        # topk_beam_index [batch_size, beam_size]
+        topk_ids = topk_ids.fmod(trg_vocab_size) # true word ids
+        # topk_ids [batch_size, beam_size]
+
+        # map topk_beam_index to batch_index in the flat representation
+        batch_index = topk_beam_index + beam_offset[:topk_ids.size(0)].unsqueeze(1)
+        select_indices = batch_index.view(-1)
+
+        # append latest prediction
+        alive_sentences = torch.cat([alive_sentences.index_select(0, select_indices), topk_ids.view(-1, 1)], dim=-1)
+
+
+        
+
+
+
+
+
+
+
+
+
+
     return None

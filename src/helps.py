@@ -333,6 +333,21 @@ def write_list_to_file(file_path:Path, array:List[str]) -> None:
         for item in array:
             fg.write(f"{item}\n")
 
+def tile(x: Tensor, count: int, dim : int=0) -> Tensor:
+    """
+    Tiles x on dimension 'dim' count times. Used for beam search.
+    i.e. [a,b] --count=3--> [a,a,a,b,b,b]
+    :param: x [batch_size, src_len, model_dim]
+    return tiled tensor
+    """
+    assert dim == 0
+    out_size = list(x.size()) # [batch_size, src_len, model_dim]
+    out_size[0] = out_size[0] * count # [batch_size*count, src_len, model_dim]
+    batch_size = x.size(0)
+    x = x.view(batch_size, -1).transpose(0,1).repeat(count, 1).transpose(0,1).contiguous().view(*out_size)
+    return x
+
+
 if __name__ == "__main__":
     # TEST 
     print(subsequent_mask(5))
