@@ -1,17 +1,17 @@
-from typing import Dict, List
+from typing import Callable, Dict, List
 from helps import ConfigurationError, read_list_from_file
 from torch.utils.data import Dataset
 from pathlib import Path
 
-def build_dataset(dataset_type: str, path:str,
+def build_dataset(dataset_type: str, path:str, split_mode:str,
                   src_language: str, trg_language: str,
-                  tokenizer: Dict, sentences_to_vocab_ids:Dict) -> Dataset:
+                  tokenizer: Dict, sentences_to_vocab_ids:Dict[str, Callable]) -> Dataset:
     """
     Build a dataset.
     """
     dataset = None 
     if dataset_type == "plain":
-        dataset = PlaintextDataset(path, src_language, trg_language, tokenizer, sentences_to_vocab_ids)
+        dataset = PlaintextDataset(path, split_mode, src_language, trg_language, tokenizer, sentences_to_vocab_ids)
     elif dataset_type == "other":
         # TODO need to expand
         raise NotImplementedError
@@ -26,10 +26,11 @@ class BaseDataset(Dataset):
     """
     BaseDataset which loads and looks up data.
     """
-    def __init__(self, path:str,
+    def __init__(self, path:str, split_mode: str,
                  src_language:str, trg_language:str) -> None:
         super().__init__()
-        self.path = path,
+        self.path = path
+        self.split_mode = split_mode
         self.src_language = src_language
         self.trg_language = trg_language
 
@@ -49,9 +50,9 @@ class BaseDataset(Dataset):
                 f"src_lang={self.src_language}, trg_lang={self.trg_language})")
 
 class PlaintextDataset(BaseDataset):
-    def __init__(self, path: str, src_language: str, trg_language: str, 
-                 tokenizer: Dict, sentences_to_vocab_ids: Dict = None) -> None:
-        super().__init__(path, src_language, trg_language)
+    def __init__(self, path: str, split_mode: str, src_language: str, trg_language: str, 
+                 tokenizer: Dict, sentences_to_vocab_ids: Dict[str, Callable] = None) -> None:
+        super().__init__(path, split_mode, src_language, trg_language)
 
         self.tokenizer = tokenizer
         # place holder for senteces_to_vocab_ids

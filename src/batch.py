@@ -7,6 +7,7 @@ import logging
 import torch 
 from torch import Tensor
 from constants import PAD_ID
+
 logger = logging.getLogger(__name__)
 
 
@@ -75,3 +76,6 @@ class Batch(object):
         """
         # FIXME IS this function necessary?
         pass
+
+    def __repr__(self) -> str:
+        return (f"{self.__class__.__name__}(nseqs={self.nseqs}, ntokens={self.ntokens}.)")

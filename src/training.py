@@ -263,7 +263,8 @@ class TrainManager(object):
         Train the model and validate it from time to time on the validation set.
         """
         self.train_iter = make_data_iter(dataset=train_data, sampler_seed=self.seed, shuffle=self.shuffle,
-                                         batch_type=self.batch_type, batch_size=self.batch_size, num_workers=self.num_workers)
+                                         batch_type=self.batch_type, batch_size=self.batch_size, num_workers=self.num_workers,
+                                         device=self.device)
 
         if self.train_iter_state is not None:
             self.train_iter.batch_sampler.sampler.generator.set_state(

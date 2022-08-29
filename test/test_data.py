@@ -33,10 +33,16 @@ def test_None():
     else:
         print("None is false.")
 
-
+def test_collate_fn():
+    batch = [(['i','love','you'], ['you','love','i']), (['ye','tong'],['tong','ye'])]
+    src_list, trg_list = zip(*batch)
+    print(src_list)
+    print(type(src_list))
+    print(trg_list)
 
 if __name__ == "__main__":
     dataset = [17, 22, 3, 41, 8]
     test_SequentialSampler(dataset)
     test_RandomSampler(dataset)
     test_None()
+    test_collate_fn()

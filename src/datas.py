@@ -10,7 +10,9 @@ from vocabulary import build_vocab
 from helps import ConfigurationError, log_data_info
 from torch.utils.data import Dataset, Sampler, DataLoader
 from torch.utils.data import SequentialSampler, RandomSampler, BatchSampler
-from typing import List, Union, Tuple, Iterator, Iterable
+from typing import Callable, List, Union, Tuple, Iterator, Iterable
+from functools import partial
+from batch import Batch
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +54,7 @@ def load_data(data_cfg: dict):
     train_data = None 
     if train_data_path is not None:
         logger.info("Loading train dataset...")
-        train_data = build_dataset(dataset_type=dataset_type,path=train_data_path,
+        train_data = build_dataset(dataset_type=dataset_type,path=train_data_path, split_mode="train",
                                    src_language=src_language, trg_language=trg_language,
                                    tokenizer=tokenizer)
     
@@ -60,20 +62,27 @@ def load_data(data_cfg: dict):
     logger.info("Building vocabulary...")
     src_vocab, trg_vocab = build_vocab(data_cfg, dataset=train_data)
 
+    sentences_to_vocab_ids = {
+        src_language: partial(src_vocab.sentences_to_ids, bos=False, eos=True),
+        trg_language: partial(trg_vocab.sentences_to_ids, bos=True, eos=True),
+    }
+    if train_data is not None:
+        train_data.sentences_to_vocab_ids = sentences_to_vocab_ids
+
     # dev data
     dev_data = None
     if dev_data_path is not None:
         logger.info("Loading dev dataset...")
-        dev_data = build_dataset(dataset_type=dataset_type, path=dev_data_path,
+        dev_data = build_dataset(dataset_type=dataset_type, path=dev_data_path, split_mode="dev",
                                  src_language=src_language, trg_language=trg_language,
-                                 tokenizer=tokenizer)
+                                 tokenizer=tokenizer, sentences_to_vocab_ids=sentences_to_vocab_ids)
     
     # test data
     if test_data_path is not None:
         logger.info("Load test dataset...")
-        test_data = build_dataset(dataset_type=dataset_type, path=test_data_path,
+        test_data = build_dataset(dataset_type=dataset_type, path=test_data_path, split_mode="test",
                                  src_language=src_language, trg_language=trg_language,
-                                 tokenizer=tokenizer)
+                                 tokenizer=tokenizer, sentences_to_vocab_ids=sentences_to_vocab_ids)
     
     logger.info("Dataset has loaded.")
     log_data_info(train_data, dev_data, test_data, src_vocab, trg_vocab)
@@ -81,7 +90,7 @@ def load_data(data_cfg: dict):
     return train_data, dev_data, test_data, src_vocab, trg_vocab
 
 def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,
-                   batch_size,num_workers) -> DataLoader:
+                   batch_size, num_workers, device) -> DataLoader:
     """
     Return a torch DataLoader for a torch Dataset.
     """
@@ -102,7 +111,10 @@ def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,
         raise ConfigurationError("Invalid batch_type")
     
     return DataLoader(dataset, batch_sampler=batch_sampler, shuffle=False, num_workers=num_workers,
-                      pin_memory=True, collate_fn=collate_fn)
+                      pin_memory=True, collate_fn=partial(collate_fn,
+                      src_sentences_to_vocab_ids=dataset.sentences_to_vocab_ids[dataset.src_language],
+                      trg_sentences_to_vocab_ids=dataset.sentences_to_vocab_ids[dataset.trg_language],
+                      device=device))
 
 class SentenceBatchSampler(BatchSampler):
     def __init__(self, sampler: Union[Sampler[int], Iterable[int]], batch_size: int, drop_last: bool) -> None:
@@ -138,12 +150,26 @@ class TokenBatchSampler(BatchSampler):
     def __len__(self) -> int:
         return super().__len__()
 
-def collate_fn(batch: List[Tuple]):
+def collate_fn(batch: List[Tuple], src_sentences_to_vocab_ids: Callable,
+               trg_sentences_to_vocab_ids: Callable, device: torch.device) -> Batch:
     """
     Custom collate function.
-    DataLoader每次迭代的返回值就是collate_fn的返回值.
+    Note: you can stack batch and any operation on batch.
+    DataLoader每次迭代的返回值就是collate_fn的返回值 -> Batch.
+    :param batch [(src,trg),(src,trg),...]
     """
-    batch = [ (src, trg) for (src, trg) in batch]
-    # you can stack batch and any operation on batch 
-    # FIXME make batch to tensor.
-    return batch
+    batch = [(src, trg) for (src, trg) in batch]  # doing nothing.
+    src_list, trg_list = zip(*batch) # src_list: Tuple[List[str]]
+    assert len(src_list) == len(trg_list)
+
+    src_ids, src_length = src_sentences_to_vocab_ids(src_list)
+    trg_ids, trg_length = trg_sentences_to_vocab_ids(trg_list)
+    # src_ids, trg_ids List[List[int]]
+    # src_length, trg_length List[int]
+
+    src = torch.tensor(src_ids).long()
+    src_length = torch.tensor(src_length).long()
+    trg = torch.tensor(trg_ids).long()
+    trg_length = torch.tensor(trg_length).long()
+
+    return Batch(src=src, src_length=src_length, trg=trg, trg_length=trg_length, device=device)
