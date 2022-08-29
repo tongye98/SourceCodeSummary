@@ -33,7 +33,7 @@ training:
     random_seed: 980820
     use_cuda: True
     num_workers: 4
-    normalization: "batch" # batch,tokens
+    normalization: "batch" # batch,tokens | batch means loss divide sentences in the batch; token means loss divide tokens in the batch.
     loss: "CrossEntropy"
     label_smoothing: 0.0
     scheduling: "ExponentialLR" # "ReduceLROnPlateau", "StepLR", "ExponentialLR"

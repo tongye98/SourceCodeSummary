@@ -296,8 +296,8 @@ class TrainManager(object):
                 total_batch_loss = 0
 
                 for i, batch_data in enumerate(self.train_iter):
-                    batch_loss = self.train_step(batch_data)
-                    total_batch_loss += batch_loss
+                    normalized_batch_loss = self.train_step(batch_data)
+                    total_batch_loss += normalized_batch_loss
 
                     # clip gradients (in-place)
                     if self.clip_grad_fun is not None:
@@ -308,7 +308,6 @@ class TrainManager(object):
                     self.optimizer.step()
 
                     # decay learning_rate(lr)
-                    # FIXME why not under logging ?
                     if self.scheduler_step_at == "step":
                         self.scheduler.step(self.stats.steps)
                     
@@ -336,6 +335,10 @@ class TrainManager(object):
                         # one log process may include more than one validation, so need total valid time.
                         total_valid_duration_time = 0
                     
+                    # FIXME  why need total_batch_loss?
+                    epoch_loss += total_batch_loss # accumulate loss
+                    total_batch_loss = 0 # reset batch loss
+
                     # validate on the entire dev dataset
                     if self.stats.steps % self.validation_freq == 0:
                         valid_duration_time = self.validate(valid_data)
@@ -346,7 +349,7 @@ class TrainManager(object):
                     if current_lr < self.learning_rate_min:
                         self.stats.is_min_lr = True 
                     
-                    self.tb_writer.add_scalar("Train/learning_rate",current_lr, self.stats.steps)
+                    self.tb_writer.add_scalar("Train/learning_rate", current_lr, self.stats.steps)
                 
                 # check after a whole epoch.
                 if self.stats.is_min_lr or self.stats.is_max_update:
@@ -386,14 +389,16 @@ class TrainManager(object):
         batch_loss, log_probs = self.model(return_type="loss", src_input=src_input, trg_input=trg_input,
                    src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth)
         
-        # FIXME should normalizer batch_loss ?
+        # normalization = 'batch' means final loss is average-sentence level loss in batch
+        # normalization = 'tokens' means final loss is average-token level loss in batch
+        normalized_batch_loss = batch_data.normalize(batch_loss, self.normalization, self.n_gpu)
 
-        batch_loss.backward()
+        normalized_batch_loss.backward()
 
         # increment token counter
         self.stats.total_tokens += batch_data.ntokens
 
-        return batch_loss.item()
+        return normalized_batch_loss.item()
 
     def validate(self, valid_data: Dataset):
         """
