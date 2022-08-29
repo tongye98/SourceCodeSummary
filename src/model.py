@@ -47,7 +47,7 @@ class Transformer(nn.Module):
     def forward(self, return_type: str=None,
                 src_input:Tensor=None, trg_input:Tensor=None,
                 src_mask:Tensor=None, trg_mask:Tensor=None,
-                encoder_output: Tensor=None
+                encoder_output: Tensor=None, trg_truth:Tensor=None
                 ):
         """
         return_type: one of {"loss", "encode", "decode"}
@@ -68,7 +68,7 @@ class Transformer(nn.Module):
             # decode_output [batch_size, trg_len, vocab_size]
             log_probs = F.log_softmax(decode_output, dim=-1)
             #FIXME after data part is already.
-            batch_loss = self.loss_function(log_probs, target=None)
+            batch_loss = self.loss_function(log_probs, target=trg_truth)
             # return batch loss = sum over all elements in batch that are not pad
             return (batch_loss, log_probs)
         elif return_type == "encode":

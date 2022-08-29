@@ -47,7 +47,7 @@ def load_config(path: Union[Path,str]="configs/transformer.yaml") -> Dict:
         cfg = yaml.safe_load(yamlfile)
     return cfg
 
-def make_model_dir(model_dir:Path, overwrite:bool=False) -> Path:
+def make_model_dir(model_dir: Path, overwrite: bool=False) -> Path:
     """
     Create a new directory for the model.
     return path to model directory.
@@ -59,6 +59,18 @@ def make_model_dir(model_dir:Path, overwrite:bool=False) -> Path:
         shutil.rmtree(model_dir)
     model_dir.mkdir()
     return model_dir
+
+def make_tensorboard_dir(tensorboard_dir: Path, overwrite: bool=False) -> None:
+    """
+    Create a tensorboard directory for the model.
+    """
+    tensorboard_dir = tensorboard_dir.absolute()
+    if tensorboard_dir.is_dir():
+        if not overwrite:
+            raise FileExistsError(f"Tensorboard dir exists and overwrite is disable.")
+        shutil.rmtree(tensorboard_dir)
+    tensorboard_dir.mkdir()
+    return None
 
 def make_logger(log_dir: Path=None, mode:str="train") -> None:
     """

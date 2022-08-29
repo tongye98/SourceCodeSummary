@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 from pathlib import Path
 import shutil
 from typing import List
-from helps import load_config,make_model_dir,make_logger, log_cfg
+from helps import load_config,make_model_dir,make_tensorboard_dir,make_logger, log_cfg
 from helps import set_seed, parse_train_arguments, load_model_checkpoint
 from helps import symlink_update, delete_ckpt, write_validation_output_to_file
 from prediction import predict
@@ -28,8 +28,9 @@ def train(cfg_file: str, skip_test:bool=False) -> None:
     """
     cfg = load_config(Path(cfg_file))
 
-    # make model dir
+    # make model dir and tensorboard log dir
     model_dir = make_model_dir(Path(cfg["training"]["model_dir"]),overwrite=cfg["training"].get("overwrite",False))
+    make_tensorboard_dir(Path(cfg["training"]["tensorboard_dir"]),overwrite=cfg["training"].get("overwrite",False))
 
     # make logger
     make_logger(model_dir, mode="train")
@@ -375,9 +376,15 @@ class TrainManager(object):
         # reactivate training.
         self.model.train()
 
+        src_input = batch_data.src
+        trg_input = batch_data.trg_input
+        src_mask = batch_data.src_mask
+        trg_mask = batch_data.trg_mask
+        trg_truth = batch_data.trg
+
         # get loss (run as during training with teacher forcing)
-        batch_loss, log_probs = self.model(return_type="loss", src_input=None, trg_input=None,
-                   src_mask=None, trg_mask=None, encoder_output = None)
+        batch_loss, log_probs = self.model(return_type="loss", src_input=src_input, trg_input=trg_input,
+                   src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth)
         
         # FIXME should normalizer batch_loss ?
 

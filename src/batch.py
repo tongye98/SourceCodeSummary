@@ -28,7 +28,7 @@ class Batch(object):
         # example: trg -> <bos> a b <pad> <eos>
         self.trg_input = trg[:, :-1] # [batch_size, trg_length-1]
         self.trg = trg[:, 1:] 
-        # trg(trg_output) is used for loss computation, shifted by 1 since BOS token.
+        # trg(trg_truth) is used for loss computation, shifted by 1 since BOS token.
 
         self.trg_mask = (self.trg != PAD_ID).unsqueeze(1) # [batch_size, 1, trg_length]
         self.ntokens = (self.trg != PAD_ID).data.sum().item()
