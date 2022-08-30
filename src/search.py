@@ -2,7 +2,7 @@
 """
 Search Module
 """
-from typing import List
+from typing import List, Tuple
 from batch import Batch
 import torch 
 import torch.nn.functional as F
@@ -15,13 +15,13 @@ def search(model, batch_data: Batch,
            min_output_length: int, n_best: int,
            return_attention: bool, return_prob: str, 
            generate_unk: bool, repetition_penalty: float, 
-           no_repeat_ngram_size: float):
+           no_repeat_ngram_size: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Get outputs and attention scores for a given batch.
     return:
-        - stacked_output
-        - stacked_scores
-        - stacked_attention_scores
+        - stacked_output : hypotheses for batch
+        - stacked_scores : log probability for batch
+        - stacked_attention_scores: attention scores for batch
     """
     with torch.no_grad():
         src_input = batch_data.src
@@ -30,13 +30,13 @@ def search(model, batch_data: Batch,
         # encode_output [batch_size, src_len, model_dim]
 
         if beam_size < 2: # Greedy Strategy
-            greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length, generate_unk, 
-                          return_attention, return_prob, repetition_penalty, no_repeat_ngram_size)
+            stacked_output, stacked_scores, stacked_attention_scores = greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length,
+             generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size)
         else:
-            beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, beam_size, beam_alpha,
-                        n_best, generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size)
+            stacked_output, stacked_scores, stacked_attention_scores = beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
+             beam_size, beam_alpha, n_best, generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size)
         
-        return None 
+        return stacked_output, stacked_scores, stacked_attention_scores
 
 
 def greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length, 

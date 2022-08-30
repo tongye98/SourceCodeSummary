@@ -90,9 +90,15 @@ def predict(model, data:Dataset, device:torch.device,
                                                           return_attention=return_attention, return_prob=return_prob,
                                                           generate_unk=generate_unk, repetition_penalty=repetition_penalty,
                                                           no_repeat_ngram_size=no_repeat_ngram_size)
-            # output []
+            # output 
+            #   greedy search: [batch_size, hyp_len/max_output_length] np.ndarray
+            #   beam search: [batch_size*beam_size, hyp_len/max_output_length] np.ndarray
             # hyp_scores
-            # attention_scores []
+            #   greedy search: [batch_size, hyp_len/max_output_length] np.ndarray
+            #   beam search: [batch_size*n_best, hyp_len/max_output_length] np.ndarray
+            # attention_scores 
+            #   greedy search: [batch_size, steps/max_output_length, src_len] np.ndarray
+            #   beam search: None
         
         all_outputs.extend(output)
         valid_attention_scores.extend(attention_scores)
