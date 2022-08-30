@@ -2,11 +2,12 @@
 """
 Search Module
 """
-from lib2to3.pgen2.pgen import generate_grammar
+from typing import List
 from batch import Batch
 import torch 
 import torch.nn.functional as F
 from helps import tile
+import numpy as np
 
 def search(model, batch_data: Batch, 
            beam_size: int, beam_alpha: float, 
@@ -165,11 +166,14 @@ def beam_search(model, encoder_output, src_mask, max_output_length, min_output_l
     alive_sentences = torch.full((batch_size*beam_size, 1), bos_index, dtype=torch.long, device=device)
     # alive_sentences [batch_size*beam_size, hyp_len] now is [batch_size*beam_size, 1]
 
-    top_k_log_probs = torch.zeors(batch_size, beam_size, device=device)
+    top_k_log_probs = torch.zeros(batch_size, beam_size, device=device)
     top_k_log_probs[:, 1:] = float("-inf")
 
     # Structure that holds finished hypotheses.
     hypotheses = [[] for _ in range(batch_size)]
+
+    results = {"predictions": [[] for _ in range(batch_size)], 
+                "scores": [[] for _ in range(batch_size)] }
 
     # Indicator if the generation is finished.
     is_finished = torch.fill((batch_size, beam_size), value=False, dtype=torch.bool, device=device)
@@ -237,16 +241,67 @@ def beam_search(model, encoder_output, src_mask, max_output_length, min_output_l
         # append latest prediction
         alive_sentences = torch.cat([alive_sentences.index_select(0, select_indices), topk_ids.view(-1, 1)], dim=-1)
 
-
+        is_finished = topk_ids.eq(eos_index) | is_finished | topk_scores.eq(-np.inf)
+        if step + 1 == max_output_length:
+            is_finished.fill_(True)
         
+        # end condition is whether all beam candidates in each example are finished.
+        end_condition = is_finished.all(-1)
 
+        # save finished hypotheses
+        if is_finished.any():
+            predictions = alive_sentences.view(batch_size, beam_size, alive_sentences.size(-1))
+            # predictions [batch_size, beam_size, hyp_len]
 
+            for i in range(is_finished.size(0)):
+                b = batch_offset[i].item()
+                if end_condition[i]:
+                    is_finished[i].fill_(True)
+                
+                finished_hyp = is_finished[i].nonzero(as_tuple=False).view(-1)
+                for j in finished_hyp: # look over finished beam candidates
+                    number_eos = (predictions[i, j, 1:] == eos_index).count_nonzero().item()
+                    if number_eos > 1:
+                        continue
+                    elif (number_eos == 0 and step+1 == max_output_length) or (number_eos == 1 and predictions[i, j, -1] == eos_index):
+                        hypotheses[b].append((topk_scores[i,j], predictions[i,j,1:]))
 
+                # if all n best candidates of the i-the example reached the end, save them
+                if end_condition[i]:
+                    best_hyp = sorted(hypotheses[b], key=lambda x:x[0], reverse=True)
+                    for n, (score, pred) in enumerate(best_hyp):
+                        if n >= n_best:
+                            break 
+                        if len(pred) < max_output_length:
+                            assert pred[-1] == eos_index, "Add a candidate which doesn't end with eos."
+                        
+                        results['scores'][b].append(score)
+                        results['predictions'][b].append(pred)
+                
+            unfinished = end_condition.eq(False).nonzeros(as_tuple=False).view(-1)
+            if len(unfinished) == 0:
+                break
 
+            batch_index = batch_index.index_select(0, unfinished)
+            top_k_log_probs = top_k_log_probs.index_select(0, unfinished)
+            is_finished = is_finished.index_select(0, unfinished)
+            batch_offset = batch_offset.index_select(0, unfinished)
 
+            alive_sentences = predictions.index_select(0, unfinished).view(-1, alive_sentences.size(-1))
 
+    # Reorder indices, outputs and masks
+    select_indices = batch_index.view(-1)
+    encoder_output = encoder_output.index_select(0, select_indices)
+    src_mask = src_mask.index_select(0, select_indices)
 
+    def pad_and_stack_hyps(hyps: List[np.ndarray]):
+        filled = (np.ones((len(hyps), max([h.shape[0]  for h in hyps])), dtype=int) * pad_index)
+        for j, h in enumerate(hyps):
+            for k, i in enumerate(h):
+                filled[j, k] = i
+        return filled
 
+    final_outputs = pad_and_stack_hyps([u.cpu.numpy() for r in results['predictions'] for u in r])
+    scores = (np.array([ [u.item()] for r in results['scores'] for u in r]) if return_prob else None)
 
-
-    return None
+    return final_outputs, scores, None
