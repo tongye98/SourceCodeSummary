@@ -139,6 +139,8 @@ def predict(model, data:Dataset, device:torch.device,
 
     # retrieve detokenized hypotheses and references
     valid_hypotheses = [data.tokenizer[data.trg_language].post_process(sentence, generate_unk=generate_unk) for sentence in decoded_valid]
+    # valid_hypotheses -> list of strings FIXME double check
+    # FIXME  add dataset trg function return -> list of strings
     valid_references = data.trg
 
     if data.has_trg:
