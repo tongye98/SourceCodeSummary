@@ -90,6 +90,9 @@ def predict(model, data:Dataset, device:torch.device,
                                                           return_attention=return_attention, return_prob=return_prob,
                                                           generate_unk=generate_unk, repetition_penalty=repetition_penalty,
                                                           no_repeat_ngram_size=no_repeat_ngram_size)
+            # output []
+            # hyp_scores
+            # attention_scores []
         
         all_outputs.extend(output)
         valid_attention_scores.extend(attention_scores)
