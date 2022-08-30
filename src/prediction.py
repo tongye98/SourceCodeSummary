@@ -10,6 +10,7 @@ from helps import parse_test_arguments
 import math
 from datas import make_data_iter
 from search import search
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +51,13 @@ def predict(model, data:Dataset, device:torch.device,
     # Place holders for scores.
     valid_scores = {"loss":float("nan"), "ppl":float("nan"), "bleu":float(0),"meteor":float(0), "rouge-l":float(0)}
     total_nseqs = 0
-    total_tokens = 0
+    total_ntokens = 0
+    total_loss = 0
     all_outputs = []
+    valid_sentences_scores = []
     valid_attention_scores = [] 
+    hyp_scores = None
+    attention_scores = None
 
     for batch_data in data_iter:
         total_nseqs += batch_data.nseqs 
@@ -101,27 +106,61 @@ def predict(model, data:Dataset, device:torch.device,
             #   beam search: None
         
         all_outputs.extend(output)
-        valid_attention_scores.extend(attention_scores)
+        valid_sentences_scores.extend(hyp_scores if hyp_scores is not None else [])
+        valid_attention_scores.extend(attention_scores if attention_scores is not None else [])
+
+    assert total_nseqs == len(data)
+    # FIXME all_outputs is a list of np.ndarray
+    assert len(all_outputs) == len(data)*n_best
 
     if compute_loss:
-        valid_scores["loss"] = total_loss 
+        if normalization == "batch":
+            normalizer = total_nseqs
+        elif normalization == "tokens":
+            normalizer = total_ntokens
+        elif normalization == "none":
+            normalizer = 1
+        
+        # avoid zero division
+        assert normalizer > 0
+        
+        # normalized loss
+        valid_scores["loss"] = total_loss / normalizer
+        # exponent of token-level negative log likelihood
         valid_scores["ppl"] = math.exp(total_loss / total_ntokens)
     
+    # decode ids back to str symbols (cut_off After eos, but eos itself is included. ) # FIXME: eos is not included.
     decoded_valid = model.trg_vocab.arrays_to_sentences(arrays=all_outputs, cut_at_eos=True)
 
-    valid_hyp = [data.tokenizer[data.trg_lang].post_process(s, generate_unk=generate_unk) for s in decoded_valid]
+    if return_prob == "references": # no evalution needed
+        logger.info("Evaluation result (scoring) %s", 
+                    ", ".join([f"{eval_metric}: {valid_scores[eval_metric]:6.2f}" for eval_metric in ["loss","ppl"]]))
+        return (valid_scores, None, None, decoded_valid, None, None)
 
-    valid_ref = data.trg
+    # retrieve detokenized hypotheses and references
+    valid_hypotheses = [data.tokenizer[data.trg_language].post_process(sentence, generate_unk=generate_unk) for sentence in decoded_valid]
+    valid_references = data.trg
 
     if data.has_trg:
-        valid_hyp_1best = None 
+        valid_hyp_1best = (valid_hypotheses if n_best == 1 else [valid_hypotheses[i] for i in range(0, len(valid_hypotheses), n_best)])
+        assert len(valid_hyp_1best) == len(valid_references)
+
+        eval_metric_start_time = time.time()
         for eval_metric in eval_metrics:
             if eval_metric == "bleu":
-                pass
-            if eval_metric == "meteor":
-                pass 
-            if eval_metric == "rouge-l":
-                pass
+                valid_scores[eval_metric] = 0
+            elif eval_metric == "meteor":
+                valid_scores[eval_metric] = 0
+            elif eval_metric == "rouge-l":
+                valid_scores[eval_metric] = 0
+        eval_duration = time.time() - eval_metric_start_time
+        eval_metrics_string = ", ".join([f"{eval_metric}:{valid_scores[eval_metric]:6.2f}" for eval_metric in 
+                                          eval_metrics+["loss","ppl"] ])
+
+        logger.info("Evaluation result(%s) %s, evaluation time: %.4f[sec]", "Beam Search" if beam_size > 1 else "Greedy Search",
+                     eval_metrics_string, eval_duration)
+    else:
+        logger.info("No data trg truth provided.")
     
-    return (valid_scores, valid_ref, valid_hyp, decoded_valid,
-            valid_sequence_scores, valid_attention_scores,)
+    return (valid_scores, valid_references, valid_hypotheses, decoded_valid,
+            valid_sentences_scores, valid_attention_scores)

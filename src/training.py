@@ -408,9 +408,10 @@ class TrainManager(object):
         return the validate time.
         """
         validate_start_time = time.time()
+        # vallid_hypotheses_raw is befor tokenizer post_process
         (valid_scores, valid_references, valid_hypotheses, 
          valid_hypotheses_raw, valid_sequence_scores, 
-         valid_attention_scores,) = predict(model=self.model, data=valid_data, device=self.device, 
+         valid_attention_scores) = predict(model=self.model, data=valid_data, device=self.device, 
                                             n_gpu=self.n_gpu, compute_loss=True, normalization=self.normalization, 
                                             num_workers=self.num_workers, cfg=self.valid_cfg)
         valid_duration_time = time.time() - validate_start_time
