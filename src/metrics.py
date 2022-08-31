@@ -5,8 +5,6 @@ Evaluation metrics
 import logging 
 import collections
 import math
-from re import U
-
 import atexit
 import logging
 import os
@@ -244,7 +242,7 @@ def enc(s):
 def dec(s):
     return s.decode('utf-8')
 METEOR_JAR  = 'meteor-1.5.jar'
-class Meteor:
+class Meteor(object):
     def __init__(self):
         # Used to guarantee thread safety
         self.lock = threading.Lock()
@@ -258,11 +256,11 @@ class Meteor:
                             "then you can try to lower the `mem` variable in meteor.py")
             mem = '1G'
 
-        meteor_cmd = ['java', '-Xmx{}'.format(mem), '-jar', METEOR_JAR,
+        meteor_cmd = ['java', '-jar', '-Xmx{}'.format(mem), METEOR_JAR,
                       '-', '-', '-stdio', '-l', 'en', '-norm']
         env = os.environ.copy()
         env['LC_ALL'] = "C"
-        self.meteor_p = subprocess.Popen(" ".join(meteor_cmd),
+        self.meteor_p = subprocess.Popen(meteor_cmd,
                                          cwd=os.path.dirname(os.path.abspath(__file__)),
                                          env=env,
                                          stdin=subprocess.PIPE,
@@ -345,13 +343,6 @@ class Meteor:
     def __del__(self):
         self.close()
 
-
-
-
-
-
-
-
 if __name__ == "__main__":
     predictions_path = "test/predictions"
     references_path = "test/references"
@@ -365,18 +356,16 @@ if __name__ == "__main__":
         references_dict = {k: [v.strip().lower()] for k,v in enumerate(references)}
         # 0: ['partitions a list of suite from a interval .']
 
-        bleu = Bleu()
-        corpus_bleu, bleu_order = bleu.corpus_bleu(hypotheses=predictions_dict, references=references_dict)
+        corpus_bleu, bleu_order = Bleu().corpus_bleu(hypotheses=predictions_dict, references=references_dict)
         print("corpus_bleu : ", corpus_bleu)
         print("Bleu order1-4 : ", bleu_order)
         # corpus_bleu : 0.25467977003051817
         # {1: 0.45147210394009457, 2: 0.25286423679476816, 3: 0.20369564445128535, 4: 0.18091631042057468}
 
-        # meteor = Meteor()
-        # score, _ = meteor.compute_score(gts=references_dict, res=predictions_dict)
-        # print("meteor : ", score)
+        score, _ = Meteor().compute_score(gts=references_dict, res=predictions_dict)
+        print("meteor : ", score)
+        # meteor :  0.20701547506449144
 
-        rouge_l = Rouge()
-        rouge_l_score, _ = rouge_l.compute_score(gts=references_dict, res=predictions_dict)
+        rouge_l_score, _ = Rouge().compute_score(gts=references_dict, res=predictions_dict)
         print("rouge-l : ", rouge_l_score)
         # rouge-l :  0.47184490911050164

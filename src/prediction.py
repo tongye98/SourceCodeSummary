@@ -11,6 +11,7 @@ import math
 from datas import make_data_iter
 from search import search
 import time
+from metrics import Bleu, Meteor, Rouge
 
 logger = logging.getLogger(__name__)
 
@@ -147,14 +148,20 @@ def predict(model, data:Dataset, device:torch.device,
         valid_hyp_1best = (valid_hypotheses if n_best == 1 else [valid_hypotheses[i] for i in range(0, len(valid_hypotheses), n_best)])
         assert len(valid_hyp_1best) == len(valid_references)
 
+        predictions_dict = {k: [v.strip().lower()] for k,v in enumerate(valid_hyp_1best)}
+        # 0: ['partitions a list of suite from a interval .']
+        references_dict = {k: [v.strip().lower()] for k,v in enumerate(valid_references)}
+        # 0: ['partitions a list of suite from a interval .']
+
         eval_metric_start_time = time.time()
         for eval_metric in eval_metrics:
             if eval_metric == "bleu":
-                valid_scores[eval_metric] = 0
+                valid_scores[eval_metric] = Bleu().compute_bleu(hypotheses=predictions_dict, references=references_dict)[0]
+                # geometric mean of bleu scores
             elif eval_metric == "meteor":
-                valid_scores[eval_metric] = 0
+                valid_scores[eval_metric] = Meteor().compute_score(gts=references_dict, res=predictions_dict)[0]
             elif eval_metric == "rouge-l":
-                valid_scores[eval_metric] = 0
+                valid_scores[eval_metric] = Rouge().compute_score(gts=references_dict, res=predictions_dict)[0]
         eval_duration = time.time() - eval_metric_start_time
         eval_metrics_string = ", ".join([f"{eval_metric}:{valid_scores[eval_metric]:6.2f}" for eval_metric in 
                                           eval_metrics+["loss","ppl"] ])
