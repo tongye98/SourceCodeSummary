@@ -5,7 +5,7 @@ from pathlib import Path
 
 def build_dataset(dataset_type: str, path:str, split_mode:str,
                   src_language: str, trg_language: str,
-                  tokenizer: Dict, sentences_to_vocab_ids:Dict[str, Callable]) -> Dataset:
+                  tokenizer: Dict, sentences_to_vocab_ids:Dict[str, Callable] = None) -> Dataset:
     """
     Build a dataset.
     """

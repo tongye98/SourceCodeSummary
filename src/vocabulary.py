@@ -148,7 +148,7 @@ class Vocabulary(object):
         return [self.array_to_sentence(array=array, cut_at_eos=cut_at_eos, skip_pad=skip_pad) 
                 for array in arrays]
     
-    def sentences_to_ids(self, sentences:List[List[str]], bos:bool=True, eos:bool=False) -> Tuple(List[List[int]], List[int]):
+    def sentences_to_ids(self, sentences:List[List[str]], bos:bool=True, eos:bool=False) -> Tuple[List[List[int]], List[int]]:
         """
         Encode sentences to indices and pad sentences to the maximum length 
         of the sentences given.

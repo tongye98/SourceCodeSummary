@@ -1,6 +1,7 @@
 import logging
 from modulefinder import Module
-from os import symlink
+import os
+os.environ["CUDA_LAUNCH_BLOCKING"] = '1'
 import numpy as np
 import torch
 from torch import Tensor, nn
@@ -19,6 +20,7 @@ from builders import build_gradient_clipper, build_optimizer, build_scheduler
 import heapq
 import math
 import time
+
 
 logger = logging.getLogger(__name__) 
 
@@ -284,9 +286,6 @@ class TrainManager(object):
 
                 self.model.train()
                 self.model.zero_grad()
-
-                if self.scheduler_step_at == "epoch":
-                    self.scheduler.step(epoch=epoch_no)
                 
                 # Statistic for each epoch.
                 start_time = time.time()
@@ -299,6 +298,7 @@ class TrainManager(object):
                     # FIXME sort batch by src length and keep track of order
                     # batch.sort_by_src_length()
                     normalized_batch_loss = self.train_step(batch_data)
+
                     total_batch_loss += normalized_batch_loss
 
                     # clip gradients (in-place)
@@ -352,6 +352,9 @@ class TrainManager(object):
                         self.stats.is_min_lr = True 
                     
                     self.tb_writer.add_scalar("Train/learning_rate", current_lr, self.stats.steps)
+
+                if self.scheduler_step_at == "epoch":
+                    self.scheduler.step(epoch=epoch_no)
                 
                 # check after a whole epoch.
                 if self.stats.is_min_lr or self.stats.is_max_update:
@@ -394,7 +397,8 @@ class TrainManager(object):
         # normalization = 'batch' means final loss is average-sentence level loss in batch
         # normalization = 'tokens' means final loss is average-token level loss in batch
         normalized_batch_loss = batch_data.normalize(batch_loss, self.normalization, self.n_gpu)
-
+        print(normalized_batch_loss)
+        assert False
         normalized_batch_loss.backward()
 
         # increment token counter
