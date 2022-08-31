@@ -277,7 +277,7 @@ class TrainManager(object):
         logger.info("Train stats:\n"
                     "\tdevice: %s\n"
                     "\tn_gpu: %d\n"
-                    "\tbatch_size per device: %d\n",
+                    "\tbatch_size per device: %d",
                     self.device.type, self.n_gpu,
                     self.batch_size // self.n_gpu,)
         try:
@@ -389,7 +389,8 @@ class TrainManager(object):
         src_mask = batch_data.src_mask
         trg_mask = batch_data.trg_mask
         trg_truth = batch_data.trg
-
+        logger.info(src_input)
+        assert False 
         # get loss (run as during training with teacher forcing)
         batch_loss, log_probs = self.model(return_type="loss", src_input=src_input, trg_input=trg_input,
                    src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth)
@@ -397,8 +398,7 @@ class TrainManager(object):
         # normalization = 'batch' means final loss is average-sentence level loss in batch
         # normalization = 'tokens' means final loss is average-token level loss in batch
         normalized_batch_loss = batch_data.normalize(batch_loss, self.normalization, self.n_gpu)
-        print(normalized_batch_loss)
-        assert False
+
         normalized_batch_loss.backward()
 
         # increment token counter
