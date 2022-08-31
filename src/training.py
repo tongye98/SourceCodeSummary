@@ -418,8 +418,8 @@ class TrainManager(object):
         
         # write eval_metric and corresponding score to tensorboard
         for eval_metric, score in valid_scores.items():
-            if not math.isnan(score):
-                self.tb_writer.add_scalar(f"Valid/{eval_metric}", score, self.stats.steps)
+            # if not math.isnan(score):
+            self.tb_writer.add_scalar(f"Valid/{eval_metric}", score, self.stats.steps)
         
         # the most important metric
         ckpt_score = valid_scores[self.early_stopping_metric]
