@@ -283,6 +283,9 @@ class TrainManager(object):
             for epoch_no in range(self.epochs):
                 logger.info("Epoch %d", epoch_no + 1)
 
+                if self.scheduler_step_at == "epoch":
+                    self.scheduler.step(epoch=epoch_no)
+                    
                 self.model.train()
                 self.model.zero_grad()
                 
@@ -351,9 +354,6 @@ class TrainManager(object):
                         self.stats.is_min_lr = True 
                     
                     self.tb_writer.add_scalar(tag="Train/learning_rate", scalar_value=current_lr, global_step=self.stats.steps)
-                    
-                if self.scheduler_step_at == "epoch":
-                    self.scheduler.step(epoch=epoch_no)
                 
                 # check after a whole epoch.
                 if self.stats.is_min_lr or self.stats.is_max_update:
@@ -438,8 +438,8 @@ class TrainManager(object):
             logger.info("Hooray! New best validation score [%s]!", self.early_stopping_metric)
 
         # save checkpoints
-        is_better = self.stats.is_better(ckpt_score, self.ckpt_queue)
-        if is_better:
+        is_better = self.stats.is_better(ckpt_score, self.ckpt_queue) if len(self.ckpt_queue) > 0 else True
+        if is_better or self.num_ckpts < 0:
             self.save_model_checkpoint(new_best, ckpt_score)
         
         # append to validation report 
@@ -484,8 +484,8 @@ class TrainManager(object):
             logger.info("Example #%d", id)
 
             # tokenized text
-            tokenized_src = data.get_item(idx=id, lang=data.src_lang)
-            tokenized_trg = data.get_item(idx=id, lang=data.trg_lang)
+            tokenized_src = data.get_item(idx=id, language=data.src_language)
+            tokenized_trg = data.get_item(idx=id, language=data.trg_language)
             logger.debug("\tTokenized source:  %s", tokenized_src)
             logger.debug("\tTokenized reference:  %s", tokenized_trg)
             logger.debug("\tTokenized hypothesis:  %s", hypotheses_raw[id])

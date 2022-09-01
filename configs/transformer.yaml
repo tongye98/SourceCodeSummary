@@ -49,11 +49,11 @@ training:
     learning_rate_min: 0.000001
     keep_best_ckpts: 5
     logging_freq: 10
-    validation_freq: 100
+    validation_freq: 200
     log_valid_sentences: [0,1,2]
     early_stopping_metric: "bleu"
     shuffle: True
-    epochs: 200
+    epochs: 100
     max_updates: 100000 #  "np.inf"
     batch_size: 32
     batch_type: "sentence"

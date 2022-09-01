@@ -145,7 +145,7 @@ def predict(model, data:Dataset, device:torch.device,
     # FIXME  add dataset trg function return -> list of strings
     valid_references = data.trg
 
-    if data.has_trg:
+    if True or data.has_trg: #TODO consider data has no trg situation.
         valid_hyp_1best = (valid_hypotheses if n_best == 1 else [valid_hypotheses[i] for i in range(0, len(valid_hypotheses), n_best)])
         assert len(valid_hyp_1best) == len(valid_references)
 
@@ -157,7 +157,7 @@ def predict(model, data:Dataset, device:torch.device,
         eval_metric_start_time = time.time()
         for eval_metric in eval_metrics:
             if eval_metric == "bleu":
-                valid_scores[eval_metric] = Bleu().compute_bleu(hypotheses=predictions_dict, references=references_dict)[0]
+                valid_scores[eval_metric] = Bleu().corpus_bleu(hypotheses=predictions_dict, references=references_dict)[0]
                 # geometric mean of bleu scores
             elif eval_metric == "meteor":
                 valid_scores[eval_metric] = Meteor().compute_score(gts=references_dict, res=predictions_dict)[0]
