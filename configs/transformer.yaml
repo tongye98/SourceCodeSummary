@@ -27,8 +27,8 @@ data:
         filter_or_truncate: "truncate"
 
 training:
-    model_dir: "models/rencos_python/test4"
-    tensorboard_dir: "models/tensorboard_log/rencos_python_test4"
+    model_dir: "models/rencos_python/test5"
+    tensorboard_dir: "models/tensorboard_log/rencos_python_test5"
     overwrite: True
     random_seed: 980820
     use_cuda: True
@@ -93,29 +93,29 @@ model:
     tied_softmax: False
     tied_embeddings: False
     encoder:
-        model_dim: 64
-        ff_dim: 128
-        num_layers: 3
-        head_count: 4
+        model_dim: 512
+        ff_dim: 2048
+        num_layers: 6
+        head_count: 8
         layer_norm_position: "pre"
         freeze: False
         dropout: 0.1
         embeddings:
-            embedding_dim: 64
+            embedding_dim: 512
             scale: True
             freeze: False
             dropout: 0.1
             # load_pretrained
     decoder:
-        model_dim: 64
-        ff_dim: 128
-        num_layers: 3
-        head_count: 4
+        model_dim: 512
+        ff_dim: 2048
+        num_layers: 6
+        head_count: 8
         layer_norm_position: "pre"
         freeze: False
         dropout: 0.1
         embeddings:
-            embedding_dim: 64
+            embedding_dim: 512
             scale: True
             freeze: False
             dropout: 0.1
