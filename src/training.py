@@ -21,8 +21,7 @@ import heapq
 import math
 import time
 
-
-logger = logging.getLogger(__name__) 
+logger = logging.getLogger("training") 
 
 def train(cfg_file: str, skip_test:bool=False) -> None:
     """
@@ -326,9 +325,9 @@ class TrainManager(object):
                         elapse_time = time.time() - start_time - total_valid_duration_time
                         elapse_token_num = self.stats.total_tokens - start_tokens
                         # FIXME why is total batch loss
-                        self.tb_writer.add_scalar("Train/batch_loss", total_batch_loss, self.stats.steps)
+                        self.tb_writer.add_scalar(tag="Train/batch_loss",scalar_value=total_batch_loss,global_step=self.stats.steps)
                     
-                        logger.info("Epoch %3d, Step: %8d, Batch Loss: %12.6f, Lr: %.6f, Tokens per sec: %8.0f",
+                        logger.info("Epoch %3d, Step: %7d, Batch Loss: %12.6f, Lr: %.6f, Tokens per sec: %6.0f",
                         epoch_no + 1, self.stats.steps, total_batch_loss, self.optimizer.param_groups[0]["lr"],
                         elapse_token_num / elapse_time)
 
@@ -351,8 +350,8 @@ class TrainManager(object):
                     if current_lr < self.learning_rate_min:
                         self.stats.is_min_lr = True 
                     
-                    self.tb_writer.add_scalar("Train/learning_rate", current_lr, self.stats.steps)
-
+                    self.tb_writer.add_scalar(tag="Train/learning_rate", scalar_value=current_lr, global_step=self.stats.steps)
+                    
                 if self.scheduler_step_at == "epoch":
                     self.scheduler.step(epoch=epoch_no)
                 
@@ -389,8 +388,7 @@ class TrainManager(object):
         src_mask = batch_data.src_mask
         trg_mask = batch_data.trg_mask
         trg_truth = batch_data.trg
-        logger.info(src_input)
-        assert False 
+
         # get loss (run as during training with teacher forcing)
         batch_loss, log_probs = self.model(return_type="loss", src_input=src_input, trg_input=trg_input,
                    src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth)

@@ -91,7 +91,7 @@ class Transformer(nn.Module):
         output = self.encoder(embed_src, src_mask)
         return output
     
-    def decode(self, trg_input:Tensor, encoder_output:Tensor,
+    def decode(self, trg_input:Tensor, encode_output:Tensor,
                src_mask:Tensor, trg_mask:Tensor):
         """
         trg_input: [batch_size, trg_len]
@@ -104,7 +104,7 @@ class Transformer(nn.Module):
             cross_attention_weight [batch_size, trg_len, src_len]
         """
         embed_trg = self.trg_embed(trg_input) # embed_trg [batch_size, trg_len, embed_dim]
-        output, input, cross_attention_weight = self.decoder(embed_trg, encoder_output,src_mask, trg_mask)
+        output, input, cross_attention_weight = self.decoder(embed_trg, encode_output,src_mask, trg_mask)
         return output, input, cross_attention_weight
 
     def __repr__(self) -> str:
@@ -172,7 +172,7 @@ def build_model(model_cfg: dict=None,
     decoder_emb_dropout = decoder_cfg["embeddings"].get("dropout",decoder_dropout)
     decoder = TransformerDecoder(model_dim=decoder_cfg["model_dim"],ff_dim=decoder_cfg["ff_dim"],
                                 num_layers=decoder_cfg["num_layers"],head_count=decoder_cfg["head_count"],
-                                dropout=decoder_dropout, emb_dropout=decoder_emb_dropout,
+                                vocab_size=len(trg_vocab), dropout=decoder_dropout, emb_dropout=decoder_emb_dropout,
                                 layer_norm_position=decoder_cfg["layer_norm_position"],
                                 freeze=decoder_cfg["freeze"])
     
