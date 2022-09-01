@@ -96,7 +96,23 @@ class PlaintextDataset(BaseDataset):
     
     def __len__(self) -> int:
         return len(self.data[self.src_language])
-
+    
+    @property
+    def src(self) -> List[str]:
+        sentence_list = []
+        for i in range(self.__len__()):
+            sentence = self.data[self.src_language][i]
+            sentence_list.append(sentence)
+        return sentence_list
+    
+    @property
+    def trg(self) -> List[str]:
+        sentence_list = []
+        for i in range(self.__len__()):
+            sentence = self.data[self.trg_language][i]
+            sentence_list.append(sentence)
+        return sentence_list
+        
 
 if __name__ == "__main__":
     # dataset
