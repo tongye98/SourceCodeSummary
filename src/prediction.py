@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 def predict(model, data:Dataset, device:torch.device,
             n_gpu:int, compute_loss:bool=False, normalization:str="batch",
-            num_workers:int=0, cfg:Dict=None):
+            num_workers:int=0, cfg:Dict=None, seed:int=980820):
     """
     Generate outputs(translations/summary) for the given data.
     If 'compute_loss' is True and references are given, also computes the loss.
@@ -34,18 +34,18 @@ def predict(model, data:Dataset, device:torch.device,
     if return_prob == "references":
         decoding_description = ""
     else:
-        decoding_description = ("(Greedy decoding with " if beam_size < 2 else f"(Beam search with \
-            beam_size={beam_size}, beam_alpha={beam_alpha}, n_best={n_best}")
-        decoding_description += (f"min_output_length={min_output_length}, \
-            max_output_length={max_output_length}, return_prob={return_prob}, \
-            genereate_unk={generate_unk}, repetition_penalty={repetition_penalty}, \
-            no_repeat_ngram_size={no_repeat_ngram_size})")
+        decoding_description = ("(Greedy decoding with " if beam_size < 2 else f"(Beam search with "
+                                f"beam_size={beam_size}, beam_alpha={beam_alpha}, n_best={n_best}")
+        decoding_description += (f"min_output_length={min_output_length}, "
+                                 f"max_output_length={max_output_length}, return_prob={return_prob}, "
+                                 f"genereate_unk={generate_unk}, repetition_penalty={repetition_penalty}, "
+                                 f"no_repeat_ngram_size={no_repeat_ngram_size})")
     logger.info("Predicting %d examples...%s", len(data), decoding_description)
 
     assert batch_size >= n_gpu, "batch size must be bigger than n_gpu"
 
-    data_iter = make_data_iter(dataset=data, shuffle=False, batch_type=batch_type, batch_size=batch_size,
-                               num_workers=num_workers, device=device)
+    data_iter = make_data_iter(dataset=data, sampler_seed=seed, shuffle=False, batch_type=batch_type,
+                               batch_size=batch_size, num_workers=num_workers, device=device)
 
     model.eval()
 
@@ -63,7 +63,8 @@ def predict(model, data:Dataset, device:torch.device,
     for batch_data in data_iter:
         total_nseqs += batch_data.nseqs 
 
-        if compute_loss and batch_data.has_trg:
+        # if compute_loss and batch_data.has_trg:
+        if compute_loss: 
             assert model.loss_function is not None
             # don't track gradients during validation 
             with torch.no_grad():
@@ -78,7 +79,7 @@ def predict(model, data:Dataset, device:torch.device,
                 # sum over multiple gpus.
                 # if normalization = 'sum', keep the same.
                 batch_loss = batch_data.normalize(batch_loss, "sum", n_gpu)
-                total_tokens += batch_data.ntokens
+                total_ntokens += batch_data.ntokens
                 if return_prob == "references":
                     output = trg_truth
             

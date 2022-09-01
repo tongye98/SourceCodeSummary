@@ -49,7 +49,7 @@ training:
     learning_rate_min: 0.000001
     keep_best_ckpts: 5
     logging_freq: 10
-    validation_freq: 100000000
+    validation_freq: 100
     log_valid_sentences: [0,1,2]
     early_stopping_metric: "bleu"
     shuffle: True
@@ -77,8 +77,8 @@ testing:
     return_attention: False
     return_prob: "hypotheses" # hypotheses, references, none
     generate_unk: True
-    repetition_penalty: 2 # >1, -1 means no repetition penalty. no used
-    no_repeat_ngram_size: -1 # no used
+    repetition_penalty: 2 # >1, -1 means no repetition penalty. # no implemented
+    no_repeat_ngram_size: -1 # no implemented
 
 
 model:
