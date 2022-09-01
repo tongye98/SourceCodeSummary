@@ -35,6 +35,20 @@ class BasicTokenizer(object):
         
         return sentence
     
+    def post_process(self, sentence: List[str], generate_unk: bool=True) -> str:
+        """
+        Post-process sentence tokens.
+        result a sentence(a string.)
+        """
+        sentence = self.remove_special(sentence, generate_unk=generate_unk)
+        sentence = self.SPACE.join(sentence)
+
+        return sentence
+
+    def remove_special(self, sentence: List[str], generate_unk: bool=False) -> List[str]:
+        specials = self.SPECIALS[:-1] if generate_unk else self.SPECIALS
+        return [token for token in sentence if token not in specials]
+
     def filter_or_truncate_by_length(self, sentence_token:List[str]) -> List[str]:
         if self.filter_or_truncate == "filter":
             if len(sentence_token) < self.min_length or len(sentence_token) > self.max_length:
