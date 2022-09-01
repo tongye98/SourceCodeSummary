@@ -27,8 +27,8 @@ data:
         filter_or_truncate: "truncate"
 
 training:
-    model_dir: "models/rencos_python/test5"
-    tensorboard_dir: "models/tensorboard_log/rencos_python_test5"
+    model_dir: "models/rencos_python/test9"
+    tensorboard_dir: "models/tensorboard_log/rencos_python_test9"
     overwrite: True
     random_seed: 980820
     use_cuda: True
@@ -46,14 +46,14 @@ training:
     gamma: 0.8 # for scheduling = "StepLR" or "ExponentialLR"
     learning_rate: 0.005
     weight_decay: 0
-    learning_rate_min: 0.0001
+    learning_rate_min: 0.000001
     keep_best_ckpts: 5
     logging_freq: 10
-    validation_freq: 100000
+    validation_freq: 100000000
     log_valid_sentences: [0,1,2]
     early_stopping_metric: "bleu"
     shuffle: True
-    epochs: 100
+    epochs: 200
     max_updates: 100000 #  "np.inf"
     batch_size: 32
     batch_type: "sentence"
@@ -93,29 +93,29 @@ model:
     tied_softmax: False
     tied_embeddings: False
     encoder:
-        model_dim: 512
-        ff_dim: 2048
-        num_layers: 6
-        head_count: 8
+        model_dim: 64
+        ff_dim: 128
+        num_layers: 3
+        head_count: 4
         layer_norm_position: "pre"
         freeze: False
         dropout: 0.1
         embeddings:
-            embedding_dim: 512
+            embedding_dim: 64
             scale: True
             freeze: False
             dropout: 0.1
             # load_pretrained
     decoder:
-        model_dim: 512
-        ff_dim: 2048
-        num_layers: 6
-        head_count: 8
+        model_dim: 64
+        ff_dim: 128
+        num_layers: 3
+        head_count: 4
         layer_norm_position: "pre"
         freeze: False
         dropout: 0.1
         embeddings:
-            embedding_dim: 512
+            embedding_dim: 64
             scale: True
             freeze: False
             dropout: 0.1

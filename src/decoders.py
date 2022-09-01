@@ -34,7 +34,7 @@ class TransformerDecoder(nn.Module):
         embed_trg [batch_size, trg_len, model_dim]
         encoder_ouput [batch_size, src_len, model_dim]
         src_mask [batch_size, 1, src_len]
-        trg_mask [batch_size, trg_len, trg_len]
+        trg_mask [batch_size, 1, trg_len]
         return:
             output [batch_size, trg_len, vocab_size]    after output layer
             input [batch_size, trg_len, model_dim]      before output layer
@@ -45,6 +45,7 @@ class TransformerDecoder(nn.Module):
         input = self.emb_dropout(embed_trg)
 
         trg_mask = trg_mask & subsequent_mask(embed_trg.size(1)).type_as(trg_mask)
+        # trg_mask [batch_size, 1, trg_len] -> [batch_size, trg_len, trg_len] (include mask the token unseen)
 
         for layer in self.layers:
             input, cross_attention_weight = layer(input, memory=encoder_output, src_mask=src_mask, trg_mask=trg_mask)
@@ -62,5 +63,5 @@ class TransformerDecoder(nn.Module):
 
 if __name__ == "__main__":
     # Test decoder
-    decoder = TransformerDecoder(512,2048,6,8,10000,0.1,0.1,'post',False)
+    decoder = TransformerDecoder(512, 2048, 6, 8, 10000, 0.1, 0.1, 'post', False)
     print(decoder)
