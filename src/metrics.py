@@ -110,7 +110,7 @@ class Bleu(object):
         # return (bleu, precisions, bp, ratio, translation_length, reference_length)
         bleu_order = {}
         for i, precision in enumerate(precisions):
-            bleu_order[i+1] = precision * bp
+            bleu_order["bleu-{}".format(i+1)] = precision * bp
         return bleu, bleu_order
 
 

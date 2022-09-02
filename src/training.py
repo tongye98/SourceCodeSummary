@@ -12,7 +12,7 @@ from typing import List
 from helps import load_config,make_model_dir,make_tensorboard_dir,make_logger, log_cfg
 from helps import set_seed, parse_train_arguments, load_model_checkpoint
 from helps import symlink_update, delete_ckpt, write_validation_output_to_file
-from prediction import predict
+from prediction import predict, test
 from datas import load_data, make_data_iter
 from model import build_model
 from torch.utils.tensorboard import SummaryWriter
@@ -65,9 +65,18 @@ def train(cfg_file: str, skip_test:bool=False) -> None:
 
     # after train, let's test on test data.
     if not skip_test:
-        # TODO
-        pass
         # predict with best model on validation and test data.
+        # Get the best model checkpoint
+        model_best_checkpoint_path = model_dir / f"{trainer.stats.best_ckpt_iter}.ckpt"
+        output_path = model_dir/f"output_{trainer.stats.best_ckpt_iter}.hyps"
+
+        dataset_to_test = {
+            "dev": dev_data, "test":test_data,
+            "src_vocab": src_vocab, "trg_vocab": trg_vocab
+        }
+
+        test(cfg_file, ckpt_path=model_best_checkpoint_path.as_posix(),output_path=output_path, datasets=dataset_to_test)
+
     else:
         logger.info("Skipping test after training the model!")
 
@@ -411,7 +420,7 @@ class TrainManager(object):
         """
         validate_start_time = time.time()
         # vallid_hypotheses_raw is befor tokenizer post_process
-        (valid_scores, valid_references, valid_hypotheses, 
+        (valid_scores, bleu_order, valid_references, valid_hypotheses, 
          valid_hypotheses_raw, valid_sentences_scores, 
          valid_attention_scores) = predict(model=self.model, data=valid_data, device=self.device, 
                                             n_gpu=self.n_gpu, compute_loss=True, normalization=self.normalization, 
@@ -422,6 +431,8 @@ class TrainManager(object):
         for eval_metric, score in valid_scores.items():
             # if not math.isnan(score):
             self.tb_writer.add_scalar(f"Valid/{eval_metric}", score, self.stats.steps)
+        # write bleu-order to tensorboard
+        self.tb_writer.add_scalars("Bleu-1/2/3/4", bleu_order, self.stats.steps)
         
         # the most important metric
         ckpt_score = valid_scores[self.early_stopping_metric]

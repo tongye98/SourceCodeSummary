@@ -27,12 +27,12 @@ data:
         filter_or_truncate: "truncate"
 
 training:
-    model_dir: "models/rencos_python/transformer_base"
-    tensorboard_dir: "models/tensorboard_log/transformer_base"
+    model_dir: "models/rencos_python/transformer_base2"
+    tensorboard_dir: "models/tensorboard_log/transformer_base2"
     overwrite: True
     random_seed: 980820
     use_cuda: True
-    num_workers: 0
+    num_workers: 4
     optimizer: "adam"
     adam_betas: [0.9, 0.999]
     normalization: "batch" # batch,tokens | batch means loss divide sentences in the batch; token means loss divide tokens in the batch.
@@ -44,7 +44,7 @@ training:
     patience: 5 # for scheduling = 'ReduceLROnPlatea'
     step_size: 1 # for scheduling = "StepLR" 
     gamma: 0.99 # for scheduling = "StepLR" or "ExponentialLR"
-    learning_rate: 0.0001
+    learning_rate: 0.0002
     weight_decay: 0
     learning_rate_min: 0.0000001
     keep_best_ckpts: 5

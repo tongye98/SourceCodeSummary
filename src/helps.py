@@ -347,6 +347,25 @@ def tile(x: Tensor, count: int, dim : int=0) -> Tensor:
     x = x.view(batch_size, -1).transpose(0,1).repeat(count, 1).transpose(0,1).contiguous().view(*out_size)
     return x
 
+def resolve_ckpt_path(ckpt_path:str, load_model:str, model_dir:Path) -> Path:
+    """
+    Resolve checkpoint path
+    First choose ckpt_path, then choos load_model, 
+    then choose model_dir/best.ckpt, final choose model_dir/latest.ckpt
+    """
+    logger = logging.getLogger(__name__)
+    if ckpt_path is None:
+        if load_model is None:
+            if (model_dir/ "best.ckpt").is_file():
+                ckpt_path = model_dir / "best.ckpt"
+            else:
+                logger.warning("No ckpt_path, no load_model, no best_model, Please Check!")
+                ckpt_path = model_dir / "latest.ckpt"
+        else:
+            ckpt_path = Path(load_model)
+    return Path(ckpt_path)
+
+
 
 if __name__ == "__main__":
     # TEST 
