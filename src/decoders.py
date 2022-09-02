@@ -24,6 +24,7 @@ class TransformerDecoder(nn.Module):
         
         self.head_count = head_count
         self.layer_norm_position = layer_norm_position
+        self.output_size = vocab_size
         if freeze:
             freeze_params(self)
     

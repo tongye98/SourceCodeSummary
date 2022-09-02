@@ -180,7 +180,7 @@ def beam_search(model, encoder_output, src_mask, max_output_length, min_output_l
                 "scores": [[] for _ in range(batch_size)] }
 
     # Indicator if the generation is finished.
-    is_finished = torch.fill((batch_size, beam_size), value=False, dtype=torch.bool, device=device)
+    is_finished = torch.full((batch_size, beam_size), False, dtype=torch.bool, device=device)
 
     for step in range(max_output_length):
         # feed the complete predicted sentences so far.
@@ -289,7 +289,7 @@ def beam_search(model, encoder_output, src_mask, max_output_length, min_output_l
                         results['predictions'][b].append(pred)
             
             # batch indices of the examples which contain unfinished candidates.
-            unfinished = end_condition.eq(False).nonzeros(as_tuple=False).view(-1)
+            unfinished = end_condition.eq(False).nonzero(as_tuple=False).view(-1)
             # unfinished [batch_size]
             if len(unfinished) == 0:
                 break
@@ -317,7 +317,8 @@ def beam_search(model, encoder_output, src_mask, max_output_length, min_output_l
 
     # from results to stacked output
     # final_outputs [batch_size*n_best, hyp_len]
-    final_outputs = pad_and_stack_hyps([u.cpu.numpy() for r in results['predictions'] for u in r])
+    predictions_list = [u.cpu().numpy() for r in results["predictions"] for u in r]
+    final_outputs = pad_and_stack_hyps(predictions_list)
     scores = (np.array([[u.item()] for r in results['scores'] for u in r]) if return_prob else None)
 
     return final_outputs, scores, None

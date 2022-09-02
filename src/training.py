@@ -27,6 +27,7 @@ def train(cfg_file: str, skip_test:bool=False) -> None:
     """
     Training function. After training, also test on test data if given.
     """
+    # torch.multiprocessing.set_start_method('spawn')
     cfg = load_config(Path(cfg_file))
 
     # make model dir and tensorboard log dir
@@ -537,5 +538,5 @@ class TrainManager(object):
             return is_better
 
 if __name__ == "__main__":
-    cfg_file = "configs/rencos_python.yaml"
-    train(cfg_file=cfg_file, skip_test=True)
+    cfg_file = "configs/transformer.yaml"
+    train(cfg_file=cfg_file, skip_test=False)
