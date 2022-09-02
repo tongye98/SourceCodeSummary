@@ -39,6 +39,7 @@ class Batch(object):
     
     def move2cuda(self, device: torch.device):
         """Move batch to GPU"""
+        assert isinstance(device, torch.device)
         self.src = self.src.to(device)
         self.src_length = self.src_length.to(device)
         self.src_mask = self.src_mask.to(device)
