@@ -11,7 +11,7 @@ data:
         vocab_max_size: 50000
         lowercase: True
         normalize: True # tokernizer pre-process sentence.strip()
-        max_length: 400
+        max_length: 100
         min_length: 1
         filter_or_truncate: "truncate"
     trg: 
@@ -22,7 +22,7 @@ data:
         vocab_max_size: 30000
         lowercase: True
         normalize: True 
-        max_length: 30
+        max_length: 50
         min_length: 1
         filter_or_truncate: "truncate"
 
@@ -53,7 +53,7 @@ training:
     log_valid_sentences: [0,1,2]
     early_stopping_metric: "bleu"
     shuffle: True
-    epochs: 20
+    epochs: 200
     max_updates: 800000 #  "np.inf" 800k
     batch_size: 64
     batch_type: "sentence"
@@ -68,7 +68,7 @@ training:
 testing:
     batch_size: 64
     batch_type: "sentence"
-    max_output_length: 30
+    max_output_length: 50
     min_output_length: 1
     eval_metrics: ['bleu', 'meteor','rouge-l']
     n_best: 1
