@@ -156,7 +156,7 @@ class TrainManager(object):
         # config for generation
         self.valid_cfg = cfg["testing"].copy()
         self.valid_cfg["beam_size"] = 1 # 1 means greedy decoding during train loop
-        self.valid_cfg["batch_size"] = self.batch_size
+        self.valid_cfg["batch_size"] = self.batch_size*2
         self.valid_cfg["batch_type"] = self.batch_type
         self.valid_cfg["n_best"] == 1   # only the best one
         
@@ -526,5 +526,5 @@ class TrainManager(object):
             return is_better
 
 if __name__ == "__main__":
-    cfg_file = "configs/transformer.yaml"
+    cfg_file = "configs/rencos_python.yaml"
     train(cfg_file=cfg_file, skip_test=True)

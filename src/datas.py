@@ -155,7 +155,7 @@ def collate_fn(batch: List[Tuple], src_sentences_to_vocab_ids: Callable,
     """
     Custom collate function.
     Note: you can stack batch and any operation on batch.
-    DataLoader每次迭代的返回值就是collate_fn的返回值 -> Batch.
+    DataLoader every iter result is collate_fn's return value -> Batch.
     :param batch [(src,trg),(src,trg),...]
     """
     batch = [(src, trg) for (src, trg) in batch]  # doing nothing.
