@@ -1,5 +1,4 @@
 import argparse
-print('hello')
 from src.training import train
 from src.prediction import test 
 
