@@ -538,5 +538,5 @@ class TrainManager(object):
             return is_better
 
 if __name__ == "__main__":
-    cfg_file = "configs/rencos_python_base3.yaml"
+    cfg_file = "configs/rencos_python_base2.yaml"
     train(cfg_file=cfg_file, skip_test=False)
