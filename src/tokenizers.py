@@ -1,10 +1,10 @@
 import logging
 from typing import Dict, List
-from helps import ConfigurationError
+from src.helps import ConfigurationError
 from pathlib import Path
 logger = logging.getLogger(__name__)
 
-from constants import BOS_TOKEN, EOS_TOKEN, PAD_TOKEN, UNK_TOKEN
+from src.constants import BOS_TOKEN, EOS_TOKEN, PAD_TOKEN, UNK_TOKEN
 
 class BasicTokenizer(object):
     SPACE = chr(32)  # ' ': half-width white space (ascii)

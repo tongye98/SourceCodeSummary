@@ -3,10 +3,10 @@
 Search Module
 """
 from typing import List, Tuple
-from batch import Batch
+from src.batch import Batch
 import torch 
 import torch.nn.functional as F
-from helps import tile
+from src.helps import tile
 import numpy as np
 
 def search(model, batch_data: Batch, 

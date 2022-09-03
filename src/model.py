@@ -2,16 +2,16 @@ from typing import Tuple
 import torch
 from torch import Tensor, nn
 import torch.nn.functional as F
-from vocabulary import Vocabulary
-from embeddings import Embeddings
-from encoders import TransformerEncoder
-from decoders import TransformerDecoder 
-from helps import ConfigurationError
-from initialization import Initialize_model
+from src.vocabulary import Vocabulary
+from src.embeddings import Embeddings
+from src.encoders import TransformerEncoder
+from src.decoders import TransformerDecoder 
+from src.helps import ConfigurationError
+from src.initialization import Initialize_model
 import logging
 from pathlib import Path
 import numpy as np
-from loss import XentLoss
+from src.loss import XentLoss
 
 logger = logging.getLogger(__name__)
 

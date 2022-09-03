@@ -1,5 +1,5 @@
 from typing import Callable, Dict, List
-from helps import ConfigurationError, read_list_from_file
+from src.helps import ConfigurationError, read_list_from_file
 from torch.utils.data import Dataset
 from pathlib import Path
 

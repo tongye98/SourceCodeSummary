@@ -6,7 +6,7 @@ Implemention of a mini-batch
 import logging 
 import torch 
 from torch import Tensor
-from constants import PAD_ID
+from src.constants import PAD_ID
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
 # coding: utf-8
 from torch import Tensor, nn 
-from transformer_layers import PositionalEncoding, TransformerDecoderLayer 
-from helps import freeze_params, subsequent_mask
+from src.transformer_layers import PositionalEncoding, TransformerDecoderLayer 
+from src.helps import freeze_params, subsequent_mask
 import logging  
 
 logger = logging.getLogger(__name__)

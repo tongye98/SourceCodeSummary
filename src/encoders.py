@@ -1,6 +1,6 @@
 from torch import Tensor, nn 
-from transformer_layers import TransformerEncoderLayer, PositionalEncoding
-from helps import freeze_params
+from src.transformer_layers import TransformerEncoderLayer, PositionalEncoding
+from src.helps import freeze_params
 
 class TransformerEncoder(nn.Module):
     """

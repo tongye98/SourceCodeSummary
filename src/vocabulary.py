@@ -3,18 +3,17 @@
 Vocabulary module
 """
 import logging
-from operator import truediv
 from pathlib import Path
 import numpy as np
 from typing import Dict, List, Tuple
 import unicodedata
 import sys
 from collections import Counter
-from helps import flatten, sort_and_cut
-from helps import write_list_to_file
+from src.helps import flatten, sort_and_cut
+from src.helps import write_list_to_file
 import time
 
-from constants import (
+from src.constants import (
     UNK_TOKEN,
     UNK_ID,
     PAD_TOKEN,

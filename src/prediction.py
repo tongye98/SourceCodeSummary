@@ -6,13 +6,13 @@ import logging
 import torch 
 from torch.utils.data import Dataset
 from typing import Dict
-from helps import load_config, load_model_checkpoint, parse_test_arguments, resolve_ckpt_path, write_list_to_file
+from src.helps import load_config, load_model_checkpoint, parse_test_arguments, resolve_ckpt_path, write_list_to_file
 import math
-from datas import make_data_iter, load_data
-from search import search
-from model import build_model
+from src.datas import make_data_iter, load_data
+from src.search import search
+from src.model import build_model
 import time
-from metrics import Bleu, Meteor, Rouge
+from src.metrics import Bleu, Meteor, Rouge
 from pathlib import Path
 
 logger = logging.getLogger(__name__)

@@ -1,5 +1,4 @@
 import logging
-from modulefinder import Module
 import os
 os.environ["CUDA_LAUNCH_BLOCKING"] = '1'
 import numpy as np
@@ -9,14 +8,14 @@ from torch.utils.data import Dataset
 from pathlib import Path
 import shutil
 from typing import List
-from helps import load_config,make_model_dir,make_tensorboard_dir,make_logger, log_cfg
-from helps import set_seed, parse_train_arguments, load_model_checkpoint
-from helps import symlink_update, delete_ckpt, write_validation_output_to_file
-from prediction import predict, test
-from datas import load_data, make_data_iter
-from model import build_model
+from src.helps import load_config,make_model_dir,make_tensorboard_dir,make_logger, log_cfg
+from src.helps import set_seed, parse_train_arguments, load_model_checkpoint
+from src.helps import symlink_update, delete_ckpt, write_validation_output_to_file
+from src.prediction import predict, test
+from src.datas import load_data, make_data_iter
+from src.model import build_model, Transformer
 from torch.utils.tensorboard import SummaryWriter
-from builders import build_gradient_clipper, build_optimizer, build_scheduler
+from src.builders import build_gradient_clipper, build_optimizer, build_scheduler
 import heapq
 import math
 import time
@@ -90,7 +89,7 @@ class TrainManager(object):
     """
     Manage the whole training loop, valiation, learning rate scheduling and early stopping.
     """
-    def __init__(self, model:Module, cfg: dict) -> None:
+    def __init__(self, model: Transformer, cfg: dict) -> None:
 
         (model_dir, tensorboard_dir, loss_type, label_smoothing,
         normalization, learning_rate_min, keep_best_ckpts,

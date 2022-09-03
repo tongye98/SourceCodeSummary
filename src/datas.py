@@ -4,15 +4,15 @@ Data module
 """
 import logging
 import torch 
-from tokenizers import build_tokenizer
-from datasets import build_dataset
-from vocabulary import build_vocab
-from helps import ConfigurationError, log_data_info
+from src.tokenizers import build_tokenizer
+from src.datasets import build_dataset
+from src.vocabulary import build_vocab
+from src.helps import ConfigurationError, log_data_info
 from torch.utils.data import Dataset, Sampler, DataLoader
 from torch.utils.data import SequentialSampler, RandomSampler, BatchSampler
 from typing import Callable, List, Union, Tuple, Iterator, Iterable
 from functools import partial
-from batch import Batch
+from src.batch import Batch
 
 logger = logging.getLogger(__name__)
 

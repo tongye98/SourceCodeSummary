@@ -5,10 +5,10 @@ Embedding module
 import logging
 import torch
 from torch import Tensor, nn
-from helps import freeze_params 
+from src.helps import freeze_params 
 import math
 from pathlib import Path
-from vocabulary import Vocabulary
+from src.vocabulary import Vocabulary
 from typing import Dict
 
 logger = logging.getLogger(__name__)

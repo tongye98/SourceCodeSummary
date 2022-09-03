@@ -4,7 +4,7 @@ from torch.optim import Optimizer
 from typing import Generator
 import torch
 import logging
-from helps import ConfigurationError
+from src.helps import ConfigurationError
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, ExponentialLR
 
 logger = logging.getLogger(__name__)

@@ -2,9 +2,7 @@
 """
 Transformer layers
 """
-from inspect import modulesbyfile
 import math
-from turtle import forward
 import torch
 import torch.nn as nn
 from torch import Tensor
