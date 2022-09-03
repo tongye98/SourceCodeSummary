@@ -21,6 +21,10 @@ import heapq
 import math
 import time
 
+#TODO fp16
+#import torch.cuda.amp.autocast_mode as autocast
+#import torch.cuda.amp.GradScaler as GradScaler
+
 logger = logging.getLogger("training") 
 
 def train(cfg_file: str, skip_test:bool=False) -> None:
