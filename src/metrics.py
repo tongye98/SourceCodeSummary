@@ -16,7 +16,6 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-
 class Bleu(object):
     """
     Python implementation of BLEU and smooth-BLEU.
@@ -234,7 +233,6 @@ class Rouge(object):
 
     def method(self):
         return "Rouge"
-
 
 
 def enc(s):

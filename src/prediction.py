@@ -224,13 +224,14 @@ def test(cfg_file: str, ckpt_path:str, output_path:str=None, datasets:dict=None,
         model.to(device)
     
     # multi-gpu
-    # TODO
+    if n_gpu > 1 and not isinstance(model, torch.nn.DataParallel):
+        model = torch.nn.DataParallel(model)
 
     # really test
     for dataset_name, dataset in data_to_predict.items():
         if dataset is not None:
             logger.info("Testing on %s set...", dataset_name)
-            # FIXME compute_loss true
+            # FIXME compute_loss is set to true
             (valid_scores, bleu_order, valid_references, valid_hypotheses, decoded_valid,
             valid_sentences_scores, valid_attention_scores) = predict(model=model, data=dataset, device=device, n_gpu=n_gpu,
             compute_loss=True, normalization=normalization, num_workers=num_workers, cfg=cfg["testing"], seed=seed)

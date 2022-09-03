@@ -67,6 +67,7 @@ class Batch(object):
         
         norm_tensor = tensor / normalizer
 
+        # FIXME Already normalization ?
         if n_gpu > 1:
             norm_tensor = norm_tensor / n_gpu
 
@@ -76,7 +77,8 @@ class Batch(object):
         """
         Sort by src length(descending) and return index to revert sort
         """
-        # FIXME IS this function necessary?
+        # FIXME IS this function necessary? 
+        # for rnn, lstm is necessary, but for transformer is not necessary.
         pass
 
     def __repr__(self) -> str:

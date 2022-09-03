@@ -165,7 +165,9 @@ class TrainManager(object):
                 reset_optimizer=reset_optimizer, reset_iter_state=reset_iter_state)
         
         # multi-gpu training
-        # TODO 
+        # FIXME DistributedDataParallal
+        if self.n_gpu > 1:
+            self.model = nn.DataParallel(self.model)
 
         # config for generation
         self.valid_cfg = cfg["testing"].copy()
@@ -290,8 +292,9 @@ class TrainManager(object):
         logger.info("Train stats:\n"
                     "\tdevice: %s\n"
                     "\tn_gpu: %d\n"
+                    "\tbatch_size: %d\n"
                     "\tbatch_size per device: %d",
-                    self.device.type, self.n_gpu,
+                    self.device.type, self.n_gpu, self.batch_size,
                     self.batch_size // self.n_gpu,)
         try:
             for epoch_no in range(self.epochs):
