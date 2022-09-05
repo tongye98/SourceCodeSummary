@@ -1,6 +1,7 @@
 # coding: utf-8
+from typing import Tuple
 from torch import Tensor, nn 
-from src.transformer_layers import PositionalEncoding, TransformerDecoderLayer 
+from src.transformer_layers import PositionalEncoding, TransformerDecoderLayer, LearnablePositionalEncoding
 from src.helps import freeze_params, subsequent_mask
 import logging  
 
@@ -12,13 +13,25 @@ class TransformerDecoder(nn.Module):
     """
     def __init__(self, model_dim:int=512, ff_dim:int=2048,
                  num_layers:int=6, head_count:int=8, vocab_size:int=1, dropout:float=0.1,
-                 emb_dropout:float=0.1, layer_norm_position:str='post',freeze:bool=False) -> None:
+                 emb_dropout:float=0.1, layer_norm_position:str='post',
+                 trg_pos_emb:str="absolute", max_trg_len:int=512, freeze:bool=False,
+                 max_relative_positon:int=16, use_negative_distance:bool=True) -> None:
         super().__init__()
 
-        self.layers = nn.ModuleList([TransformerDecoderLayer(model_dim,ff_dim,head_count,dropout=dropout,
-                                                            layer_norm_position=layer_norm_position) for _ in range(num_layers)])
-        self.pe = PositionalEncoding(model_dim)
+        self.layers = nn.ModuleList([TransformerDecoderLayer(model_dim,ff_dim,head_count, dropout,
+                                                            layer_norm_position, max_relative_positon, use_negative_distance) for _ in range(num_layers)])
+        
+        assert trg_pos_emb in {"absolute", "learnable", "relative"}
+        self.trg_pos_emb = trg_pos_emb
+        if self.trg_pos_emb == "absolute":
+            self.pe = PositionalEncoding(model_dim)
+        elif self.trg_pos_emb == "learnable":
+            self.lpe = LearnablePositionalEncoding(model_dim, max_trg_len)
+        else:
+            pass 
+
         self.layer_norm = nn.LayerNorm(model_dim,eps=1e-6) if layer_norm_position == 'pre' else None
+        self.emb_layer_norm = nn.LayerNorm(model_dim,eps=1e-6) if self.trg_pos_emb == "learnable" else None
         self.emb_dropout = nn.Dropout(emb_dropout)
         self.output_layer = nn.Linear(model_dim, vocab_size, bias=False)
         
@@ -28,8 +41,8 @@ class TransformerDecoder(nn.Module):
         if freeze:
             freeze_params(self)
     
-    def forward(self, embed_trg:Tensor,encoder_output:Tensor,
-                src_mask:Tensor,trg_mask:Tensor):
+    def forward(self, embed_trg:Tensor, trg_input: Tensor, encoder_output:Tensor,
+                src_mask:Tensor, trg_mask:Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         """
         Transformer decoder forward pass.
         embed_trg [batch_size, trg_len, model_dim]
@@ -42,7 +55,15 @@ class TransformerDecoder(nn.Module):
             cross_attention_weight [batch_size, trg_len, src_len]
         """
         assert trg_mask is not None, "trg mask is required for Transformer decoder"
-        embed_trg = self.pe(embed_trg)
+        if self.trg_pos_emb == "absolute":
+            embed_trg = self.pe(embed_trg)
+        elif self.trg_pos_emb == "learnable":
+            embed_trg = self.lpe(trg_input, embed_trg)
+            if self.emb_layer_norm is not None:
+                embed_trg = self.emb_layer_norm(embed_trg)
+        else:
+            embed_trg = embed_trg
+
         input = self.emb_dropout(embed_trg)
 
         trg_mask = trg_mask & subsequent_mask(embed_trg.size(1)).type_as(trg_mask)

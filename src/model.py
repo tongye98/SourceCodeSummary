@@ -91,7 +91,7 @@ class Transformer(nn.Module):
             output [batch_size, src_len, model_dim]
         """
         embed_src = self.src_embed(src_input)  # embed_src [batch_size, src_len, embed_size]
-        output = self.encoder(embed_src, src_mask)
+        output = self.encoder(embed_src, src_input, src_mask)
         return output
     
     def decode(self, trg_input:Tensor, encode_output:Tensor,
@@ -107,7 +107,7 @@ class Transformer(nn.Module):
             cross_attention_weight [batch_size, trg_len, src_len]
         """
         embed_trg = self.trg_embed(trg_input) # embed_trg [batch_size, trg_len, embed_dim]
-        output, input, cross_attention_weight = self.decoder(embed_trg, encode_output,src_mask, trg_mask)
+        output, input, cross_attention_weight = self.decoder(embed_trg, trg_input, encode_output,src_mask, trg_mask)
         return output, input, cross_attention_weight
 
     def __repr__(self) -> str:
@@ -168,7 +168,10 @@ def build_model(model_cfg: dict=None,
                                 num_layers=encoder_cfg["num_layers"],head_count=encoder_cfg["head_count"],
                                 dropout=encoder_dropout, emb_dropout=encoder_emb_dropout,
                                 layer_norm_position=encoder_cfg["layer_norm_position"],
-                                freeze=encoder_cfg["freeze"])
+                                src_pos_emb=encoder_cfg["src_pos_emb"],
+                                max_src_len=encoder_cfg["max_src_len"],freeze=encoder_cfg["freeze"],
+                                max_relative_position=encoder_cfg["max_relative_positon"],
+                                use_negative_distance=encoder_cfg["use_negative_distance"])
     
     # Build decoder
     decoder_dropout = decoder_cfg.get("dropout", 0.1)
@@ -177,7 +180,10 @@ def build_model(model_cfg: dict=None,
                                 num_layers=decoder_cfg["num_layers"],head_count=decoder_cfg["head_count"],
                                 vocab_size=len(trg_vocab), dropout=decoder_dropout, emb_dropout=decoder_emb_dropout,
                                 layer_norm_position=decoder_cfg["layer_norm_position"],
-                                freeze=decoder_cfg["freeze"])
+                                trg_pos_emb=decoder_cfg["trg_pos_emb"],
+                                max_trg_len=decoder_cfg["max_trg_len"],freeze=decoder_cfg["freeze"],
+                                max_relative_positon=decoder_cfg["max_relative_positon"],
+                                use_negative_distance=decoder_cfg["use_negative_distance"])
     
     model = Transformer(encoder=encoder, decoder=decoder,
                         src_embed=src_embed, trg_embed=trg_embed,

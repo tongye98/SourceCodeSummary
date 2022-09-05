@@ -6,6 +6,7 @@ import math
 import torch
 import torch.nn as nn
 from torch import Tensor
+from src.helps import generate_relative_position_matrix
 
 class MultiHeadedAttention(nn.Module):
     """
@@ -13,7 +14,7 @@ class MultiHeadedAttention(nn.Module):
     consider relative position.
     """
     def __init__(self, head_count: int, model_dim:int, dropout: float=0.1,
-                 max_relative_position=0, use_neg_dist=True, coverage=False) -> None:
+                 max_relative_position=0, use_negative_distance=True, coverage=False) -> None:
         super().__init__()
         assert model_dim % head_count == 0, 'model dim must be divisible by head count'
 
@@ -30,9 +31,14 @@ class MultiHeadedAttention(nn.Module):
         self.output_layer = nn.Linear(model_dim, model_dim)
 
         self.max_relative_position = max_relative_position
-        self.use_neg_dist = use_neg_dist
+        self.use_negative_distance = use_negative_distance
         self._coverage = coverage
-    
+
+        if self.max_relative_position > 0:
+            relative_position_size = self.max_relative_position*2+1 if self.use_negative_distance is True else self.max_relative_position+1
+            # NOTE self.head_size 
+            self.relative_position_embedding_key = nn.Embedding(relative_position_size, self.head_size)
+            self.relative_position_embedding_value = nn.Embedding(relative_position_size, self.head_size)
 
     def forward(self, key, value, query, mask=None):
         """
@@ -49,6 +55,7 @@ class MultiHeadedAttention(nn.Module):
         batch_size = key.size(0)
         key_len = key.size(1)
         query_len = query.size(1)
+        value_len = value.size(1)
 
         # project query key value
         key = self.key_project(key)
@@ -65,6 +72,17 @@ class MultiHeadedAttention(nn.Module):
         scores = torch.matmul(query, key.transpose(2,3))
         # scores [batch_size, head_count, query_len, key_len]
 
+        if self.max_relative_position > 0: 
+            relative_position_matrix = generate_relative_position_matrix(key_len, self.max_relative_position, self.use_negative_distance)
+            relative_position_matrix.to(key.device)
+            relative_key = self.relative_position_embedding_key(relative_position_matrix)
+            # relative_key [key_len, key_len, head_size]
+            r_query = query.permute(2,0,1,3).contiguous().view(query_len, batch_size*self.head_count, self.head_size)
+            assert query_len == key_len, "For relative position."
+            scores_relative = torch.matmul(r_query, relative_key.transpose(1,2)).transpose(0,1)
+            scores_relative = scores_relative.contiguous().view(batch_size, self.head_count, query_len, key_len)
+            scores = scores + scores_relative
+
         # apply mask Note: add a dimension to mask, -> [batch_size, 1, 1, key_len]
         if mask is not None:
             scores = scores.masked_fill(~mask.unsqueeze(1), float("-inf"))
@@ -77,6 +95,18 @@ class MultiHeadedAttention(nn.Module):
         context = torch.matmul(attention_probs, value) # context [batch_size, head_count, query_len, head_size]
         context = context.transpose(1,2).contiguous().view(batch_size, -1, self.head_count*self.head_size)
         # context [batch_size, query_len, hidden_size]
+
+        if self.max_relative_position > 0:
+            relative_position_matrix = generate_relative_position_matrix(value_len, self.max_relative_position, self.use_negative_distance)
+            relative_position_matrix.to(value.device)
+            relative_vaule = self.relative_position_embedding_value(relative_position_matrix)
+            # relative_value [value_len, value_len, head_size]
+            r_attention_probs = attention_probs.permute(2,0,1,3).contiguous().view(query_len, batch_size*self.head_count, key_len)
+            context_relative = torch.matmul(r_attention_probs, relative_vaule) # context_relative [query_len, batch_size*self.head_count, head_size]
+            context_relative = context_relative.transpose(0, 1).contiguous().view(batch_size, self.head_count, query_len, self.head_size)
+            context_relative = context_relative.transpose(1, 2).contiguous().view(batch_size, -1, self.head_count*self.head_size)
+            # context_relative [batch_size, query_len, hidden_size]
+            context = context + context_relative
 
         output = self.output_layer(context)
 
@@ -139,6 +169,26 @@ class PositionalEncoding(nn.Module):
         # emb: [batch_size, seq_len, model_dim]
         return emb + self.pe[:, :emb.size(1)]
 
+class LearnablePositionalEncoding(nn.Module):
+    """
+    Learnable position encodings. (used in Bert etc.)
+    """
+    def __init__(self, model_dim:int=0, max_len:int=512) -> None:
+        super().__init__()
+        self.model_dim = model_dim
+        self.max_len = max_len
+
+        self.lpe = nn.Embedding(max_len, self.model_dim)
+
+    def forward(self, src_input: Tensor, embed_src: Tensor) -> Tensor:
+        """
+        Perform lookup for input(source) in the learnable embeding position table.
+        :param src_input [batch_size, src_len]
+        :param embed_src [batch_size, src_len, embed_dim]
+        return embed_src + lpe(src_input)
+        """
+        # FIXME should scale? i think yes
+        return embed_src + self.lpe(src_input) * math.sqrt(self.model_dim)
 
 class TransformerEncoderLayer(nn.Module):
     """
@@ -146,12 +196,13 @@ class TransformerEncoderLayer(nn.Module):
     containing a Multi-Head attention layer and a position-wise feed-forward layer.
     """
     def __init__(self, model_dim:int, ff_dim:int, head_count:int, 
-                 dropout:float=0.1, layer_norm_position:str="post") -> None:
+                 dropout:float=0.1, layer_norm_position:str="post",
+                 max_relative_position:int=16, use_negative_distance:bool=True) -> None:
         "layer_norm_position: either 'pre' or 'post' "
         super().__init__()
 
         self.layer_norm = nn.LayerNorm(model_dim, eps=1e-6)
-        self.src_src_attenion = MultiHeadedAttention(head_count, model_dim, dropout=dropout)
+        self.src_src_attenion = MultiHeadedAttention(head_count, model_dim, dropout, max_relative_position, use_negative_distance)
         self.feed_forward = PositionwiseFeedForward(model_dim, ff_dim, dropout=dropout, layer_norm_position=layer_norm_position)
         self.dropout = nn.Dropout(dropout)
 
@@ -184,12 +235,13 @@ class TransformerDecoderLayer(nn.Module):
     Classical transformer Decoder Layer
     """
     def __init__(self, model_dim:int, ff_dim:int,head_count:int,
-                 dropout:float=0.1, layer_norm_position:str='post') -> None:
+                 dropout:float=0.1, layer_norm_position:str='post',
+                 max_relative_position:int=16, use_negative_distance:bool=True) -> None:
         "layer norm position either 'pre' or 'post'."
         super().__init__()
         self.model_dim = model_dim
-        self.trg_trg_attention = MultiHeadedAttention(head_count, model_dim, dropout=dropout)
-        self.src_trg_attention = MultiHeadedAttention(head_count, model_dim, dropout=dropout)
+        self.trg_trg_attention = MultiHeadedAttention(head_count, model_dim, dropout, max_relative_position, use_negative_distance)
+        self.src_trg_attention = MultiHeadedAttention(head_count, model_dim, dropout, max_relative_position=0, use_negative_distance=False)
 
         self.feed_forward = PositionwiseFeedForward(model_dim, ff_dim, dropout=dropout, layer_norm_position=layer_norm_position)
         self.dropout = nn.Dropout(dropout)

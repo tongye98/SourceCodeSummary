@@ -82,10 +82,10 @@ testing:
 
 
 model:
-    initializer: "xavier_uniform"     # xavier_uniform xavier_normal uniform normal
+    initializer: "xavier_normal"     # xavier_uniform xavier_normal uniform normal
     init_gain: 1.0 # for xavier
     init_weight: 0.01 # for uniform normal
-    embed_initializer: "xavier_uniform"
+    embed_initializer: "xavier_normal"
     embed_init_gain: 1.0 # for xavier
     embed_init_weight: 0.01
     bias_initializer: "zeros"
@@ -106,6 +106,10 @@ model:
             freeze: False
             dropout: 0.1
             # load_pretrained
+        src_pos_emb: "absolute" # use positional embeddings in encoder "absolute", "learnable","relative"
+        max_src_len: 100 # for learnable.
+        max_relative_position: 0  # only for relative position, else must be set to 0
+        use_negative_distance: True # for relative position
     decoder:
         model_dim: 64
         ff_dim: 128
@@ -120,3 +124,7 @@ model:
             freeze: False
             dropout: 0.1
             # load_pretrained
+        trg_pos_emb: "absolute" # use positional embeddings in encoder "absolute", "learnable","relative"
+        max_trg_len: 100 # for learnable.
+        max_relative_position: 0  # only for relative position, else must be set to 0
+        use_negative_distance: True # for relative position

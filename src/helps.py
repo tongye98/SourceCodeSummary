@@ -361,13 +361,36 @@ def resolve_ckpt_path(ckpt_path:str, load_model:str, model_dir:Path) -> Path:
             ckpt_path = Path(load_model)
     return Path(ckpt_path)
 
+def generate_relative_position_matrix(length, max_relative_position, use_negative_distance):
+    """
+    Generate the clipped relative position matrix.
+    """
+    range_vec = torch.arange(length)
+    range_matrix = range_vec.unsqueeze(1).expand(-1, length).transpose(0,1)
+    distance_matrix = range_matrix - range_matrix.transpose(0, 1)
+    distance_mat_clipped = torch.clamp(distance_matrix, min=-max_relative_position, max=max_relative_position)
+
+    if use_negative_distance:
+        final_matrix = distance_mat_clipped + max_relative_position
+    else:
+        final_matrix = torch.abs(distance_mat_clipped)
+
+    return final_matrix
 
 
 if __name__ == "__main__":
     # TEST 
-    print(subsequent_mask(5))
-    sentences = read_list_from_file(Path('data/test_datasets/train.txt'))
-    print(sentences)
-    sentences = [sentence.split(" ") for sentence in sentences]
-    print(sentences)
-    print(flatten(sentences))
+    # print(subsequent_mask(5))
+    # sentences = read_list_from_file(Path('data/test_datasets/train.txt'))
+    # print(sentences)
+    # sentences = [sentence.split(" ") for sentence in sentences]
+    # print(sentences)
+    # print(flatten(sentences))
+
+    # generate_relative_position_matrix(5, 3, True)
+    length_q = 3
+    length_k = 5
+    range_vec_q = torch.arange(length_q)
+    range_vec_k = torch.arange(length_k)
+    distance_mat = range_vec_k[None, :] - range_vec_q[:, None]
+    print(distance_mat)
