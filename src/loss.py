@@ -2,8 +2,11 @@
 """
 Module to implement training loss
 """
+from doctest import OutputChecker
 import torch 
-from torch import Tensor, nn 
+from torch import Tensor, nn
+
+from src.vocabulary import Vocabulary 
 
 class XentLoss(nn.Module):
     """

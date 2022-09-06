@@ -2,16 +2,15 @@
 """
 Transformer layers
 """
-from json import decoder
 import math
 import torch
 import torch.nn as nn
 from torch import Tensor
 from src.helps import generate_relative_position_matrix
-import logging 
+import logging
+from src.vocabulary import Vocabulary 
 
 logger = logging.getLogger(__name__)
-
 
 class MultiHeadedAttention(nn.Module):
     """
@@ -153,6 +152,7 @@ class PositionwiseFeedForward(nn.Module):
             x = self.layer_norm(x)
         return x
 
+
 class PositionalEncoding(nn.Module):
     """
     Pre-compute position encodings.(PE)
@@ -173,6 +173,7 @@ class PositionalEncoding(nn.Module):
     def forward(self, emb: Tensor) -> Tensor:
         # emb: [batch_size, seq_len, model_dim]
         return emb + self.pe[:, :emb.size(1)]
+
 
 class LearnablePositionalEncoding(nn.Module):
     """
@@ -198,6 +199,7 @@ class LearnablePositionalEncoding(nn.Module):
         assert len <= self.max_len, 'src len must <= max len'
         position_input = torch.arange(len).unsqueeze(0).repeat(batch_size, 1).to(embed.device)
         return embed + self.learn_lut(position_input) * math.sqrt(self.model_dim)
+
 
 class GlobalAttention(nn.Module):
     """
@@ -257,11 +259,45 @@ class GlobalAttention(nn.Module):
         align = self.tanh(align)
         return align, score
 
+
 class CopyGenerator(nn.Module):
-    pass 
+    """
+    Generator module that additionally considers copying words directly from the source.
+    The main idea is that we have an extended "dynamic dictionary".
+    It contains |tgt_dict| words plus an arbitary number of additional words introduced by the source sentence.
+    For each source sentence we have a src_map that maps each source word to an index in tgt_dict 
+    if it known, or else to an extra word.
+    The copy generator is an extended version of the standard generator that computes three values.
+    """
+    def __init__(self, model_dim:int,trg_vocab:Vocabulary, output_layer:nn.Module) -> None:
+        super().__init__()
+        self.output_layer = output_layer
+        self.trg_vocab = trg_vocab
+        self.softmax = nn.Softmax(dim=-1)
+        self.sigmoid = nn.Sigmoid()
+        self.linear_copy = nn.Linear(model_dim, 1)
+        self.eps = 1e-20
 
+    def forward(self, decoder_output:Tensor, score:Tensor, source_map:Tensor):
+        """
+        :param decoder_output  [batch_size, trg_len, model_dim]
+        :param score [batch_size, trg_len, src_len]
+        :param source_map [batch_size, src_len, extra_words]
+        return: [batch_size, trg_len, trg_vocab_size + extra_words]
+        """
+        # original probability
+        logits = self.output_layer(decoder_output)
+        # logtis [batch_size, trg_len, trg_vocab_size]
+        logits[:, :, self.trg_vocab.pad_index] = -self.eps
+        prob = self.softmax(logits)
 
-
+        # probability of copying 
+        p_copy = self.sigmoid(self.linear_copy(decoder_output))
+        # p_copy [batch_size, trg_len, 1]
+        out_prob = torch.mul(prob, 1 - p_copy.expand_as(prob)) #[batch_size, trg_len, trg_vocab_size]
+        mul_attn = torch.mul(score, p_copy.expand_as(score)) # [batch_size, trg_len, src_len]
+        copy_prob = torch.bmm(mul_attn, source_map) # [batch_size, trg_len, extra_words]
+        return torch.cat([out_prob, copy_prob], dim=-1)
 
 
 class TransformerEncoderLayer(nn.Module):
