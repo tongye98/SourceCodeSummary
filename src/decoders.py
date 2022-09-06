@@ -26,7 +26,7 @@ class TransformerDecoder(nn.Module):
         if self.trg_pos_emb == "absolute":
             self.pe = PositionalEncoding(model_dim)
         elif self.trg_pos_emb == "learnable":
-            self.lpe = LearnablePositionalEncoding(model_dim, max_trg_len)
+            self.lpe = LearnablePositionalEncoding(model_dim, max_trg_len + 2) # add 2 for <bos> <eos>
         else:
             pass 
 
@@ -41,7 +41,7 @@ class TransformerDecoder(nn.Module):
         if freeze:
             freeze_params(self)
     
-    def forward(self, embed_trg:Tensor, trg_input: Tensor, encoder_output:Tensor,
+    def forward(self, embed_trg:Tensor, encoder_output:Tensor,
                 src_mask:Tensor, trg_mask:Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         """
         Transformer decoder forward pass.
@@ -58,7 +58,7 @@ class TransformerDecoder(nn.Module):
         if self.trg_pos_emb == "absolute":
             embed_trg = self.pe(embed_trg)
         elif self.trg_pos_emb == "learnable":
-            embed_trg = self.lpe(trg_input, embed_trg)
+            embed_trg = self.lpe(embed_trg)
             if self.emb_layer_norm is not None:
                 embed_trg = self.emb_layer_norm(embed_trg)
         else:

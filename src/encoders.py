@@ -1,6 +1,9 @@
 from torch import Tensor, nn 
 from src.transformer_layers import TransformerEncoderLayer, PositionalEncoding, LearnablePositionalEncoding
 from src.helps import freeze_params
+import logging 
+
+logger = logging.getLogger(__name__)
 
 class TransformerEncoder(nn.Module):
     """
@@ -22,9 +25,9 @@ class TransformerEncoder(nn.Module):
         if self.src_pos_emb == "absolute":
             self.pe = PositionalEncoding(model_dim)
         elif self.src_pos_emb == "learnable":
-            self.lpe = LearnablePositionalEncoding(model_dim, max_src_len)
+            self.lpe = LearnablePositionalEncoding(model_dim, max_src_len + 2) # add 2 for <bos> <eos>
         else:
-            pass 
+            logger.warning("self.src_pos_emb value need double check")
 
         self.emb_dropout = nn.Dropout(emb_dropout)
         self.emb_layer_norm = nn.LayerNorm(model_dim, eps=1e-6) if self.src_pos_emb == "learnable" else None
@@ -34,7 +37,7 @@ class TransformerEncoder(nn.Module):
         if freeze:
             freeze_params(self)
     
-    def forward(self, embed_src:Tensor, src_input:Tensor=None, mask:Tensor=None) -> Tensor:
+    def forward(self, embed_src:Tensor, mask:Tensor=None) -> Tensor:
         """
         Pass the input and mask through each layer in turn.
         embed_src [batch_size, src_len, embed_size]
@@ -44,13 +47,13 @@ class TransformerEncoder(nn.Module):
         if self.src_pos_emb == "absolute":
             embed_src = self.pe(embed_src)  # add absolute position encoding
         elif self.src_pos_emb == "learnable":
-            embed_src = self.lpe(src_input, embed_src)
+            embed_src = self.lpe(embed_src)
             # FIXME should layer_norm?
             if self.emb_layer_norm is not None:
                 embed_src = self.emb_layer_norm(embed_src)
         else:
             embed_src = embed_src
-
+            
         input = self.emb_dropout(embed_src)
         for layer in self.layers:
             input = layer(input, mask)

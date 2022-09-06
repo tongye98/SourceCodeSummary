@@ -91,7 +91,7 @@ class Transformer(nn.Module):
             output [batch_size, src_len, model_dim]
         """
         embed_src = self.src_embed(src_input)  # embed_src [batch_size, src_len, embed_size]
-        output = self.encoder(embed_src, src_input, src_mask)
+        output = self.encoder(embed_src, src_mask)
         return output
     
     def decode(self, trg_input:Tensor, encode_output:Tensor,
@@ -107,7 +107,7 @@ class Transformer(nn.Module):
             cross_attention_weight [batch_size, trg_len, src_len]
         """
         embed_trg = self.trg_embed(trg_input) # embed_trg [batch_size, trg_len, embed_dim]
-        output, input, cross_attention_weight = self.decoder(embed_trg, trg_input, encode_output,src_mask, trg_mask)
+        output, input, cross_attention_weight = self.decoder(embed_trg, encode_output, src_mask, trg_mask)
         return output, input, cross_attention_weight
 
     def __repr__(self) -> str:
@@ -129,7 +129,8 @@ class Transformer(nn.Module):
         n_params = sum([np.prod(p.size()) for p in model_parameters])
         logger.info("Total parameters number: %d", n_params)
         trainable_parameters = [name for (name, param) in self.named_parameters() if param.requires_grad]
-        logger.debug("Trainable parameters(name): %s", sorted(trainable_parameters))
+        for item in trainable_parameters:
+            logger.debug("Trainable parameters(name): %s", item)
         assert trainable_parameters
 
 def build_model(model_cfg: dict=None,
@@ -170,7 +171,7 @@ def build_model(model_cfg: dict=None,
                                 layer_norm_position=encoder_cfg["layer_norm_position"],
                                 src_pos_emb=encoder_cfg["src_pos_emb"],
                                 max_src_len=encoder_cfg["max_src_len"],freeze=encoder_cfg["freeze"],
-                                max_relative_position=encoder_cfg["max_relative_positon"],
+                                max_relative_position=encoder_cfg["max_relative_position"],
                                 use_negative_distance=encoder_cfg["use_negative_distance"])
     
     # Build decoder
@@ -182,7 +183,7 @@ def build_model(model_cfg: dict=None,
                                 layer_norm_position=decoder_cfg["layer_norm_position"],
                                 trg_pos_emb=decoder_cfg["trg_pos_emb"],
                                 max_trg_len=decoder_cfg["max_trg_len"],freeze=decoder_cfg["freeze"],
-                                max_relative_positon=decoder_cfg["max_relative_positon"],
+                                max_relative_positon=decoder_cfg["max_relative_position"],
                                 use_negative_distance=decoder_cfg["use_negative_distance"])
     
     model = Transformer(encoder=encoder, decoder=decoder,

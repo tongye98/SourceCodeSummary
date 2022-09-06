@@ -162,11 +162,14 @@ def predict(model, data:Dataset, device:torch.device,
                 valid_scores[eval_metric], bleu_order = Bleu().corpus_bleu(hypotheses=predictions_dict, references=references_dict)
                 # geometric mean of bleu scores
             elif eval_metric == "meteor":
-                valid_scores[eval_metric] = Meteor().compute_score(gts=references_dict, res=predictions_dict)[0]
+                try:
+                    valid_scores[eval_metric] = Meteor().compute_score(gts=references_dict, res=predictions_dict)[0]
+                except:
+                    logger.warning("metero compute has something wrong!")
             elif eval_metric == "rouge-l":
                 valid_scores[eval_metric] = Rouge().compute_score(gts=references_dict, res=predictions_dict)[0]
         eval_duration = time.time() - eval_metric_start_time
-        eval_metrics_string = ", ".join([f"{eval_metric}:{valid_scores[eval_metric]:6.2f}" for eval_metric in 
+        eval_metrics_string = ", ".join([f"{eval_metric}:{valid_scores[eval_metric]:6.3f}" for eval_metric in 
                                           eval_metrics+["loss","ppl"] ])
 
         logger.info("Evaluation result(%s) %s, evaluation time: %.4f[sec]", "Beam Search" if beam_size > 1 else "Greedy Search",

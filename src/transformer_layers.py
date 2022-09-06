@@ -7,6 +7,10 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from src.helps import generate_relative_position_matrix
+import logging 
+
+logger = logging.getLogger(__name__)
+
 
 class MultiHeadedAttention(nn.Module):
     """
@@ -178,9 +182,9 @@ class LearnablePositionalEncoding(nn.Module):
         self.model_dim = model_dim
         self.max_len = max_len
 
-        self.lpe = nn.Embedding(max_len, self.model_dim)
+        self.learn_lut = nn.Embedding(max_len, self.model_dim)
 
-    def forward(self, src_input: Tensor, embed_src: Tensor) -> Tensor:
+    def forward(self, embed: Tensor) -> Tensor:
         """
         Perform lookup for input(source) in the learnable embeding position table.
         :param src_input [batch_size, src_len]
@@ -188,7 +192,11 @@ class LearnablePositionalEncoding(nn.Module):
         return embed_src + lpe(src_input)
         """
         # FIXME should scale? i think yes
-        return embed_src + self.lpe(src_input) * math.sqrt(self.model_dim)
+        batch_size = embed.size(0)
+        len = embed.size(1)
+        assert len <= self.max_len, 'src len must <= max len'
+        position_input = torch.arange(len).unsqueeze(0).repeat(batch_size, 1).to(embed.device)
+        return embed + self.learn_lut(position_input) * math.sqrt(self.model_dim)
 
 class TransformerEncoderLayer(nn.Module):
     """
