@@ -78,7 +78,7 @@ class MultiHeadedAttention(nn.Module):
 
         if self.max_relative_position > 0: 
             relative_position_matrix = generate_relative_position_matrix(key_len, self.max_relative_position, self.use_negative_distance)
-            relative_position_matrix.to(key.device)
+            relative_position_matrix = relative_position_matrix.to(key.device)
             relative_key = self.relative_position_embedding_key(relative_position_matrix)
             # relative_key [key_len, key_len, head_size]
             r_query = query.permute(2,0,1,3).contiguous().view(query_len, batch_size*self.head_count, self.head_size)
@@ -102,7 +102,7 @@ class MultiHeadedAttention(nn.Module):
 
         if self.max_relative_position > 0:
             relative_position_matrix = generate_relative_position_matrix(value_len, self.max_relative_position, self.use_negative_distance)
-            relative_position_matrix.to(value.device)
+            relative_position_matrix = relative_position_matrix.to(value.device)
             relative_vaule = self.relative_position_embedding_value(relative_position_matrix)
             # relative_value [value_len, value_len, head_size]
             r_attention_probs = attention_probs.permute(2,0,1,3).contiguous().view(query_len, batch_size*self.head_count, key_len)
