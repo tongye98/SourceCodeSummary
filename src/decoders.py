@@ -33,11 +33,10 @@ class TransformerDecoder(nn.Module):
         self.layer_norm = nn.LayerNorm(model_dim,eps=1e-6) if layer_norm_position == 'pre' else None
         self.emb_layer_norm = nn.LayerNorm(model_dim,eps=1e-6) if self.trg_pos_emb == "learnable" else None
         self.emb_dropout = nn.Dropout(emb_dropout)
-        self.output_layer = nn.Linear(model_dim, vocab_size, bias=False)
         
         self.head_count = head_count
         self.layer_norm_position = layer_norm_position
-        self.output_size = vocab_size
+        self.model_dim = model_dim
         if freeze:
             freeze_params(self)
     
@@ -50,8 +49,7 @@ class TransformerDecoder(nn.Module):
         src_mask [batch_size, 1, src_len]
         trg_mask [batch_size, 1, trg_len]
         return:
-            output [batch_size, trg_len, vocab_size]    after output layer
-            input [batch_size, trg_len, model_dim]      before output layer
+            output [batch_size, trg_len, model_dim]  
             cross_attention_weight [batch_size, trg_len, src_len]
         """
         assert trg_mask is not None, "trg mask is required for Transformer decoder"
@@ -75,8 +73,8 @@ class TransformerDecoder(nn.Module):
         if self.layer_norm is not None:
             input = self.layer_norm(input)
         
-        output = self.output_layer(input)
-        return output, input, cross_attention_weight
+        output = input
+        return output, cross_attention_weight
     
     def __repr__(self):
         return (f"{self.__class__.__name__}(num_layers={len(self.layers)}, "

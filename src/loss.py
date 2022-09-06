@@ -5,7 +5,7 @@ Module to implement training loss
 import torch 
 from torch import Tensor, nn
 from src.constants import UNK_ID
-
+import torch.nn.functional as F
 class XentLoss(nn.Module):
     """
     Cross-Entropy loss with optional label smoothing
@@ -36,12 +36,13 @@ class XentLoss(nn.Module):
 
         return log_probs, target
     
-    def forward(self, log_probs: Tensor, target: Tensor) -> Tensor:
+    def forward(self, logits: Tensor, target: Tensor) -> Tensor:
         """
         Compute the cross-entropy between logits and targets.
-        :param log_probs [batch_size, trg_len, vocab_size]
+        :param logits [batch_size, trg_len, vocab_size]
         :param target [batch_size, trg_len]
         """
+        log_probs = F.log_softmax(logits, dim=-1)
         log_probs, target = self.reshape(log_probs, target)
         logits = self.criterion(log_probs, target)
         return logits

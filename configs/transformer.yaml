@@ -92,6 +92,7 @@ model:
     bias_init_weight: 0.01
     tied_softmax: False
     tied_embeddings: False
+    copy: False
     encoder:
         model_dim: 64
         ff_dim: 128

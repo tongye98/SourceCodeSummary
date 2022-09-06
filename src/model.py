@@ -2,6 +2,7 @@ from typing import Tuple
 import torch
 from torch import Tensor, nn
 import torch.nn.functional as F
+from src.transformer_layers import CopyGenerator, GlobalAttention
 from src.vocabulary import Vocabulary
 from src.embeddings import Embeddings
 from src.encoders import TransformerEncoder
@@ -11,7 +12,7 @@ from src.initialization import Initialize_model
 import logging
 from pathlib import Path
 import numpy as np
-from src.loss import XentLoss
+from src.loss import XentLoss, CopyGeneratorLoss
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,8 @@ class Transformer(nn.Module):
     """
     def __init__(self, encoder: TransformerEncoder, decoder:TransformerDecoder,
                  src_embed: Embeddings, trg_embed: Embeddings,
-                 src_vocab: Vocabulary, trg_vocab: Vocabulary) -> None:
+                 src_vocab: Vocabulary, trg_vocab: Vocabulary, 
+                 copy: bool=False) -> None:
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
@@ -33,7 +35,20 @@ class Transformer(nn.Module):
         self.unk_index = self.trg_vocab.unk_index
         self.bos_index = self.trg_vocab.bos_index
         self.eos_index = self.trg_vocab.eos_index
-        self._loss_function = None # set by the TrainManager
+        self.trg_vocab_size = len(trg_vocab)
+        self.model_dim = self.decoder.model_dim
+        self.output_layer = nn.Linear(self.model_dim, self.trg_vocab_size, bias=False)
+
+        # self._loss_function = None # set by the TrainManager
+        self.loss_function = None
+        self.copy = copy
+        if self.copy:
+            self.copy_attention_score = GlobalAttention(dim=self.model_dim)
+            self.copy_generator = CopyGenerator(self.model_dim, self.trg_vocab, self.output_layer)
+            self.loss_function = CopyGeneratorLoss(self.trg_vocab_size, force_copy=False)
+        else:
+            self.loss_function = XentLoss(pad_index=self.pad_index, smoothing=0)
+
     
     @property
     def loss_function(self):
@@ -66,14 +81,18 @@ class Transformer(nn.Module):
             assert self.loss_function is not None
             assert trg_input is not None and trg_mask is not None
             encode_output = self.encode(src_input, src_mask)
-            decode_output, decode_input, cross_attention_weight = self.decode(trg_input, encode_output, src_mask, trg_mask)
-            # FIXME generator and copy generator 
-            # decode_output [batch_size, trg_len, vocab_size]
-            log_probs = F.log_softmax(decode_output, dim=-1)
-            #FIXME after data part is already.
-            batch_loss = self.loss_function(log_probs, target=trg_truth)
-            # return batch loss = sum over all sentences of all tokens in the batch that are not pad
-            return (batch_loss, log_probs)
+            decode_output, cross_attention_weight = self.decode(trg_input, encode_output, src_mask, trg_mask)
+            # decode_output [batch_size, trg_len, model_dim]
+
+            if self.copy is False:
+                logits = self.output_layer(decode_output)
+                # logits [batch_size, trg_len, trg_vocab_size]
+                batch_loss = self.loss_function(logits, target=trg_truth)
+                # return batch loss = sum over all sentences of all tokens in the batch that are not pad
+            else:
+                #TODO
+                pass
+            return batch_loss
         elif return_type == "encode":
             assert src_input is not None and src_mask is not None
             return self.encode(src_input, src_mask)
@@ -102,13 +121,12 @@ class Transformer(nn.Module):
         src_mask: [batch_size, 1, src_len]
         trg_mask: [batch_size, trg_len, trg_len]
         return:
-            output [batch_size, trg_len, vocab_size] after output layer
-            input [batch_size, trg_len, model_dim] before output layer
+            output [batch_size, trg_len, model_dim]
             cross_attention_weight [batch_size, trg_len, src_len]
         """
         embed_trg = self.trg_embed(trg_input) # embed_trg [batch_size, trg_len, embed_dim]
-        output, input, cross_attention_weight = self.decoder(embed_trg, encode_output, src_mask, trg_mask)
-        return output, input, cross_attention_weight
+        output, cross_attention_weight = self.decoder(embed_trg, encode_output, src_mask, trg_mask)
+        return output, cross_attention_weight
 
     def __repr__(self) -> str:
         """
@@ -188,7 +206,8 @@ def build_model(model_cfg: dict=None,
     
     model = Transformer(encoder=encoder, decoder=decoder,
                         src_embed=src_embed, trg_embed=trg_embed,
-                        src_vocab=src_vocab, trg_vocab=trg_vocab)
+                        src_vocab=src_vocab, trg_vocab=trg_vocab,
+                        copy=model_cfg["copy"])
     
     # tie softmax layer with trg embeddings
     if model_cfg.get("tied_softmax", False):
