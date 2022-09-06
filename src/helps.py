@@ -1,3 +1,4 @@
+import enum
 import functools
 from os import cpu_count
 from sys import maxsize
@@ -376,6 +377,28 @@ def generate_relative_position_matrix(length, max_relative_position, use_negativ
         final_matrix = torch.abs(distance_mat_clipped)
 
     return final_matrix
+
+def make_src_map(source_map):
+    """
+    ???
+    return a tensor.
+    """
+    src_size = max([src_sentence.size(0) for src_sentence in source_map])
+    src_vocab_size = max([src_sentence.max() for src_sentence in source_map]) + 1
+    alignment = torch.zeros(len(source_map), src_size, src_vocab_size).long()
+    for i, src_sentence in enumerate(source_map):
+        for j, t in enumerate(src_sentence):
+            alignment[i, j, t] = 1
+    return alignment
+
+def align(alignments):
+    """
+    """
+    trg_size = max([t.size(0) for t in alignments])
+    align = torch.zeros(len(alignments), trg_size).long()
+    for i, sentence in enumerate(alignments):
+        align[i, :sentence.size(0)] = sentence 
+    return align
 
 
 if __name__ == "__main__":

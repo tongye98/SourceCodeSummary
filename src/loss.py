@@ -48,3 +48,7 @@ class XentLoss(nn.Module):
     def __repr__(self):
         return (f"{self.__class__.__name__}(criterion={self.criterion}, "
                 f"smoothing={self.smoothing})")
+
+
+class CopyGeneratorCriterion(nn.Module):
+    pass

@@ -7,6 +7,7 @@ import logging
 import torch 
 from torch import Tensor
 from src.constants import PAD_ID
+from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,8 @@ class Batch(object):
     Input is yield from 'collate_fn()' called by torch.data.utils.DataLoader.
     """
     def __init__(self, src:Tensor, src_length: Tensor,
-                 trg: Tensor, trg_length: Tensor, device: torch.device) -> None:
+                 trg: Tensor, trg_length: Tensor, device: torch.device,
+                 src_vocabs:List, source_maps:List, alignments:List) -> None:
         
         self.src = src
         self.src_length = src_length
@@ -36,6 +38,11 @@ class Batch(object):
 
         if device.type == "cuda":
             self.move2cuda(device)
+        
+        # for copy mechanism
+        self.src_vocabs = src_vocabs
+        self.source_maps = source_maps
+        self.alignments = alignments
     
     def move2cuda(self, device: torch.device):
         """Move batch to GPU"""

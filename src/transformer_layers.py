@@ -2,6 +2,7 @@
 """
 Transformer layers
 """
+from json import decoder
 import math
 import torch
 import torch.nn as nn
@@ -197,6 +198,71 @@ class LearnablePositionalEncoding(nn.Module):
         assert len <= self.max_len, 'src len must <= max len'
         position_input = torch.arange(len).unsqueeze(0).repeat(batch_size, 1).to(embed.device)
         return embed + self.learn_lut(position_input) * math.sqrt(self.model_dim)
+
+class GlobalAttention(nn.Module):
+    """
+    Global attention is used for copy mechanism.
+    Takes a matrix and a query vector.
+    It then computes a parameterized convex combination of the matrix based on the input query.
+    """
+    def __init__(self, dim:int=512) -> None:
+        super().__init__()
+        self.dim = dim
+        self.linear_in = nn.Linear(dim, dim, bias=False)
+        self.linear_out = nn.Linear(dim*2, dim, bias=False)
+        self.softmax = nn.Softmax(dim=-1)
+        self.tanh = nn.Tanh()
+
+    def attention_score(self, decoder_output, encoder_output):
+        """
+        Compute attention score
+        [batch_size, trg_len, model_dim] * [batch_size, src_len, model_dim] 
+        --> [batch_size, trg_len, src_len]
+        """
+        batch_size = decoder_output.size(0)
+        trg_len = decoder_output.size(1)
+        model_dim = decoder_output.size(2)
+        decoder_output = decoder_output.view(batch_size*trg_len, model_dim)
+        decoder_output = self.linear_in(decoder_output)
+        decoder_output = decoder_output.view(batch_size, trg_len, model_dim)
+        encoder_output = encoder_output.transpose(1,2)
+        return torch.matmul(decoder_output, encoder_output)
+
+    def forward(self, decoder_output, encoder_ouput):
+        """
+        decoder_output is before the output layer [batch_size, trg_len, model_dim]
+        encoder_output [batch_size, src_len, model_dim]
+        return: 
+            - align [batch_size, trg_len, model_dim]
+            - score [batch_size, trg_len, src_len]
+        """
+        batch_size = decoder_output.size(0)
+        trg_len = decoder_output.size(1)
+        model_dim = decoder_output.size(2)
+
+        score = self.attention_score(decoder_output, encoder_ouput)
+        # score [batch_size, trg_len, src_len]
+
+        # TODO  score need mask pad
+
+        score = self.softmax(score)
+        # get context vector
+        context = torch.matmul(score, encoder_ouput)
+        # context [batch_size, trg_len, model_dim]
+
+        # concatenate
+        concat_context = torch.cat([context, decoder_output],dim=-1).view(batch_size*trg_len, model_dim*2)
+        align = self.linear_out(concat_context).view(batch_size, trg_len, model_dim)
+
+        align = self.tanh(align)
+        return align, score
+
+class CopyGenerator(nn.Module):
+    pass 
+
+
+
+
 
 class TransformerEncoderLayer(nn.Module):
     """

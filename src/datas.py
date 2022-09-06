@@ -6,7 +6,7 @@ import logging
 import torch 
 from src.tokenizers import build_tokenizer
 from src.datasets import build_dataset
-from src.vocabulary import build_vocab
+from src.vocabulary import Vocabulary, build_vocab
 from src.helps import ConfigurationError, log_data_info
 from torch.utils.data import Dataset, Sampler, DataLoader
 from torch.utils.data import SequentialSampler, RandomSampler, BatchSampler
@@ -157,10 +157,26 @@ def collate_fn(batch: List[Tuple], src_sentences_to_vocab_ids: Callable,
     Note: you can stack batch and any operation on batch.
     DataLoader every iter result is collate_fn's return value -> Batch.
     :param batch [(src,trg),(src,trg),...]
+    Note: for copy mechanism, need src_vocabs, source_maps, alignments
     """
     batch = [(src, trg) for (src, trg) in batch]  # doing nothing.
     src_list, trg_list = zip(*batch) # src_list: Tuple[List[str]]
     assert len(src_list) == len(trg_list)
+
+    # for copy mechanism
+    batch_size = len(batch)
+
+    src_vocabs = []
+    source_maps = []
+    alignments = []
+    for id in range(batch_size):
+        vocab = Vocabulary(tokens=src_list[id])
+        src_vocabs.append(vocab)
+        src_map = torch.tensor([vocab.lookup(token) for token in src_list[id]]).long()
+        source_maps.append(src_map)
+
+        alignment = torch.tensor([vocab.lookup(token) for token in trg_list[id]]).long()
+        alignments.append(alignment)
 
     src_ids, src_length = src_sentences_to_vocab_ids(src_list)
     trg_ids, trg_length = trg_sentences_to_vocab_ids(trg_list)
@@ -172,4 +188,5 @@ def collate_fn(batch: List[Tuple], src_sentences_to_vocab_ids: Callable,
     trg = torch.tensor(trg_ids).long()
     trg_length = torch.tensor(trg_length).long()
 
-    return Batch(src=src, src_length=src_length, trg=trg, trg_length=trg_length, device=device)
+    return Batch(src=src, src_length=src_length, trg=trg, trg_length=trg_length, device=device,
+                 src_vocabs=src_vocabs, source_maps=source_maps, alignments=alignments)
