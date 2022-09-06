@@ -2,11 +2,9 @@
 """
 Module to implement training loss
 """
-from doctest import OutputChecker
 import torch 
 from torch import Tensor, nn
-
-from src.vocabulary import Vocabulary 
+from src.constants import UNK_ID
 
 class XentLoss(nn.Module):
     """
@@ -53,5 +51,56 @@ class XentLoss(nn.Module):
                 f"smoothing={self.smoothing})")
 
 
-class CopyGeneratorCriterion(nn.Module):
-    pass
+class CopyGeneratorLoss(nn.Module):
+    def __init__(self, trg_vocab_size, force_copy) -> None:
+        super().__init__()
+        self.force_copy = force_copy
+        self.offset = trg_vocab_size
+        self.eps = 1e-20
+    
+    def reshape(self, prob:Tensor, alignment:Tensor, target:Tensor):
+        """
+        :param prob [batch_size, trg_len, trg_vocab_size + extra_words]
+        :param alignment [batch_size, trg_len]
+        :param target [batch_size, trg_len]
+        """
+        total_vocab_size = prob.size(-1)
+        prob = prob.contiguous().view(-1, total_vocab_size)
+        # prob [batch_size*trg_len, trg_vocab_size+extra_words]
+        alignment = alignment.view(-1)
+        # alignment [batch_size*trg_len]
+        target = target.view(-1)
+        # target [batch_size*trg_len]
+        return prob, alignment, target
+
+    def forward(self, prob:Tensor, alignment:Tensor, target:Tensor):
+        """
+        :param prob [batch_size, trg_len, trg_vocab_size + extra_words]
+        :param alignment [batch_size, trg_len]
+        :param target [batch_size, trg_len]
+        """
+        # reshape
+        prob, alignment, target = self.reshape(prob, alignment, target)
+        # prob [batch_size*trg_len, trg_vocab_size+extra_words]
+        # alignment [batch_size*trg_len]
+        # target [batch_size*trg_len]
+
+        alignment_unk = alignment.eq(UNK_ID)
+        alignment_not_unk = alignment.ne(UNK_ID)
+        target_unk = target.eq(UNK_ID)
+        target_not_unk = target.ne(UNK_ID)
+
+        out = torch.gather(prob, 1, alignment.view(-1,1) + self.offset).view(-1)
+        # out [batch_size*trg_len]
+        out = torch.mul(out, alignment_not_unk) + self.eps
+        in_ = torch.gather(prob, 1, target.view(-1,1)).view(-1)
+
+        if not self.force_copy:
+            final = out + torch.mul(in_, target_not_unk)
+            final = final + in_.mul(alignment_unk).mul(target_unk)
+        else:
+            final = out + torch.mul(in_, alignment_unk)
+        
+        loss = -final.log()
+        # FIXME loss 
+        return loss
