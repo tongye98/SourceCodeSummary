@@ -275,11 +275,11 @@ class CopyGenerator(nn.Module):
         self.linear_copy = nn.Linear(model_dim, 1)
         self.eps = 1e-20
 
-    def forward(self, decoder_output:Tensor, score:Tensor, source_map:Tensor):
+    def forward(self, decoder_output:Tensor, attention_score:Tensor, source_maps:Tensor):
         """
         :param decoder_output  [batch_size, trg_len, model_dim]
-        :param score [batch_size, trg_len, src_len]
-        :param source_map [batch_size, src_len, extra_words]
+        :param attention_score [batch_size, trg_len, src_len]
+        :param source_maps [batch_size, src_len, extra_words]
         return: [batch_size, trg_len, trg_vocab_size + extra_words]
         """
         # original probability
@@ -289,12 +289,12 @@ class CopyGenerator(nn.Module):
         prob = self.softmax(logits)
 
         # probability of copying 
-        p_copy = self.sigmoid(self.linear_copy(decoder_output))
+        p_copy = self.sigmoid(self.linear_copy(decoder_output)) # (0~1)
         # p_copy [batch_size, trg_len, 1]
-        out_prob = torch.mul(prob, 1 - p_copy.expand_as(prob)) #[batch_size, trg_len, trg_vocab_size]
-        mul_attn = torch.mul(score, p_copy.expand_as(score)) # [batch_size, trg_len, src_len]
-        copy_prob = torch.bmm(mul_attn, source_map) # [batch_size, trg_len, extra_words]
-        return torch.cat([out_prob, copy_prob], dim=-1)
+        origin_prob = torch.mul(prob, 1 - p_copy.expand_as(prob)) # [batch_size, trg_len, trg_vocab_size]
+        extend_attn = torch.mul(attention_score, p_copy.expand_as(attention_score)) # [batch_size, trg_len, src_len]
+        copy_prob = torch.bmm(extend_attn, source_maps)  # [batch_size, trg_len, extra_words]
+        return torch.cat([origin_prob, copy_prob], dim=-1)
 
 
 class TransformerEncoderLayer(nn.Module):

@@ -50,23 +50,23 @@ class Transformer(nn.Module):
             self.loss_function = XentLoss(pad_index=self.pad_index, smoothing=0)
 
     
-    @property
-    def loss_function(self):
-        return self._loss_function
+    # @property
+    # def loss_function(self):
+    #     return self._loss_function
     
-    @loss_function.setter
-    def loss_function(self, tuple_loss: Tuple):
-        loss_type, label_smoothing = tuple_loss
-        assert loss_type == "CrossEntropy"
-        #FIXME
-        self._loss_function = XentLoss(pad_index=self.pad_index,
-                                       smoothing=label_smoothing)
+    # @loss_function.setter
+    # def loss_function(self, tuple_loss: Tuple):
+    #     loss_type, label_smoothing = tuple_loss
+    #     assert loss_type == "CrossEntropy"
+    #     #FIXME
+    #     self._loss_function = XentLoss(pad_index=self.pad_index,
+    #                                    smoothing=label_smoothing)
 
     def forward(self, return_type: str=None,
                 src_input:Tensor=None, trg_input:Tensor=None,
                 src_mask:Tensor=None, trg_mask:Tensor=None,
-                encoder_output: Tensor=None, trg_truth:Tensor=None
-                ):
+                encoder_output: Tensor=None, trg_truth:Tensor=None,
+                source_maps: Tensor=None, alignments: Tensor=None):
         """
         return_type: one of {"loss", "encode", "decode"}
         src_input [batch_size, src_len]
@@ -94,12 +94,11 @@ class Transformer(nn.Module):
                 # first step
                 fuse_score, attention_score = self.copy_attention_score(decode_output, encode_output, src_mask)
                 # attention_score [batch_size, trg_len, src_len]
-
                 # second step
-                self.copy_generator(decode_output, attention_score, source_map)
-
-
-
+                prob = self.copy_generator(decode_output, attention_score, source_maps)
+                # prob [batch_size, trg_len, trg_vocab_size + extra_words]
+                # third step
+                batch_loss = self.loss_function(prob, alignments, trg_truth)
             return batch_loss
         elif return_type == "encode":
             assert src_input is not None and src_mask is not None

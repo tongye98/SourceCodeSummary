@@ -1,3 +1,4 @@
+from imp import source_from_cache
 import logging
 import os
 os.environ["CUDA_LAUNCH_BLOCKING"] = '1'
@@ -404,10 +405,13 @@ class TrainManager(object):
         src_mask = batch_data.src_mask
         trg_mask = batch_data.trg_mask
         trg_truth = batch_data.trg
+        source_maps = batch_data.source_maps
+        alignments = batch_data.alignments
 
         # get loss (run as during training with teacher forcing)
-        batch_loss, log_probs = self.model(return_type="loss", src_input=src_input, trg_input=trg_input,
-                   src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth)
+        batch_loss = self.model(return_type="loss", src_input=src_input, trg_input=trg_input,
+                   src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth,
+                   source_maps=source_maps, alignments=alignments)
         
         # normalization = 'batch' means final loss is average-sentence level loss in batch
         # normalization = 'tokens' means final loss is average-token level loss in batch
