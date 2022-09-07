@@ -4,7 +4,7 @@ Module to implement training loss
 """
 import torch 
 from torch import Tensor, nn
-from src.constants import UNK_ID
+from src.constants import UNK_ID, PAD_ID
 import torch.nn.functional as F
 
 class XentLoss(nn.Module):
@@ -81,6 +81,10 @@ class CopyGeneratorLoss(nn.Module):
         :param alignment [batch_size, trg_len]
         :param target [batch_size, trg_len]
         """
+        batch_size = target.size(0)
+        trg_len = target.size(1)
+        target_not_pad = target.ne(PAD_ID)
+
         # reshape
         prob, alignment, target = self.reshape(prob, alignment, target)
         # prob [batch_size*trg_len, trg_vocab_size+extra_words]
@@ -92,17 +96,28 @@ class CopyGeneratorLoss(nn.Module):
         target_unk = target.eq(UNK_ID)
         target_not_unk = target.ne(UNK_ID)
 
-        out = torch.gather(prob, 1, alignment.view(-1,1) + self.offset).view(-1)
-        # out [batch_size*trg_len]
-        out = torch.mul(out, alignment_not_unk) + self.eps
-        in_ = torch.gather(prob, 1, target.view(-1,1)).view(-1)
+        extra_select_probs = torch.gather(prob, 1, alignment.view(-1,1) + self.offset).view(-1)
+        # extra_select_probs [batch_size*trg_len]
+        extra_select_probs = torch.mul(extra_select_probs, alignment_not_unk) + self.eps
+        origin_select_probs = torch.gather(prob, 1, target.view(-1,1)).view(-1)
+        # in_select_probs [batch_size*trg_len]
 
         if not self.force_copy:
-            final = out + torch.mul(in_, target_not_unk)
-            final = final + in_.mul(alignment_unk).mul(target_unk)
+            # add prob for non-unks in target
+            final_prob = extra_select_probs + torch.mul(origin_select_probs, target_not_unk)
+            # add prob for when word is unk in both align(src) and traget
+            final_prob = final_prob + origin_select_probs.mul(alignment_unk).mul(target_unk)
         else:
-            final = out + torch.mul(in_, alignment_unk)
-        
-        loss = -final.log()
-        # FIXME loss 
-        return loss
+            # only prob for non-copied tokens
+            # In trg, for those token in src, ignore the probs in trg
+            # means only consider extra_select_probs
+            final_prob = extra_select_probs + torch.mul(origin_select_probs, alignment_unk)
+        # final prob [batch_size*trg_len]
+
+        loss = (-final_prob.log()).view(batch_size, trg_len)
+        # loss [batch_size, trg_len]
+        # ignore pad token loss
+        loss = torch.mul(loss, target_not_pad)
+        # batch loss is the sum of all batch sentences and all tokens in the sentence.
+        batch_loss = torch.sum(loss)
+        return batch_loss
