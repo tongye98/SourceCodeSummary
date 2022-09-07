@@ -77,6 +77,7 @@ def predict(model, data:Dataset, device:torch.device,
                 trg_truth = batch_data.trg
                 source_maps = batch_data.source_maps
                 alignments = batch_data.alignments
+                src_vocabs = batch_data.src_vocabs
                 
                 batch_loss = model(return_type="loss", src_input=src_input, trg_input=trg_input,
                    src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth, 

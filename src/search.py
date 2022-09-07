@@ -26,12 +26,13 @@ def search(model, batch_data: Batch,
     with torch.no_grad():
         src_input = batch_data.src
         src_mask = batch_data.src_mask
+        source_maps = batch_data.source_maps
         encoder_output = model(return_type="encode", src_input=src_input, src_mask=src_mask)
         # encode_output [batch_size, src_len, model_dim]
 
         if beam_size < 2: # Greedy Strategy
             stacked_output, stacked_scores, stacked_attention_scores = greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length,
-             generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size)
+             generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size, source_maps)
         else:
             stacked_output, stacked_scores, stacked_attention_scores = beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
              beam_size, beam_alpha, n_best, generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size)
@@ -40,7 +41,8 @@ def search(model, batch_data: Batch,
 
 
 def greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
-                  generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size):
+                  generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size,
+                  source_maps):
     """
     Transformer Greedy function.
     :param: model: Transformer Model
@@ -82,7 +84,6 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
         with torch.no_grad():
             output, cross_attention_weight = model(return_type="decode", trg_input=generated_tokens, encoder_output=encoder_output,
                                                           src_mask=src_mask, trg_mask=trg_mask)
-            # after output layer [batch_size, trg_len, vocab_size] -> [batch_size, step+1, vocab_size]
             # output [batch_size, trg_len, model_dim] -> [batch_size, step+1, model_dim]
             # cross_attention_weight [batch_size, trg_len, src_len] -> [batch_size, step+1, src_len]
             if model.copy is False:
@@ -107,17 +108,20 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
                 output = prob[:, -1]
                 # output [batch_size, trg_vocab_size + extra_words]
                 if not generate_unk:
+                    offset = model.trg_vocab_size
                     output[:, unk_index] = float("-inf")
                     output[:, unk_index + offset] = float("-inf")
                 if step < min_output_length:
                     output[:, eos_index] = float("-inf")
+                if compute_softmax:
+                    output = F.log_softmax(output, dim=-1)
 
-            
             # take the most likely token
             prob, next_words = torch.max(output, dim=-1)
             # prob [batch_size]
             # next_words [batch_size]
             next_words = next_words.data
+            # FIXME if next word id > trg_vocab_size? 
             generated_tokens = torch.cat([generated_tokens, next_words.unsqueeze(-1)], dim=-1) # [batch_size, step+2]
 
             if return_prob == "hypotheses":

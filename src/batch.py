@@ -41,7 +41,9 @@ class Batch(object):
         # for copy mechanism
         self.src_vocabs = src_vocabs
         self.source_maps = source_maps
+        # source_maps [batch_size, src_len, extra_words]
         self.alignments = alignments
+        # alignments [batch_size, original_target_length+1]  no bos, but has eos
 
         if device.type == "cuda":
             self.move2cuda(device)

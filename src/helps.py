@@ -403,6 +403,10 @@ def align(alignments):
         align[i, :sentence.size(0)] = sentence 
     return align
 
+def collapse_copy_scores(trg_vocab, src_vocabs):
+    return None
+
+
 
 if __name__ == "__main__":
     # TEST 
