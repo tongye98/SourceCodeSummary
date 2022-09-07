@@ -6,9 +6,10 @@ import torch
 from torch import Tensor, nn
 from src.constants import UNK_ID
 import torch.nn.functional as F
+
 class XentLoss(nn.Module):
     """
-    Cross-Entropy loss with optional label smoothing
+    Cross-Entropy loss with optional label smoothing.
     reduction='sum' means add all sequences and all tokens loss in the batch.
     reduction='mean' means take average of all sequence and all token loss in the batch.
     """
@@ -44,8 +45,8 @@ class XentLoss(nn.Module):
         """
         log_probs = F.log_softmax(logits, dim=-1)
         log_probs, target = self.reshape(log_probs, target)
-        logits = self.criterion(log_probs, target)
-        return logits
+        batch_loss = self.criterion(log_probs, target)
+        return batch_loss
     
     def __repr__(self):
         return (f"{self.__class__.__name__}(criterion={self.criterion}, "

@@ -110,7 +110,7 @@ class TrainManager(object):
         # model
         self.model = model
         self.model.log_parameters_list()
-        self.model.loss_function = (loss_type, label_smoothing)
+        # self.model.loss_function = (loss_type, label_smoothing)
         logger.info(self.model)
 
         # CPU/GPU

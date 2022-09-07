@@ -71,7 +71,7 @@ class Transformer(nn.Module):
         return_type: one of {"loss", "encode", "decode"}
         src_input [batch_size, src_len]
         trg_input [batch_size, trg_len]
-        src_mask [batch_size,1,src_len]
+        src_mask [batch_size, 1, src_len]
         trg_mask [batch_size, trg_len, trg_len]
         encoder_output [batch_size, src_len, model_dim]
         """
@@ -90,8 +90,16 @@ class Transformer(nn.Module):
                 batch_loss = self.loss_function(logits, target=trg_truth)
                 # return batch loss = sum over all sentences of all tokens in the batch that are not pad
             else:
-                #TODO
-                pass
+                # use copy mechanism
+                # first step
+                fuse_score, attention_score = self.copy_attention_score(decode_output, encode_output, src_mask)
+                # attention_score [batch_size, trg_len, src_len]
+
+                # second step
+                self.copy_generator(decode_output, attention_score, source_map)
+
+
+
             return batch_loss
         elif return_type == "encode":
             assert src_input is not None and src_mask is not None
@@ -218,6 +226,7 @@ def build_model(model_cfg: dict=None,
             raise ConfigurationError("For tied softmax, decoder embedding_dim == decoder hidden_size.")
     
     # Custom Initialization of model parameters.
+    # FIXME how to initialize need double check
     Initialize_model(model, model_cfg, src_pad_index, trg_pad_index)
 
     # Initializate embeddings from pre-trained embedding file.

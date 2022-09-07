@@ -207,57 +207,54 @@ class GlobalAttention(nn.Module):
     Takes a matrix and a query vector.
     It then computes a parameterized convex combination of the matrix based on the input query.
     """
-    def __init__(self, dim:int=512) -> None:
+    def __init__(self, model_dim:int=512) -> None:
         super().__init__()
-        self.dim = dim
-        self.linear_in = nn.Linear(dim, dim, bias=False)
-        self.linear_out = nn.Linear(dim*2, dim, bias=False)
+        self.dim = model_dim
+        self.linear_in = nn.Linear(self.dim, self.dim, bias=False)
+        self.linear_out = nn.Linear(self.dim * 2, self.dim, bias=False)
         self.softmax = nn.Softmax(dim=-1)
         self.tanh = nn.Tanh()
 
     def attention_score(self, decoder_output, encoder_output):
         """
-        Compute attention score
+        Compute attention score.
         [batch_size, trg_len, model_dim] * [batch_size, src_len, model_dim] 
         --> [batch_size, trg_len, src_len]
         """
-        batch_size = decoder_output.size(0)
-        trg_len = decoder_output.size(1)
-        model_dim = decoder_output.size(2)
-        decoder_output = decoder_output.view(batch_size*trg_len, model_dim)
         decoder_output = self.linear_in(decoder_output)
-        decoder_output = decoder_output.view(batch_size, trg_len, model_dim)
         encoder_output = encoder_output.transpose(1,2)
         return torch.matmul(decoder_output, encoder_output)
 
-    def forward(self, decoder_output, encoder_ouput):
+    def forward(self, decoder_output, encoder_ouput, src_mask):
         """
-        decoder_output is before the output layer [batch_size, trg_len, model_dim]
+        decoder_output [batch_size, trg_len, model_dim]
         encoder_output [batch_size, src_len, model_dim]
+        src_mask [batch_size, 1, src_len]
         return: 
-            - align [batch_size, trg_len, model_dim]
-            - score [batch_size, trg_len, src_len]
+            - fuse_score [batch_size, trg_len, model_dim] # (-1 ~ +1)
+            - attention_score [batch_size, trg_len, src_len] # probability (0 ~ 1)
         """
-        batch_size = decoder_output.size(0)
-        trg_len = decoder_output.size(1)
-        model_dim = decoder_output.size(2)
-
-        score = self.attention_score(decoder_output, encoder_ouput)
+        attention_score = self.attention_score(decoder_output, encoder_ouput)
         # score [batch_size, trg_len, src_len]
 
-        # TODO  score need mask pad
+        if src_mask is not None:
+            attention_score = attention_score.masked_fill(~src_mask, float("-inf"))
 
-        score = self.softmax(score)
+        attention_score = self.softmax(attention_score) # 0~1
+
         # get context vector
-        context = torch.matmul(score, encoder_ouput)
+        context = torch.matmul(attention_score, encoder_ouput)
         # context [batch_size, trg_len, model_dim]
 
         # concatenate
-        concat_context = torch.cat([context, decoder_output],dim=-1).view(batch_size*trg_len, model_dim*2)
-        align = self.linear_out(concat_context).view(batch_size, trg_len, model_dim)
+        concat_context = torch.cat([context, decoder_output], dim=-1)
+        # concat_context [batch_size, trg_len, 2*model_dim]
 
-        align = self.tanh(align)
-        return align, score
+        fuse_score = self.linear_out(concat_context)
+        # align [batch_size, trg_len, model_dim]
+
+        fuse_score = self.tanh(fuse_score)  # (-1 ~ +1)
+        return fuse_score, attention_score
 
 
 class CopyGenerator(nn.Module):
