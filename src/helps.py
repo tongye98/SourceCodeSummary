@@ -15,6 +15,8 @@ import numpy as np
 import operator
 from collections import Counter
 
+logger = logging.getLogger(__name__)
+
 
 def freeze_params(module: nn.Module) -> None:
     """
@@ -380,12 +382,12 @@ def generate_relative_position_matrix(length, max_relative_position, use_negativ
 
 def make_src_map(source_map):
     """
-    ???
+    Pad to make a tensor.
     return a tensor.
     """
     src_size = max([src_sentence.size(0) for src_sentence in source_map])
     src_vocab_size = max([src_sentence.max() for src_sentence in source_map]) + 1
-    alignment = torch.zeros(len(source_map), src_size, src_vocab_size).long()
+    alignment = torch.zeros(len(source_map), src_size, src_vocab_size)
     for i, src_sentence in enumerate(source_map):
         for j, t in enumerate(src_sentence):
             alignment[i, j, t] = 1
@@ -393,9 +395,10 @@ def make_src_map(source_map):
 
 def align(alignments):
     """
+    Pad to make a tensor.
     """
     trg_size = max([t.size(0) for t in alignments])
-    align = torch.zeros(len(alignments), trg_size).long()
+    align = torch.zeros(len(alignments), trg_size, dtype=torch.int64)
     for i, sentence in enumerate(alignments):
         align[i, :sentence.size(0)] = sentence 
     return align

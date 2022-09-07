@@ -80,23 +80,38 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
 
     for step in range(max_output_length):
         with torch.no_grad():
-            output, input, cross_attention_weight = model(return_type="decode", trg_input=generated_tokens, encoder_output=encoder_output,
+            output, cross_attention_weight = model(return_type="decode", trg_input=generated_tokens, encoder_output=encoder_output,
                                                           src_mask=src_mask, trg_mask=trg_mask)
-            # output: after output layer [batch_size, trg_len, vocab_size] -> [batch_size, step+1, vocab_size]
-            # input: before output layer [batch_size, trg_len, model_dim] -> [batch_size, step+1, model_dim]
+            # after output layer [batch_size, trg_len, vocab_size] -> [batch_size, step+1, vocab_size]
+            # output [batch_size, trg_len, model_dim] -> [batch_size, step+1, model_dim]
             # cross_attention_weight [batch_size, trg_len, src_len] -> [batch_size, step+1, src_len]
-            output = output[:, -1] # output [batch_size, vocab_size]
-            if not generate_unk:
-                output[:, unk_index] = float("-inf")
-            # Don't generate EOS until we reached min_output_length
-            if step < min_output_length:
-                output[:, eos_index] = float("-inf")
-            
-            if compute_softmax:
-                output = F.log_softmax(output, dim=-1)
-                #TODO
-                # no_repeat_ngram_size
-                # penalize_repetition
+            if model.copy is False:
+                output = model.output_layer(output)
+                # output [batch_size, step+1, trg_vocab_size]
+                output = output[:, -1] 
+                # output [batch_size, trg_vocab_size]
+                if not generate_unk:
+                    output[:, unk_index] = float("-inf")
+                # Don't generate EOS until we reached min_output_length
+                if step < min_output_length:
+                    output[:, eos_index] = float("-inf")
+                if compute_softmax:
+                    output = F.log_softmax(output, dim=-1)
+                    #TODO
+                    # no_repeat_ngram_size
+                    # penalize_repetition
+            else:
+                fuse_score, attention_score = model.copy_attention_score(output, encoder_output, src_mask)
+                prob = model.copy_generator(output, attention_score, source_maps)
+                # prob [batch_size, step+1， trg_vocab_size + extra_words]
+                output = prob[:, -1]
+                # output [batch_size, trg_vocab_size + extra_words]
+                if not generate_unk:
+                    output[:, unk_index] = float("-inf")
+                    output[:, unk_index + offset] = float("-inf")
+                if step < min_output_length:
+                    output[:, eos_index] = float("-inf")
+
             
             # take the most likely token
             prob, next_words = torch.max(output, dim=-1)

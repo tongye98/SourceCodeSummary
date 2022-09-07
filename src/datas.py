@@ -7,7 +7,7 @@ import torch
 from src.tokenizers import build_tokenizer
 from src.datasets import build_dataset
 from src.vocabulary import Vocabulary, build_vocab
-from src.helps import ConfigurationError, log_data_info
+from src.helps import ConfigurationError, log_data_info, make_src_map, align
 from torch.utils.data import Dataset, Sampler, DataLoader
 from torch.utils.data import SequentialSampler, RandomSampler, BatchSampler
 from typing import Callable, List, Union, Tuple, Iterator, Iterable
@@ -63,7 +63,7 @@ def load_data(data_cfg: dict):
     src_vocab, trg_vocab = build_vocab(data_cfg, dataset=train_data)
 
     sentences_to_vocab_ids = {
-        src_language: partial(src_vocab.sentences_to_ids, bos=False, eos=True),
+        src_language: partial(src_vocab.sentences_to_ids, bos=False, eos=False),
         trg_language: partial(trg_vocab.sentences_to_ids, bos=True, eos=True),
     }
     if train_data is not None:
@@ -160,6 +160,11 @@ def collate_fn(batch: List[Tuple], src_sentences_to_vocab_ids: Callable,
     Note: for copy mechanism, need src_vocabs, source_maps, alignments
     """
     batch = [(src, trg) for (src, trg) in batch]  # doing nothing.
+    # batch style
+    # [(['jetzt', "geht's", 'los.'], ['here', 'they', 'go.']), 
+    # (['sie', 'sehen', 'diese', 'garnele', 'den', 'armen', 'kleinen', 'hier', 'belästigen,', 'er', 'schlägt', 'sie', 'mit', 'seiner', 'klaue', 'zurück.', 'zack!'], 
+    # ['you', 'can', 'see', 'this', 'shrimp', 'is', 'harassing', 'this', 'poor', 'little', 'guy', 'here,', 'and', "he'll", 'bat', 'it', 'away', 'with', 'his', 'claw.', 'whack!']),
+    #  (['oh,', 'ah', 'ja,'], ['oh,', 'hah.'])]
     src_list, trg_list = zip(*batch) # src_list: Tuple[List[str]]
     assert len(src_list) == len(trg_list)
 
@@ -170,16 +175,16 @@ def collate_fn(batch: List[Tuple], src_sentences_to_vocab_ids: Callable,
     source_maps = []
     alignments = []
     for id in range(batch_size):
-        vocab = Vocabulary(tokens=src_list[id])
+        vocab = Vocabulary(tokens=src_list[id], has_bos_eos=False)
         src_vocabs.append(vocab)
-        src_map = torch.tensor([vocab.lookup(token) for token in src_list[id]]).long()
+        src_map = torch.tensor([vocab.lookup(token) for token in src_list[id]])
         source_maps.append(src_map)
 
-        alignment = torch.tensor([vocab.lookup(token) for token in trg_list[id]]).long()
+        alignment = torch.tensor([vocab.lookup(token) for token in trg_list[id]] + [0]) # [0] for eos == trg_len
         alignments.append(alignment)
 
-    src_ids, src_length = src_sentences_to_vocab_ids(src_list)
-    trg_ids, trg_length = trg_sentences_to_vocab_ids(trg_list)
+    src_ids, src_length = src_sentences_to_vocab_ids(src_list) # src_length: src sentence tokens number
+    trg_ids, trg_length = trg_sentences_to_vocab_ids(trg_list) # trg_length = original trg tokens number + 2 (bos, eos)
     # src_ids, trg_ids List[List[int]]
     # src_length, trg_length List[int]
 
@@ -188,5 +193,12 @@ def collate_fn(batch: List[Tuple], src_sentences_to_vocab_ids: Callable,
     trg = torch.tensor(trg_ids).long()
     trg_length = torch.tensor(trg_length).long()
 
+    source_maps = make_src_map(source_maps)
+    # source_maps [batch_size, src_len, extra_words]
+    assert source_maps.size(1) == src.size(1)
+
+    alignments = align(alignments)
+    # alignments [batch_size, original_target_length+1]  no bos, but has eos
+    
     return Batch(src=src, src_length=src_length, trg=trg, trg_length=trg_length, device=device,
                  src_vocabs=src_vocabs, source_maps=source_maps, alignments=alignments)

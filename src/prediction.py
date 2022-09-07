@@ -75,8 +75,12 @@ def predict(model, data:Dataset, device:torch.device,
                 src_mask = batch_data.src_mask
                 trg_mask = batch_data.trg_mask
                 trg_truth = batch_data.trg
-                batch_loss, log_probs = model(return_type="loss", src_input=src_input, trg_input=trg_input,
-                   src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth)
+                source_maps = batch_data.source_maps
+                alignments = batch_data.alignments
+                
+                batch_loss = model(return_type="loss", src_input=src_input, trg_input=trg_input,
+                   src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth, 
+                   source_maps=source_maps, alignments=alignments)
                 
                 # sum over multiple gpus.
                 # if normalization = 'sum', keep the same.

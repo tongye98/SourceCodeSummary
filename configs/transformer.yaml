@@ -49,13 +49,13 @@ training:
     learning_rate_min: 0.000001
     keep_best_ckpts: 5
     logging_freq: 10
-    validation_freq: 200
+    validation_freq: 200000
     log_valid_sentences: [0,1,2]
     early_stopping_metric: "bleu"
     shuffle: True
     epochs: 30
     max_updates: 100000 #  "np.inf"
-    batch_size: 3
+    batch_size: 32
     batch_type: "sentence"
     # load_model: None
     reset_best_ckpt: False
@@ -92,7 +92,7 @@ model:
     bias_init_weight: 0.01
     tied_softmax: False
     tied_embeddings: False
-    copy: False  # for copy mechanism
+    copy: True  # for copy mechanism
     encoder:
         model_dim: 64
         ff_dim: 128
@@ -107,7 +107,7 @@ model:
             freeze: False
             dropout: 0.1
             # load_pretrained
-        src_pos_emb: "relative" # use positional embeddings in encoder "absolute", "learnable","relative"
+        src_pos_emb: "absolute" # use positional embeddings in encoder "absolute", "learnable","relative"
         max_src_len: 100 # for learnable. keep same with data segment
         max_relative_position: 16  # only for relative position, else must be set to 0
         use_negative_distance: True # for relative position
@@ -125,7 +125,7 @@ model:
             freeze: False
             dropout: 0.1
             # load_pretrained
-        trg_pos_emb: "relative" # use positional embeddings in encoder "absolute", "learnable","relative"
+        trg_pos_emb: "absolute" # use positional embeddings in encoder "absolute", "learnable","relative"
         max_trg_len: 50 # for learnable. keep same with data segment
         max_relative_position: 16  # only for relative position, else must be set to 0
         use_negative_distance: True # for relative position

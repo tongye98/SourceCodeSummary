@@ -43,7 +43,7 @@ class Transformer(nn.Module):
         self.loss_function = None
         self.copy = copy
         if self.copy:
-            self.copy_attention_score = GlobalAttention(dim=self.model_dim)
+            self.copy_attention_score = GlobalAttention(self.model_dim)
             self.copy_generator = CopyGenerator(self.model_dim, self.trg_vocab, self.output_layer)
             self.loss_function = CopyGeneratorLoss(self.trg_vocab_size, force_copy=False)
         else:
@@ -97,6 +97,7 @@ class Transformer(nn.Module):
                 # second step
                 prob = self.copy_generator(decode_output, attention_score, source_maps)
                 # prob [batch_size, trg_len, trg_vocab_size + extra_words]
+                # logger.info(prob.size())
                 # third step
                 batch_loss = self.loss_function(prob, alignments, trg_truth)
             return batch_loss
@@ -144,7 +145,8 @@ class Transformer(nn.Module):
                 f"\tdecoder={self.decoder},\n"
                 f"\tsrc_embed={self.src_embed},\n"
                 f"\ttrg_embed={self.trg_embed},\n"
-                f"\tloss_function={self.loss_function})")
+                f"\tloss_function={self.loss_function},\n"
+                f"\tcopy={self.copy})")
     
     def log_parameters_list(self) -> None:
         """

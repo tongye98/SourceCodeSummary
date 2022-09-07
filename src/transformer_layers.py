@@ -293,7 +293,7 @@ class CopyGenerator(nn.Module):
         # p_copy [batch_size, trg_len, 1]
         origin_prob = torch.mul(prob, 1 - p_copy.expand_as(prob)) # [batch_size, trg_len, trg_vocab_size]
         extend_attn = torch.mul(attention_score, p_copy.expand_as(attention_score)) # [batch_size, trg_len, src_len]
-        copy_prob = torch.bmm(extend_attn, source_maps)  # [batch_size, trg_len, extra_words]
+        copy_prob = torch.matmul(extend_attn, source_maps)  # [batch_size, trg_len, extra_words]
         return torch.cat([origin_prob, copy_prob], dim=-1)
 
 

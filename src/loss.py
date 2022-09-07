@@ -6,6 +6,9 @@ import torch
 from torch import Tensor, nn
 from src.constants import UNK_ID, PAD_ID
 import torch.nn.functional as F
+import logging
+
+logger = logging.getLogger(__name__)
 
 class XentLoss(nn.Module):
     """
@@ -84,6 +87,7 @@ class CopyGeneratorLoss(nn.Module):
         batch_size = target.size(0)
         trg_len = target.size(1)
         target_not_pad = target.ne(PAD_ID)
+        assert trg_len == alignment.size(1)
 
         # reshape
         prob, alignment, target = self.reshape(prob, alignment, target)
@@ -106,6 +110,7 @@ class CopyGeneratorLoss(nn.Module):
             # add prob for non-unks in target
             final_prob = extra_select_probs + torch.mul(origin_select_probs, target_not_unk)
             # add prob for when word is unk in both align(src) and traget
+            # model need to generate unk token
             final_prob = final_prob + origin_select_probs.mul(alignment_unk).mul(target_unk)
         else:
             # only prob for non-copied tokens
@@ -116,7 +121,6 @@ class CopyGeneratorLoss(nn.Module):
 
         loss = (-final_prob.log()).view(batch_size, trg_len)
         # loss [batch_size, trg_len]
-        # ignore pad token loss
         loss = torch.mul(loss, target_not_pad)
         # batch loss is the sum of all batch sentences and all tokens in the sentence.
         batch_loss = torch.sum(loss)

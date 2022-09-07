@@ -9,6 +9,8 @@ from torch import Tensor
 from src.constants import PAD_ID
 from typing import List
 
+from src.vocabulary import Vocabulary
+
 logger = logging.getLogger(__name__)
 
 
@@ -19,7 +21,7 @@ class Batch(object):
     """
     def __init__(self, src:Tensor, src_length: Tensor,
                  trg: Tensor, trg_length: Tensor, device: torch.device,
-                 src_vocabs:List, source_maps:List, alignments:List) -> None:
+                 src_vocabs:List[Vocabulary], source_maps:List[Tensor], alignments:List[Tensor]) -> None:
         
         self.src = src
         self.src_length = src_length
@@ -28,21 +30,21 @@ class Batch(object):
         self.nseqs = self.src.size(0)
 
         # example: trg -> <bos> a b <pad> <eos>
-        self.trg_input = trg[:, :-1] # [batch_size, trg_length-1]
+        self.trg_input = trg[:, :-1] # [batch_size, modified_trg_length-1]  modified_trg_length = original_trg_len + 2
         self.trg = trg[:, 1:] 
-        # trg(trg_truth) is used for loss computation, shifted by 1 since BOS token.
-        self.trg_length = trg_length - 1 # FIXME why is 1? 
-
+        # trg(= trg_truth) is used for loss computation, shifted by 1 since BOS token.
+        self.trg_length = trg_length - 1 # trg length for train
+        
         self.trg_mask = (self.trg != PAD_ID).unsqueeze(1) # [batch_size, 1, trg_length]
         self.ntokens = (self.trg != PAD_ID).data.sum().item()
-
-        if device.type == "cuda":
-            self.move2cuda(device)
         
         # for copy mechanism
         self.src_vocabs = src_vocabs
         self.source_maps = source_maps
         self.alignments = alignments
+
+        if device.type == "cuda":
+            self.move2cuda(device)
     
     def move2cuda(self, device: torch.device):
         """Move batch to GPU"""
@@ -54,6 +56,9 @@ class Batch(object):
         self.trg_input = self.trg_input.to(device)
         self.trg = self.trg.to(device)
         self.trg_mask = self.trg_mask.to(device)
+
+        self.source_maps = self.source_maps.to(device)
+        self.alignments = self.alignments.to(device)
 
     
     def normalize(self, tensor, normalization, n_gpu):

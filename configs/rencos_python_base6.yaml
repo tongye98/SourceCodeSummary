@@ -49,7 +49,7 @@ training:
     learning_rate_min: 0.00000001
     keep_best_ckpts: 5
     logging_freq: 100
-    validation_freq: 2000
+    validation_freq: 200000
     log_valid_sentences: [0,1,2]
     early_stopping_metric: "bleu"
     shuffle: True
@@ -92,6 +92,7 @@ model:
     bias_init_weight: 0.01
     tied_softmax: False
     tied_embeddings: False
+    copy: True
     encoder:
         model_dim: 512
         ff_dim: 2048
@@ -106,7 +107,7 @@ model:
             freeze: False
             dropout: 0.2
             # load_pretrained
-        src_pos_emb: "learnable"
+        src_pos_emb: "absolute"
         max_src_len: 100
         max_relative_position: 0
         use_negative_distance: True
@@ -124,7 +125,7 @@ model:
             freeze: False
             dropout: 0.2
             # load_pretrained
-        trg_pos_emb: "learnable"
+        trg_pos_emb: "absolute"
         max_trg_len: 100
         max_relative_position: 0
         use_negative_distance: True
