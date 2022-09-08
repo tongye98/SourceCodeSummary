@@ -14,7 +14,7 @@ import random
 import numpy as np
 import operator
 from collections import Counter
-from src.constants import UNK_ID
+from src.constants import EOS_TOKEN, PAD_TOKEN, UNK_ID
 
 logger = logging.getLogger(__name__)
 
@@ -427,6 +427,44 @@ def collapse_copy_scores(trg_vocab, src_vocabs):
         fill_arr.append(fill)
 
     return blank_arr, fill_arr
+
+
+def tensor2sentence_copy(generated_tokens_copy, trg_vocab, src_vocabs):
+    """
+    generated_tokens_copy [batch_size, len]
+    return batch_words List[List[token]]
+    """
+    batch_size = generated_tokens_copy.size(0)
+    assert batch_size == len(src_vocabs)
+    batch_words = []
+    for i in range(batch_size):
+        words_per_sentence = []
+        tokens_id = generated_tokens_copy[i]
+        src_vocab = src_vocabs[i]
+        for id in tokens_id:
+            if id < len(trg_vocab):
+                words_per_sentence.append(trg_vocab.lookup(id))
+            else:
+                id = id - len(trg_vocab)
+                words_per_sentence.append(src_vocab.lookup(id))
+        batch_words.append(words_per_sentence)
+    return batch_words
+
+def cut_off(all_batch_words, cut_at_eos:bool=True, skip_pad=True):
+    """
+    return sentences [[token1, token2], [token3, token4]]
+    """
+    sentences = []
+    for sentence_tokens in all_batch_words:
+        sentence = []
+        for token in sentence_tokens:
+            if skip_pad and token == PAD_TOKEN:
+                continue
+            sentence.append(token)
+            if cut_at_eos and token == EOS_TOKEN:
+                break
+        sentences.append(sentence)
+    return sentences
 
 if __name__ == "__main__":
     # TEST 

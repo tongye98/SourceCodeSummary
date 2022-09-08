@@ -6,7 +6,7 @@ from typing import List, Tuple
 from src.batch import Batch
 import torch 
 import torch.nn.functional as F
-from src.helps import collapse_copy_scores, tile
+from src.helps import collapse_copy_scores, tile, tensor2sentence_copy
 import numpy as np
 from torch import Tensor 
 from src.vocabulary import Vocabulary
@@ -34,7 +34,7 @@ def search(model, batch_data: Batch,
         # encode_output [batch_size, src_len, model_dim]
 
         if beam_size < 2: # Greedy Strategy
-            stacked_output, stacked_scores, stacked_attention_scores = greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length,
+            stacked_output, stacked_scores, stacked_attention_scores, batch_words = greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length,
              generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size, source_maps, src_vocabs)
         else:
             stacked_output, stacked_scores, stacked_attention_scores = beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
@@ -68,6 +68,10 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
     # start with BOS-symbol for each sentence in the batch
     generated_tokens = encoder_output.new_full((batch_size,1), bos_index, dtype=torch.long, requires_grad=False)
     # generated_tokens [batch_size, 1] generated_tokens id
+    if model.copy:
+        generated_tokens_copy = encoder_output.new_full((batch_size,1), bos_index, dtype=torch.long, requires_grad=False)
+        # generated_tokens_copy [batch_size, 1] generated_tokens id
+
 
     # Placeholder for scores
     generated_scores = generated_tokens.new_zeros((batch_size,1), dtype=torch.float) if return_prob == "hypotheses" else None
@@ -104,7 +108,6 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
                     #TODO
                     # no_repeat_ngram_size
                     # penalize_repetition
-
             else:
                 fuse_score, attention_score = model.copy_attention_score(output, encoder_output, src_mask)
                 prob = model.copy_generator(output, attention_score, source_maps)
@@ -132,8 +135,18 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
             # prob [batch_size]
             # next_words [batch_size]
             next_words = next_words.data
-            # FIXME if next word id > trg_vocab_size? 
-            generated_tokens = torch.cat([generated_tokens, next_words.unsqueeze(-1)], dim=-1) # [batch_size, step+2]
+
+            if model.copy is False:
+                generated_tokens = torch.cat([generated_tokens, next_words.unsqueeze(-1)], dim=-1) # [batch_size, step+2]
+            else:   
+                # FIXME if next word id > trg_vocab_size? 
+                # first step:  generate tokens with src vocab
+                generated_tokens_copy = torch.cat([generated_tokens_copy, next_words.unsqueeze(-1)], dim=-1) # [batch_size, step+2]
+                for id in range(next_words.size(0)):
+                    if next_words[id].item() > len(model.trg_vocab):
+                        next_words[id] = 0   # for those generated src vocab tokens(not in trg vocab), set to unk 
+                generated_tokens = torch.cat([generated_tokens, next_words.unsqueeze(-1)], dim=-1) # [batch_size, step+2]
+
 
             if return_prob == "hypotheses":
                 prob = prob.data
@@ -149,12 +162,17 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
         if (finished >= 1).sum() == batch_size:
             break
     
+    batch_words = None
+    if model.copy:
+        batch_words = tensor2sentence_copy(generated_tokens_copy, model.trg_vocab, src_vocabs)
+
     # Remove bos-symbol
     stacked_output = generated_tokens[:, 1:].detach().cpu().numpy()
     stacked_scores = generated_scores[:, 1:].detach().cpu().numpy() if return_prob == "hypotheses" else None
     stacked_attention = generated_attention_weight[:, 1:, :].detach().cpu().numpy() if return_attention else None
 
-    return stacked_output, stacked_scores, stacked_attention
+    return stacked_output, stacked_scores, stacked_attention, batch_words
+
 
 
 def beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, beam_size, beam_alpha,

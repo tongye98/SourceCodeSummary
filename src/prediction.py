@@ -6,7 +6,8 @@ import logging
 import torch 
 from torch.utils.data import Dataset
 from typing import Dict
-from src.helps import load_config, load_model_checkpoint, parse_test_arguments, resolve_ckpt_path, write_list_to_file
+from src.helps import load_config, load_model_checkpoint, parse_test_arguments
+from src.helps import resolve_ckpt_path, write_list_to_file, cut_off
 import math
 from src.datas import make_data_iter, load_data
 from src.search import search
@@ -59,6 +60,7 @@ def predict(model, data:Dataset, device:torch.device,
     all_outputs = []
     valid_sentences_scores = []
     valid_attention_scores = [] 
+    all_batch_words = []
     hyp_scores = None
     attention_scores = None
 
@@ -97,7 +99,7 @@ def predict(model, data:Dataset, device:torch.device,
         # just look up the prob of the ground truth.
         if return_prob != "references":
             # run search as during inference to produce translations(summary)
-            output, hyp_scores, attention_scores = search(model=model, batch_data=batch_data,
+            output, hyp_scores, attention_scores, batch_words = search(model=model, batch_data=batch_data,
                                                           beam_size=beam_size, beam_alpha=beam_alpha,
                                                           max_output_length=max_output_length, 
                                                           min_output_length=min_output_length, n_best=n_best,
@@ -118,6 +120,7 @@ def predict(model, data:Dataset, device:torch.device,
         all_outputs.extend(output)
         valid_sentences_scores.extend(hyp_scores if hyp_scores is not None else [])
         valid_attention_scores.extend(attention_scores if attention_scores is not None else [])
+        all_batch_words.extend(batch_words if batch_words is not None else [])
 
     assert total_nseqs == len(data)
     # FIXME all_outputs is a list of np.ndarray
@@ -139,8 +142,12 @@ def predict(model, data:Dataset, device:torch.device,
         # exponent of token-level negative log likelihood
         valid_scores["ppl"] = math.exp(total_loss / total_ntokens)
     
-    # decode ids back to str symbols (cut_off After eos, but eos itself is included. ) # FIXME: eos is not included.
-    decoded_valid = model.trg_vocab.arrays_to_sentences(arrays=all_outputs, cut_at_eos=True)
+    if model.copy is False:
+        # decode ids back to str symbols (cut_off After eos, but eos itself is included. ) # NOTE eos is included.
+        decoded_valid = model.trg_vocab.arrays_to_sentences(arrays=all_outputs, cut_at_eos=True)
+    else:
+        # copy mode
+        decoded_valid = cut_off(all_batch_words, cut_at_eos=True, skip_pad=True)
 
     if return_prob == "references": # no evalution needed
         logger.info("Evaluation result (scoring) %s", 
