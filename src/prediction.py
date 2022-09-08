@@ -103,7 +103,8 @@ def predict(model, data:Dataset, device:torch.device,
                                                           min_output_length=min_output_length, n_best=n_best,
                                                           return_attention=return_attention, return_prob=return_prob,
                                                           generate_unk=generate_unk, repetition_penalty=repetition_penalty,
-                                                          no_repeat_ngram_size=no_repeat_ngram_size)
+                                                          no_repeat_ngram_size=no_repeat_ngram_size, source_maps=source_maps,
+                                                          src_vocabs=src_vocabs)
             # output 
             #   greedy search: [batch_size, hyp_len/max_output_length] np.ndarray
             #   beam search: [batch_size*beam_size, hyp_len/max_output_length] np.ndarray

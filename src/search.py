@@ -6,8 +6,10 @@ from typing import List, Tuple
 from src.batch import Batch
 import torch 
 import torch.nn.functional as F
-from src.helps import tile
+from src.helps import collapse_copy_scores, tile
 import numpy as np
+from torch import Tensor 
+from src.vocabulary import Vocabulary
 
 def search(model, batch_data: Batch, 
            beam_size: int, beam_alpha: float, 
@@ -15,7 +17,8 @@ def search(model, batch_data: Batch,
            min_output_length: int, n_best: int,
            return_attention: bool, return_prob: str, 
            generate_unk: bool, repetition_penalty: float, 
-           no_repeat_ngram_size: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+           no_repeat_ngram_size: float, source_maps:Tensor,
+           src_vocabs: Vocabulary) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Get outputs and attention scores for a given batch.
     return:
@@ -32,7 +35,7 @@ def search(model, batch_data: Batch,
 
         if beam_size < 2: # Greedy Strategy
             stacked_output, stacked_scores, stacked_attention_scores = greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length,
-             generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size, source_maps)
+             generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size, source_maps, src_vocabs)
         else:
             stacked_output, stacked_scores, stacked_attention_scores = beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
              beam_size, beam_alpha, n_best, generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size)
@@ -42,7 +45,7 @@ def search(model, batch_data: Batch,
 
 def greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
                   generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size,
-                  source_maps):
+                  source_maps, src_vocabs):
     """
     Transformer Greedy function.
     :param: model: Transformer Model
@@ -101,6 +104,7 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
                     #TODO
                     # no_repeat_ngram_size
                     # penalize_repetition
+
             else:
                 fuse_score, attention_score = model.copy_attention_score(output, encoder_output, src_mask)
                 prob = model.copy_generator(output, attention_score, source_maps)
@@ -115,6 +119,13 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
                     output[:, eos_index] = float("-inf")
                 if compute_softmax:
                     output = F.log_softmax(output, dim=-1)
+                
+                blank_arr, fill_arr = collapse_copy_scores(model.trg_vocab, src_vocabs)
+                for sentence_id in range(output.size(0)):
+                    blank = torch.LongTensor(blank_arr[sentence_id]).cuda()
+                    fill = torch.LongTensor(fill_arr[sentence_id]).cuda()
+                    output[sentence_id].index_add_(0, fill, output[sentence_id].index_select(0, blank))
+                    output[sentence_id].index_fill_(0, blank, 1e-10)
 
             # take the most likely token
             prob, next_words = torch.max(output, dim=-1)

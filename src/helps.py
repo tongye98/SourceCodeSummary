@@ -14,6 +14,7 @@ import random
 import numpy as np
 import operator
 from collections import Counter
+from src.constants import UNK_ID
 
 logger = logging.getLogger(__name__)
 
@@ -404,9 +405,28 @@ def align(alignments):
     return align
 
 def collapse_copy_scores(trg_vocab, src_vocabs):
-    return None
+    """
+    For probability add (for prediction)
+    """
+    offset = len(trg_vocab)
+    blank_arr = []
+    fill_arr = []
+    for src_vocab in src_vocabs:
+        blank = []
+        fill = []
+        # start from 2 to ignore unk and pad token
+        for id in range(2, len(src_vocab)):
+            src_token = src_vocab._itos[id]  #FIXME api
+            trg_vocab_id = trg_vocab.lookup(src_token)
+            if trg_vocab_id != UNK_ID:
+                # src token in trg vocab
+                blank.append(offset + id) # blank: src 词出现再 trg 字典中
+                fill.append(trg_vocab_id) # fill: 记录下 trg 字典中的 id
 
+        blank_arr.append(blank)
+        fill_arr.append(fill)
 
+    return blank_arr, fill_arr
 
 if __name__ == "__main__":
     # TEST 
