@@ -92,6 +92,7 @@ model:
     bias_init_weight: 0.01
     tied_softmax: False
     tied_embeddings: False
+    copy: False
     encoder:
         model_dim: 512
         ff_dim: 2048
@@ -106,6 +107,10 @@ model:
             freeze: False
             dropout: 0.2
             # load_pretrained
+        src_pos_emb: "absolute"
+        max_src_len: 100
+        max_relative_position: 0
+        use_negative_distance: True
     decoder:
         model_dim: 512
         ff_dim: 2048
@@ -120,3 +125,7 @@ model:
             freeze: False
             dropout: 0.2
             # load_pretrained
+        trg_pos_emb: "absolute"
+        max_trg_len: 50
+        max_relative_position: 0
+        use_negative_distance: True

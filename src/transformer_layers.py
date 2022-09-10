@@ -382,10 +382,30 @@ class TransformerDecoderLayer(nn.Module):
         if self.layer_norm_position == 'pre':
             cross_attention_input = self.layer_norm(cross_attention_input)
         cross_attention_output, cross_attention_weight = self.src_trg_attention(memory, memory, cross_attention_input,mask=src_mask)
-        feedforward_input = cross_attention_output + cross_residual
+        feedforward_input = self.dropout(cross_attention_output) + cross_residual
 
         if self.layer_norm_position == 'post':
             feedforward_input = self.layer_norm(feedforward_input)
 
+
         output = self.feed_forward(feedforward_input)
         return output, cross_attention_weight
+    
+    def context_representation(self, penultimate, encoder_output, src_mask, trg_mask) -> Tensor:
+        residual = penultimate
+        if self.layer_norm_position == 'pre':
+            penultimate = self.layer_norm(penultimate)
+        self_attention_output, _ = self.trg_trg_attention(penultimate, penultimate, penultimate, trg_mask)
+        cross_attention_input = self.dropout(self_attention_output) + residual
+
+        if self.layer_norm_position == 'post':
+            cross_attention_input = self.layer_norm(cross_attention_input)
+        
+        cross_residual = cross_attention_input
+        if self.layer_norm_position == 'pre':
+            cross_attention_input = self.layer_norm(cross_attention_input)
+        cross_attention_output, cross_attention_weight = self.src_trg_attention(encoder_output, encoder_output, cross_attention_input, src_mask)
+        feedforward_input = self.dropout(cross_attention_output) + cross_residual
+
+        representation = self.feed_forward.layer_norm(feedforward_input)
+        return representation

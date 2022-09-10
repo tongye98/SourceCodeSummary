@@ -226,7 +226,7 @@ def test(cfg_file: str, ckpt_path:str, output_path:str=None, datasets:dict=None,
     # build an transformer(encoder-decoder) model
     model = build_model(model_cfg=cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab)
     model.log_parameters_list()
-    model.loss_function = (cfg["training"].get("loss","CrossEntropy"),cfg["training"].get("label_smoothing", 0.0))
+    # model.loss_function = (cfg["training"].get("loss","CrossEntropy"),cfg["training"].get("label_smoothing", 0.0))
 
     # when checkpoint is not specified, take latest(best) from model dir
     ckpt_path = resolve_ckpt_path(ckpt_path, load_model, model_dir)

@@ -313,7 +313,10 @@ class TrainManager(object):
                 epoch_loss = 0
                 total_batch_loss = 0
 
+                epoch_start_time = time.time()
                 for i, batch_data in enumerate(self.train_iter):
+                    # NOTE log iter time 
+                    continue
                     # FIXME sort batch by src length and keep track of order
                     # batch.sort_by_src_length()
                     normalized_batch_loss = self.train_step(batch_data)
@@ -371,7 +374,10 @@ class TrainManager(object):
                         self.stats.is_min_lr = True 
                     
                     self.tb_writer.add_scalar(tag="Train/learning_rate", scalar_value=current_lr, global_step=self.stats.steps)
-                
+                epoch_end_time = time.time()
+                logger.info("Epoch spend time = {}".format(epoch_end_time-epoch_start_time))
+
+                continue
                 # check after a whole epoch.
                 if self.stats.is_min_lr or self.stats.is_max_update:
                     log_string = (f"minimum learning rate {self.learning_rate_min}"

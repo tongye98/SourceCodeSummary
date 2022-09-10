@@ -68,13 +68,16 @@ class TransformerDecoder(nn.Module):
         # trg_mask [batch_size, 1, trg_len] -> [batch_size, trg_len, trg_len] (include mask the token unseen)
 
         for layer in self.layers:
+            penultimate = input
             input, cross_attention_weight = layer(input, memory=encoder_output, src_mask=src_mask, trg_mask=trg_mask)
         
+        penultimate_representation = self.layers[-1].context_representation(penultimate, encoder_output, src_mask, trg_mask)
+
         if self.layer_norm is not None:
             input = self.layer_norm(input)
         
         output = input
-        return output, cross_attention_weight
+        return output, penultimate_representation, cross_attention_weight
     
     def __repr__(self):
         return (f"{self.__class__.__name__}(num_layers={len(self.layers)}, "

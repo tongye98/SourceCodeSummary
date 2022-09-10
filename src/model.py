@@ -81,9 +81,8 @@ class Transformer(nn.Module):
             assert self.loss_function is not None
             assert trg_input is not None and trg_mask is not None
             encode_output = self.encode(src_input, src_mask)
-            decode_output, cross_attention_weight = self.decode(trg_input, encode_output, src_mask, trg_mask)
+            decode_output, _, cross_attention_weight = self.decode(trg_input, encode_output, src_mask, trg_mask)
             # decode_output [batch_size, trg_len, model_dim]
-
             if self.copy is False:
                 logits = self.output_layer(decode_output)
                 # logits [batch_size, trg_len, trg_vocab_size]
@@ -107,6 +106,12 @@ class Transformer(nn.Module):
         elif return_type == "decode":
             assert trg_input is not None and trg_mask is not None
             return self.decode(trg_input, encoder_output, src_mask, trg_mask)
+        elif return_type == "encode_decode":
+            assert src_input is not None and src_mask is not None
+            assert trg_input is not None and trg_mask is not None 
+            encode_output = self.encode(src_input, src_mask)
+            decode_output, penultimate_representation, cross_attention_weight = self.decode(trg_input, encode_output, src_mask, trg_mask)
+            return decode_output, penultimate_representation, cross_attention_weight
         else:
             raise ValueError("return_type must be one of {'loss','encode','decode'}")
     

@@ -40,7 +40,7 @@ def search(model, batch_data: Batch,
             stacked_output, stacked_scores, stacked_attention_scores = beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
              beam_size, beam_alpha, n_best, generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size)
         
-        return stacked_output, stacked_scores, stacked_attention_scores
+        return stacked_output, stacked_scores, stacked_attention_scores, batch_words
 
 
 def greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
