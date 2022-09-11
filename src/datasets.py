@@ -100,9 +100,8 @@ class PlaintextDataset(BaseDataset):
         self.tokernized_data_ida["en"] = [[3,4], [5,6]]
         """
         self.tokernized_data_ids = dict()
-        self.tokernized_data_ids[self.src_language] = src_vocab.sentencens_to_ids(self.tokernized_data[self.src_language])
-        self.tokernized_data_ids[self.trg_language] = trg_vocab.sentencens_to_ids(self.tokernized_data[self.trg_language])
-
+        self.tokernized_data_ids[self.src_language] = src_vocab.sentencens_to_ids(self.tokernized_data[self.src_language], bos=False, eos=True)
+        self.tokernized_data_ids[self.trg_language] = trg_vocab.sentencens_to_ids(self.tokernized_data[self.trg_language], bos=True, eos=True)
 
     def __getitem__(self, index):
         """

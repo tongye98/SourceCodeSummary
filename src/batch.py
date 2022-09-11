@@ -29,6 +29,7 @@ class Batch(object):
         for sentence in src:
             src_lengths.append(len(sentence))
             pad_number = max_src_len - len(sentence)
+            assert pad_number >= 0
             padded_src_sentences.append(sentence + [PAD_ID] * pad_number)
         
         padded_trg_sentences = []
@@ -36,6 +37,7 @@ class Batch(object):
         for sentence in trg:
             trg_lengths.append(len(sentence))
             pad_number = max_trg_len -len(sentence)
+            assert pad_number >= 0
             padded_trg_sentences.append(sentence + [PAD_ID] * pad_number)
         
         self.src = torch.tensor(padded_src_sentences).long()
@@ -47,7 +49,7 @@ class Batch(object):
         self.trg = torch.tensor(padded_trg_sentences).long()
         self.trg_input = self.trg[:, :-1]
         self.trg_truth = self.trg[:, 1:] # self.trg_truth is used for loss computation
-        self.trg_length = torch.tensor(padded_trg_sentences).long() - 1
+        self.trg_lengths = torch.tensor(trg_lengths).long() - 1 # original trg length + 1
         self.trg_mask = (self.trg_truth != PAD_ID).unsqueeze(1) #[batch_size, 1, trg_length]
         self.ntokens = (self.trg_truth != PAD_ID).data.sum().item()
 
@@ -75,6 +77,8 @@ class Batch(object):
         """Move batch to GPU"""
         device = self.device
         assert isinstance(device, torch.device)
+        assert self.device.type == "cuda", "device type != cuda"
+
         self.src = self.src.to(device)
         self.src_lengths = self.src_lengths.to(device)
         self.src_mask = self.src_mask.to(device)

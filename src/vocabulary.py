@@ -3,6 +3,7 @@
 Vocabulary module
 """
 import logging
+from operator import truediv
 from pathlib import Path
 import numpy as np
 from typing import Dict, List, Tuple
@@ -181,13 +182,17 @@ class Vocabulary(object):
         
     #     return padded_sentences, sentences_lengths
 
-    def sentencens_to_ids(self, sentences:List[List[str]]):
+    def sentencens_to_ids(self, sentences:List[List[str]], bos:bool=False, eos:bool=False):
         """
         return sentences_ids List[List[id]]
         """
         sentences_ids = []
         for sentence in sentences:
             sentence_ids = [self.lookup(token) for token in sentence]
+            if bos is True:
+                sentence_ids = [self.bos_index] + sentence_ids
+            if eos is True:
+                sentence_ids = sentence_ids + [self.eos_index]
             sentences_ids.append(sentence_ids)
 
         return sentences_ids
