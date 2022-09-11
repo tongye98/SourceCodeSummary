@@ -299,14 +299,19 @@ class TrainManager(object):
                 for batch_data in self.train_iter:
                     batch_data.move2cuda(self.device)
                     normalized_batch_loss = self.train_step(batch_data)
-                    epoch_loss += normalized_batch_loss # accumulate loss
+                    normalized_batch_loss.backward()
+
+                    # accumulate loss
+                    epoch_loss += normalized_batch_loss.item()
+
+                    # increment token counter
+                    self.stats.total_tokens += batch_data.ntokens
 
                     # clip gradients (in-place)
                     if self.clip_grad_fun is not None:
                         self.clip_grad_fun(parameters=self.model.parameters())
                     
                     # make gradient step
-                    # Note: loss.backward() inside self.train_step()
                     self.optimizer.step()
 
                     # decay learning_rate(lr)
@@ -370,9 +375,6 @@ class TrainManager(object):
         """
         Train the model on one batch: compute loss
         """
-        # reactivate training.
-        self.model.train()
-
         src_input = batch_data.src
         trg_input = batch_data.trg_input
         src_mask = batch_data.src_mask
@@ -389,14 +391,8 @@ class TrainManager(object):
 
         # normalization = 'batch' means final loss is average-sentence level loss in batch
         # normalization = 'tokens' means final loss is average-token level loss in batch
-        normalized_batch_loss = batch_data.normalize(batch_loss, self.normalization, self.n_gpu)
-
-        normalized_batch_loss.backward()
-
-        # increment token counter
-        self.stats.total_tokens += batch_data.ntokens
-
-        return normalized_batch_loss.item()
+        normalized_batch_loss = batch_data.normalize(batch_loss, self.normalization)
+        return normalized_batch_loss
 
     def validate(self, valid_data: Dataset):
         """
