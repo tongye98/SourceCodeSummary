@@ -13,7 +13,6 @@ def build_dataset(dataset_type: str, path:str, split_mode:str,
     if dataset_type == "plain":
         dataset = PlaintextDataset(path, split_mode, src_language, trg_language, tokenizer, sentences_to_vocab_ids)
     elif dataset_type == "other":
-        # TODO need to expand
         raise NotImplementedError
     else:
         raise ConfigurationError("Invalid dataset_type.")
