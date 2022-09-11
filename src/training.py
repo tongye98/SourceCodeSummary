@@ -296,7 +296,7 @@ class TrainManager(object):
                 start_tokens = self.stats.total_tokens
                 epoch_loss = 0
 
-                for i, batch_data in enumerate(self.train_iter):
+                for batch_data in self.train_iter:
                     batch_data.move2cuda(self.device)
                     normalized_batch_loss = self.train_step(batch_data)
                     epoch_loss += normalized_batch_loss # accumulate loss
@@ -344,10 +344,11 @@ class TrainManager(object):
                 logger.info("Epoch %3d: total training loss %.2f", epoch_no + 1, epoch_loss)
 
                 # validate on the entire dev dataset
-                if self.stats.steps % self.validation_freq == 0:
+                if (epoch_no + 1) % self.validation_freq == 0:
                     valid_duration_time = self.validate(valid_data)
+                    logger.info("Validation time = {}s.".format(valid_duration_time))
 
-                # check after a whole epoch.
+                # check after a number of whole epoch.
                 if self.stats.is_min_lr or self.stats.is_max_update:
                     log_string = (f"minimum learning rate {self.learning_rate_min}" if self.stats.is_min_lr else 
                                     f"maximun number of updates(steps) {self.max_updates}")
