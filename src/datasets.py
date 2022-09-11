@@ -2,6 +2,7 @@ from typing import Callable, Dict, List
 from src.helps import ConfigurationError, read_list_from_file
 from torch.utils.data import Dataset
 from pathlib import Path
+from src.vocabulary import Vocabulary
 
 def build_dataset(dataset_type: str, path:str, split_mode:str,
                   src_language: str, trg_language: str,
@@ -19,7 +20,6 @@ def build_dataset(dataset_type: str, path:str, split_mode:str,
 
     return dataset
 
-
 # BaseDataset is child of torch.utils.data.Dataset.
 class BaseDataset(Dataset):
     """
@@ -34,9 +34,7 @@ class BaseDataset(Dataset):
         self.trg_language = trg_language
 
     def __getitem__(self, index):
-        src = self.get_item(idx=index, language=self.src_language)
-        trg = self.get_item(idx=index, language=self.trg_language)
-        return (src, trg)
+        raise NotImplementedError
     
     def get_item(self, idx:int, language:str):
         raise NotImplementedError
@@ -50,18 +48,14 @@ class BaseDataset(Dataset):
 
 class PlaintextDataset(BaseDataset):
     def __init__(self, path: str, split_mode: str, src_language: str, trg_language: str, 
-                 tokenizer: Dict, sentences_to_vocab_ids: Dict[str, Callable] = None) -> None:
+                 tokenizer: Dict) -> None:
         super().__init__(path, split_mode, src_language, trg_language)
 
         self.tokenizer = tokenizer
 
         self.original_data = self.load_data(path)
         self.tokernized_data = self.tokenize_data(self.original_data)
-
-        # place holder for senteces_to_vocab_ids
-        sentences_to_vocab_ids_place_holder = {self.src_language:None, self.trg_language:None}
-        self.sentences_to_vocab_ids = sentences_to_vocab_ids_place_holder if sentences_to_vocab_ids is None else sentences_to_vocab_ids
-
+        self.tokernized_data_ids = None 
     
     def load_data(self,path:str):
         """"
@@ -89,7 +83,6 @@ class PlaintextDataset(BaseDataset):
         data[self.trg_language] = pre_process(trg_list, self.trg_language)
 
         assert len(data[self.src_language]) == len(data[self.trg_language])
-
         return data
     
     def tokenize_data(self, original_data: Dict[str, List]):
@@ -102,8 +95,25 @@ class PlaintextDataset(BaseDataset):
         tokenize_data[self.trg_language] = [self.tokenizer[self.trg_language](sentence) for sentence in original_data[self.trg_language]]
         return tokenize_data
 
-    def get_item(self, idx:int, language:str) -> List[str]:
-        return None 
+    def tokernized_data_to_ids(self, src_vocab:Vocabulary, trg_vocab:Vocabulary) -> None:
+        """
+        self.tokernized_data_ids: dict
+        self.tokernized_data_ida["en"] = [[3,4], [5,6]]
+        """
+        self.tokernized_data_ids = dict()
+        self.tokernized_data_ids[self.src_language] = src_vocab.sentencens_to_ids(self.tokernized_data[self.src_language])
+        self.tokernized_data_ids[self.trg_language] = trg_vocab.sentencens_to_ids(self.tokernized_data[self.trg_language])
+
+
+    def __getitem__(self, index):
+        """
+        src: [id, id, id, ...]
+        trg: [id, id, id, ...]
+        return (src, trg) tuple
+        """
+        src = self.tokernized_data_ids[self.src_language][index]
+        trg = self.tokernized_data_ids[self.trg_language][index]
+        return (src, trg)
     
     def __len__(self) -> int:
         return len(self.data[self.src_language])
@@ -112,7 +122,7 @@ class PlaintextDataset(BaseDataset):
     def src(self) -> List[str]:
         sentence_list = []
         for i in range(self.__len__()):
-            sentence = self.data[self.src_language][i]
+            sentence = self.original_data[self.src_language][i]
             sentence_list.append(sentence)
         return sentence_list
     
@@ -120,10 +130,16 @@ class PlaintextDataset(BaseDataset):
     def trg(self) -> List[str]:
         sentence_list = []
         for i in range(self.__len__()):
-            sentence = self.data[self.trg_language][i]
+            sentence = self.original_data[self.trg_language][i]
             sentence_list.append(sentence)
         return sentence_list
         
+
+
+
+
+
+
 
 if __name__ == "__main__":
     # dataset
