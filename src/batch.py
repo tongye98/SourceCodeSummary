@@ -8,7 +8,6 @@ import torch
 from torch import Tensor
 from src.constants import PAD_ID
 from typing import List
-
 from src.vocabulary import Vocabulary
 
 logger = logging.getLogger(__name__)
@@ -19,48 +18,73 @@ class Batch(object):
     Object for holding a batch of data with mask during training.
     Input is yield from 'collate_fn()' called by torch.data.utils.DataLoader.
     """
-    def __init__(self, src:Tensor, src_length: Tensor,
-                 trg: Tensor, trg_length: Tensor, device: torch.device,
-                 src_vocabs:List[Vocabulary], source_maps:List[Tensor], alignments:List[Tensor]) -> None:
+    def __init__(self, src, trg, device, src_vocabs:List[Vocabulary]=None, source_maps:List[Tensor]=None, alignments:List[Tensor]=None) -> None:
+        self.device = device
+
+        max_src_len = max([len(sentence) for sentence in src])
+        max_trg_len = max([len(sentence) for sentence in trg])
+
+        padded_src_sentences = []
+        src_lengths = []
+        for sentence in src:
+            src_lengths.append(len(sentence))
+            pad_number = max_src_len - len(sentence)
+            padded_src_sentences.append(sentence + [PAD_ID] * pad_number)
         
-        self.src = src
-        self.src_length = src_length
+        padded_trg_sentences = []
+        trg_lengths = []
+        for sentence in trg:
+            trg_lengths.append(len(sentence))
+            pad_number = max_trg_len -len(sentence)
+            padded_trg_sentences.append(sentence + [PAD_ID] * pad_number)
+        
+        self.src = torch.tensor(padded_src_sentences).long()
+        self.src_lengths = torch.tensor(src_lengths).long()
         self.src_mask = (self.src != PAD_ID).unsqueeze(1)
         # src_mask unpad is true, pad is false (batch, 1, pad_src_length)
         self.nseqs = self.src.size(0)
-
-        # example: trg -> <bos> a b <pad> <eos>
-        self.trg_input = trg[:, :-1] # [batch_size, modified_trg_length-1]  modified_trg_length = original_trg_len + 2
-        self.trg = trg[:, 1:] 
-        # trg(= trg_truth) is used for loss computation, shifted by 1 since BOS token.
-        self.trg_length = trg_length - 1 # trg length for train
         
-        self.trg_mask = (self.trg != PAD_ID).unsqueeze(1) # [batch_size, 1, trg_length]
-        self.ntokens = (self.trg != PAD_ID).data.sum().item()
-        
-        # for copy mechanism
-        self.src_vocabs = src_vocabs
-        self.source_maps = source_maps
-        # source_maps [batch_size, src_len, extra_words]
-        self.alignments = alignments
-        # alignments [batch_size, original_target_length+1]  no bos, but has eos
+        self.trg = torch.tensor(padded_trg_sentences).long()
+        self.trg_input = self.trg[:, :-1]
+        self.trg_truth = self.trg[:, 1:] # self.trg_truth is used for loss computation
+        self.trg_length = torch.tensor(padded_trg_sentences).long() - 1
+        self.trg_mask = (self.trg_truth != PAD_ID).unsqueeze(1) #[batch_size, 1, trg_length]
+        self.ntokens = (self.trg_truth != PAD_ID).data.sum().item()
 
-        if device.type == "cuda":
-            self.move2cuda(device)
+
+        # # example: trg -> <bos> a b <pad> <eos>
+        # self.trg_input = trg[:, :-1] # [batch_size, modified_trg_length-1]  modified_trg_length = original_trg_len + 2
+        # self.trg = trg[:, 1:] 
+        # # trg(= trg_truth) is used for loss computation, shifted by 1 since BOS token.
+        # self.trg_length = trg_length - 1 # trg length for train
+        
+        # self.trg_mask = (self.trg != PAD_ID).unsqueeze(1) # [batch_size, 1, trg_length]
+        # self.ntokens = (self.trg != PAD_ID).data.sum().item()
+        
+        # # for copy mechanism
+        # self.src_vocabs = src_vocabs
+        # self.source_maps = source_maps
+        # # source_maps [batch_size, src_len, extra_words]
+        # self.alignments = alignments
+        # # alignments [batch_size, original_target_length+1]  no bos, but has eos
+
+        # if device.type == "cuda":
+        #     self.move2cuda(device)
     
-    def move2cuda(self, device: torch.device):
+    def move2cuda(self):
         """Move batch to GPU"""
+        device = self.device
         assert isinstance(device, torch.device)
         self.src = self.src.to(device)
-        self.src_length = self.src_length.to(device)
+        self.src_lengths = self.src_lengths.to(device)
         self.src_mask = self.src_mask.to(device)
 
         self.trg_input = self.trg_input.to(device)
-        self.trg = self.trg.to(device)
+        self.trg_truth = self.trg_truth.to(device)
         self.trg_mask = self.trg_mask.to(device)
 
-        self.source_maps = self.source_maps.to(device)
-        self.alignments = self.alignments.to(device)
+        # self.source_maps = self.source_maps.to(device)
+        # self.alignments = self.alignments.to(device)
 
     
     def normalize(self, tensor, normalization, n_gpu):

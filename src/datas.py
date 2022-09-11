@@ -10,7 +10,7 @@ from src.vocabulary import Vocabulary, build_vocab
 from src.helps import ConfigurationError, log_data_info, make_src_map, align
 from torch.utils.data import Dataset, Sampler, DataLoader
 from torch.utils.data import SequentialSampler, RandomSampler, BatchSampler
-from typing import Callable, List, Union, Tuple, Iterator, Iterable
+from typing import List, Union, Tuple, Iterator, Iterable
 from functools import partial
 from src.batch import Batch
 
@@ -73,14 +73,14 @@ def load_data(data_cfg: dict):
 
     # test data
     if test_data_path is not None:
-        logger.info("Load test dataset...")
+        logger.info("Loading test dataset...")
         test_data = build_dataset(dataset_type=dataset_type, path=test_data_path, split_mode="test",
                                  src_language=src_language, trg_language=trg_language, tokenizer=tokenizer)
         test_data.tokernized_data_to_ids(src_vocab, trg_vocab)
 
     logger.info("Dataset has loaded.")
     log_data_info(train_data, dev_data, test_data, src_vocab, trg_vocab)
-    assert False
+
     return train_data, dev_data, test_data, src_vocab, trg_vocab
 
 def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,
@@ -104,11 +104,51 @@ def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,
     else:
         raise ConfigurationError("Invalid batch_type")
     
-    return DataLoader(dataset, batch_sampler=batch_sampler, shuffle=False, num_workers=num_workers,
-                      pin_memory=True, collate_fn=partial(collate_fn,
-                      src_sentences_to_vocab_ids=dataset.sentences_to_vocab_ids[dataset.src_language],
-                      trg_sentences_to_vocab_ids=dataset.sentences_to_vocab_ids[dataset.trg_language],
-                      device=device))
+    return DataLoader(dataset, batch_sampler=batch_sampler, num_workers=num_workers,
+                      pin_memory=True, collate_fn=partial(collate_fn, device=device))
+
+
+def collate_fn(batch: List[Tuple], device:torch.device) -> Batch:
+    """
+    Custom collate function.
+    Note: you can stack batch and any operation on batch.
+    DataLoader every iter result is collate_fn's return value -> Batch.
+    :param batch [(src,trg),(src,trg),...]
+    Note: for copy mechanism, need src_vocabs, source_maps, alignments
+    """
+    src_list, trg_list = zip(*batch) # src_list: Tuple[List[id]]
+    assert len(src_list) == len(trg_list)
+
+    # # for copy mechanism
+    # batch_size = len(batch)
+
+    # src_vocabs = []
+    # source_maps = []
+    # alignments = []
+    # for id in range(batch_size):
+    #     vocab = Vocabulary(tokens=src_list[id], has_bos_eos=False)
+    #     src_vocabs.append(vocab)
+    #     src_map = torch.tensor([vocab.lookup(token) for token in src_list[id]])
+    #     source_maps.append(src_map)
+
+    #     alignment = torch.tensor([vocab.lookup(token) for token in trg_list[id]] + [0]) # [0] for eos == trg_len
+    #     alignments.append(alignment)
+
+
+    # src = torch.tensor(src_ids).long()
+    # src_length = torch.tensor(src_length).long()
+    # trg = torch.tensor(trg_ids).long()
+    # trg_length = torch.tensor(trg_length).long()
+
+    # source_maps = make_src_map(source_maps)
+    # # source_maps [batch_size, src_len, extra_words]
+    # assert source_maps.size(1) == src.size(1)
+
+    # alignments = align(alignments)
+    # # alignments [batch_size, original_target_length+1]  no bos, but has eos
+    
+    return Batch(src_list, trg_list, device)
+
 
 class SentenceBatchSampler(BatchSampler):
     def __init__(self, sampler: Union[Sampler[int], Iterable[int]], batch_size: int, drop_last: bool) -> None:
@@ -143,56 +183,3 @@ class TokenBatchSampler(BatchSampler):
     
     def __len__(self) -> int:
         return super().__len__()
-
-def collate_fn(batch: List[Tuple], src_sentences_to_vocab_ids: Callable,
-               trg_sentences_to_vocab_ids: Callable, device: torch.device) -> Batch:
-    """
-    Custom collate function.
-    Note: you can stack batch and any operation on batch.
-    DataLoader every iter result is collate_fn's return value -> Batch.
-    :param batch [(src,trg),(src,trg),...]
-    Note: for copy mechanism, need src_vocabs, source_maps, alignments
-    """
-    batch = [(src, trg) for (src, trg) in batch]  # doing nothing.
-    # batch style
-    # [(['jetzt', "geht's", 'los.'], ['here', 'they', 'go.']), 
-    # (['sie', 'sehen', 'diese', 'garnele', 'den', 'armen', 'kleinen', 'hier', 'belästigen,', 'er', 'schlägt', 'sie', 'mit', 'seiner', 'klaue', 'zurück.', 'zack!'], 
-    # ['you', 'can', 'see', 'this', 'shrimp', 'is', 'harassing', 'this', 'poor', 'little', 'guy', 'here,', 'and', "he'll", 'bat', 'it', 'away', 'with', 'his', 'claw.', 'whack!']),
-    #  (['oh,', 'ah', 'ja,'], ['oh,', 'hah.'])]
-    src_list, trg_list = zip(*batch) # src_list: Tuple[List[str]]
-    assert len(src_list) == len(trg_list)
-
-    # for copy mechanism
-    batch_size = len(batch)
-
-    src_vocabs = []
-    source_maps = []
-    alignments = []
-    for id in range(batch_size):
-        vocab = Vocabulary(tokens=src_list[id], has_bos_eos=False)
-        src_vocabs.append(vocab)
-        src_map = torch.tensor([vocab.lookup(token) for token in src_list[id]])
-        source_maps.append(src_map)
-
-        alignment = torch.tensor([vocab.lookup(token) for token in trg_list[id]] + [0]) # [0] for eos == trg_len
-        alignments.append(alignment)
-
-    src_ids, src_length = src_sentences_to_vocab_ids(src_list) # src_length: src sentence tokens number
-    trg_ids, trg_length = trg_sentences_to_vocab_ids(trg_list) # trg_length = original trg tokens number + 2 (bos, eos)
-    # src_ids, trg_ids List[List[int]]
-    # src_length, trg_length List[int]
-
-    src = torch.tensor(src_ids).long()
-    src_length = torch.tensor(src_length).long()
-    trg = torch.tensor(trg_ids).long()
-    trg_length = torch.tensor(trg_length).long()
-
-    source_maps = make_src_map(source_maps)
-    # source_maps [batch_size, src_len, extra_words]
-    assert source_maps.size(1) == src.size(1)
-
-    alignments = align(alignments)
-    # alignments [batch_size, original_target_length+1]  no bos, but has eos
-    
-    return Batch(src=src, src_length=src_length, trg=trg, trg_length=trg_length, device=device,
-                 src_vocabs=src_vocabs, source_maps=source_maps, alignments=alignments)

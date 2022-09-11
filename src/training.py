@@ -315,6 +315,7 @@ class TrainManager(object):
 
                 epoch_start_time = time.time()
                 for i, batch_data in enumerate(self.train_iter):
+                    batch_data.move2cuda()
                     # NOTE log iter time 
                     continue
                     # FIXME sort batch by src length and keep track of order

@@ -55,7 +55,7 @@ training:
     shuffle: True
     epochs: 200
     max_updates: 800000 #  "np.inf" 800k
-    batch_size: 64
+    batch_size: 32
     batch_type: "sentence"
     # load_model: None
     reset_best_ckpt: False

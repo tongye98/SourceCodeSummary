@@ -5,14 +5,13 @@ from pathlib import Path
 from src.vocabulary import Vocabulary
 
 def build_dataset(dataset_type: str, path:str, split_mode:str,
-                  src_language: str, trg_language: str,
-                  tokenizer: Dict, sentences_to_vocab_ids:Dict[str, Callable] = None) -> Dataset:
+                  src_language: str, trg_language: str, tokenizer: Dict) -> Dataset:
     """
     Build a dataset.
     """
     dataset = None 
     if dataset_type == "plain":
-        dataset = PlaintextDataset(path, split_mode, src_language, trg_language, tokenizer, sentences_to_vocab_ids)
+        dataset = PlaintextDataset(path, split_mode, src_language, trg_language, tokenizer)
     elif dataset_type == "other":
         raise NotImplementedError
     else:
@@ -116,7 +115,7 @@ class PlaintextDataset(BaseDataset):
         return (src, trg)
     
     def __len__(self) -> int:
-        return len(self.data[self.src_language])
+        return len(self.original_data[self.src_language])
     
     @property
     def src(self) -> List[str]:

@@ -55,7 +55,7 @@ def build_language_vocab(cfg, dataset, language):
     start = time.time()
     vocab = Vocabulary(unique_tokens)
     end = time.time()
-    logger.info("Spend time on get vocabulary = {}s".format(round(end-start,2)))
+    logger.info("Spend time on get {} vocabulary = {}s".format(language, round(end-start,2)))
     assert len(vocab) <= max_size + len(vocab.specials)
 
     # check for all except for UNK token whether they are OOVs

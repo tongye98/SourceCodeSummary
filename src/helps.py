@@ -312,8 +312,8 @@ def log_data_info(train_data, dev_data, test_data,
     logger.info(" Test dataset: %s", test_data)
 
     if train_data:
-        src = train_data.get_item(idx=0, language=train_data.src_language)
-        trg = train_data.get_item(idx=0, language=train_data.trg_language)
+        src = train_data.tokernized_data[train_data.src_language][0]
+        trg = train_data.tokernized_data[train_data.trg_language][0]
         src_print = "\n\t[SRC] " + " ".join(src)
         trg_print = "\n\t[TRG] " + " ".join(trg)
         logger.info("First training example: %s%s", src_print, trg_print)
