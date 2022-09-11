@@ -1,4 +1,3 @@
-from imp import source_from_cache
 import logging
 import os
 os.environ["CUDA_LAUNCH_BLOCKING"] = '1'
@@ -9,7 +8,7 @@ from torch.utils.data import Dataset
 from pathlib import Path
 import shutil
 from typing import List
-from src.helps import load_config,make_model_dir,make_tensorboard_dir,make_logger, log_cfg
+from src.helps import load_config, make_model_dir, make_tensorboard_dir, make_logger, log_cfg
 from src.helps import set_seed, parse_train_arguments, load_model_checkpoint
 from src.helps import symlink_update, delete_ckpt, write_validation_output_to_file
 from src.prediction import predict, test
@@ -21,22 +20,16 @@ import heapq
 import math
 import time
 
-#TODO fp16
-#import torch.cuda.amp.autocast_mode as autocast
-#import torch.cuda.amp.GradScaler as GradScaler
-
-logger = logging.getLogger("training") 
+logger = logging.getLogger(__name__) 
 
 def train(cfg_file: str, skip_test:bool=False) -> None:
     """
     Training function. After training, also test on test data if given.
     """
-    # torch.multiprocessing.set_start_method('spawn')
     cfg = load_config(Path(cfg_file))
 
-    # make model dir and tensorboard log dir
+    # make model dir
     model_dir = make_model_dir(Path(cfg["training"]["model_dir"]),overwrite=cfg["training"].get("overwrite",False))
-    make_tensorboard_dir(Path(cfg["training"]["tensorboard_dir"]),overwrite=cfg["training"].get("overwrite",False))
 
     # make logger
     make_logger(model_dir, mode="train")
@@ -46,7 +39,7 @@ def train(cfg_file: str, skip_test:bool=False) -> None:
 
     # store copy of origianl training config in model dir. 
     # as_posix change path separator to unix "/"
-    shutil.copy2(cfg_file, (model_dir/"config.yaml").as_posix())
+    shutil.copy2(cfg_file, (model_dir/"configuration.yaml").as_posix())
 
     # set the whole random seed
     set_seed(seed=int(cfg["training"].get("random_seed", 980820)))
@@ -54,8 +47,7 @@ def train(cfg_file: str, skip_test:bool=False) -> None:
     # load the data
     train_data, dev_data, test_data, src_vocab, trg_vocab = load_data(data_cfg=cfg["data"])
 
-    # store the vocabs and tokenizers
-    # TODO
+    # store the vocabs and tokenizers TODO
     src_vocab.to_file(model_dir / "src_vocab.txt")
     trg_vocab.to_file(model_dir / "trg_vocab.txt")
 
@@ -68,7 +60,7 @@ def train(cfg_file: str, skip_test:bool=False) -> None:
     # train the model
     trainer.train_and_validate(train_data=train_data, valid_data=dev_data)
 
-    # after train, let's test on test data.
+    # After train, let's test on test data.
     if not skip_test:
         # predict with best model on validation and test data.
         # Get the best model checkpoint
@@ -81,7 +73,6 @@ def train(cfg_file: str, skip_test:bool=False) -> None:
         }
 
         test(cfg_file, ckpt_path=model_best_checkpoint_path.as_posix(),output_path=output_path, datasets=dataset_to_test)
-
     else:
         logger.info("Skipping test after training the model!")
 
@@ -92,7 +83,7 @@ class TrainManager(object):
     """
     def __init__(self, model: Transformer, cfg: dict) -> None:
 
-        (model_dir, tensorboard_dir, loss_type, label_smoothing,
+        (model_dir, loss_type, label_smoothing,
         normalization, learning_rate_min, keep_best_ckpts,
         logging_freq, validation_freq, log_valid_sentences,
         early_stopping_metric, shuffle, epochs, max_updates,
@@ -106,12 +97,11 @@ class TrainManager(object):
         self.validation_freq = validation_freq
         self.log_valid_sentences = log_valid_sentences
         # FIXME tensorboard how to use with pytorch
-        self.tb_writer = SummaryWriter(log_dir=tensorboard_dir.as_posix())
+        self.tb_writer = SummaryWriter(log_dir=(model_dir/"tensorboard_log").as_posix())
 
         # model
         self.model = model
         self.model.log_parameters_list()
-        # self.model.loss_function = (loss_type, label_smoothing)
         logger.info(self.model)
 
         # CPU/GPU
@@ -137,7 +127,7 @@ class TrainManager(object):
             self.minimize_metric = False # higher is better
 
         # learning rate scheduling
-        self.scheduler, self.scheduler_step_at = build_scheduler(train_cfg=cfg["training"],optimizer=self.optimizer)
+        self.scheduler, self.scheduler_step_at = build_scheduler(train_cfg=cfg["training"], optimizer=self.optimizer)
 
         # data & batch handling
         self.seed = random_seed
@@ -167,15 +157,14 @@ class TrainManager(object):
         # multi-gpu training
         # FIXME DistributedDataParallal
         if self.n_gpu > 1:
-            self.model = nn.DataParallel(self.model)
+            assert self.n_gpu == 1, "Multi-gpu training is not Implementation."
 
         # config for generation
         self.valid_cfg = cfg["testing"].copy()
-        self.valid_cfg["beam_size"] = 1 # 1 means greedy decoding during train loop
-        self.valid_cfg["batch_size"] = self.batch_size*2
+        self.valid_cfg["beam_size"] = 1 # 1 means greedy decoding during train-loop validation
+        self.valid_cfg["batch_size"] = self.batch_size * 2
         self.valid_cfg["batch_type"] = self.batch_type
         self.valid_cfg["n_best"] == 1   # only the best one
-        
         self.valid_cfg["generate_unk"] = True
 
     def save_model_checkpoint(self, new_best:bool, score:float) -> None:
@@ -280,22 +269,18 @@ class TrainManager(object):
         """
         Train the model and validate it from time to time on the validation set.
         """
-        self.train_iter = make_data_iter(dataset=train_data, sampler_seed=self.seed, shuffle=self.shuffle,
-                                         batch_type=self.batch_type, batch_size=self.batch_size, num_workers=self.num_workers,
-                                         device=self.device)
+        self.train_iter = make_data_iter(dataset=train_data, sampler_seed=self.seed, shuffle=self.shuffle, batch_type=self.batch_type,
+                                         batch_size=self.batch_size, num_workers=self.num_workers)
 
         if self.train_iter_state is not None:
-            self.train_iter.batch_sampler.sampler.generator.set_state(
-                self.train_iter_state.cpu())
+            self.train_iter.batch_sampler.sampler.generator.set_state(self.train_iter_state.cpu())
         
         # train and validate main loop
         logger.info("Train stats:\n"
                     "\tdevice: %s\n"
                     "\tn_gpu: %d\n"
-                    "\tbatch_size: %d\n"
-                    "\tbatch_size per device: %d",
-                    self.device.type, self.n_gpu, self.batch_size,
-                    self.batch_size // self.n_gpu,)
+                    "\tbatch_size: %d\n",
+                    self.device.type, self.n_gpu, self.batch_size)
         try:
             for epoch_no in range(self.epochs):
                 logger.info("Epoch %d", epoch_no + 1)
@@ -308,18 +293,13 @@ class TrainManager(object):
                 
                 # Statistic for each epoch.
                 start_time = time.time()
-                total_valid_duration_time = 0
                 start_tokens = self.stats.total_tokens
                 epoch_loss = 0
-                total_batch_loss = 0
 
                 for i, batch_data in enumerate(self.train_iter):
-                    batch_data.move2cuda()
-                    # FIXME sort batch by src length and keep track of order
-                    # batch.sort_by_src_length()
+                    batch_data.move2cuda(self.device)
                     normalized_batch_loss = self.train_step(batch_data)
-
-                    total_batch_loss += normalized_batch_loss
+                    epoch_loss += normalized_batch_loss # accumulate loss
 
                     # clip gradients (in-place)
                     if self.clip_grad_fun is not None:
@@ -341,47 +321,38 @@ class TrainManager(object):
                     if self.stats.steps >= self.max_updates:
                         self.stats.is_max_update == True
                     
-                    # log learning process and write tensorboard
-                    if self.stats.steps % self.logging_freq == 0:
-                        elapse_time = time.time() - start_time - total_valid_duration_time
-                        elapse_token_num = self.stats.total_tokens - start_tokens
-                        # FIXME why is total batch loss
-                        self.tb_writer.add_scalar(tag="Train/batch_loss",scalar_value=total_batch_loss,global_step=self.stats.steps)
-                    
-                        logger.info("Epoch %3d, Step: %7d, Batch Loss: %12.6f, Lr: %.6f, Tokens per sec: %6.0f",
-                        epoch_no + 1, self.stats.steps, total_batch_loss, self.optimizer.param_groups[0]["lr"],
-                        elapse_token_num / elapse_time)
-
-                        start_time = time.time()
-                        start_tokens = self.stats.total_tokens
-                        # one log process may include more than one validation, so need total valid time.
-                        total_valid_duration_time = 0
-                    
-                    # FIXME  why need total_batch_loss?
-                    epoch_loss += total_batch_loss # accumulate loss
-                    total_batch_loss = 0 # reset batch loss
-
-                    # validate on the entire dev dataset
-                    if self.stats.steps % self.validation_freq == 0:
-                        valid_duration_time = self.validate(valid_data)
-                        total_valid_duration_time += valid_duration_time
-                    
                     # check current leraning rate(lr)
                     current_lr = self.optimizer.param_groups[0]["lr"]
                     if current_lr < self.learning_rate_min:
                         self.stats.is_min_lr = True 
-                    
-                    self.tb_writer.add_scalar(tag="Train/learning_rate", scalar_value=current_lr, global_step=self.stats.steps)
+
+                    # log learning process and write tensorboard
+                    if self.stats.steps % self.logging_freq == 0:
+                        elapse_time = time.time() - start_time
+                        elapse_token_num = self.stats.total_tokens - start_tokens
+
+                        self.tb_writer.add_scalar(tag="Train/batch_loss", scalar_value=normalized_batch_loss, global_step=self.stats.steps)
+                        self.tb_writer.add_scalar(tag="Train/learning_rate", scalar_value=current_lr, global_step=self.stats.steps)
+
+                        logger.info("Epoch %3d, Step: %7d, Batch Loss: %12.6f, Lr: %.6f, Tokens per sec: %6.0f",
+                        epoch_no + 1, self.stats.steps, normalized_batch_loss, self.optimizer.param_groups[0]["lr"],
+                        elapse_token_num / elapse_time)
+
+                        start_time = time.time()
+                        start_tokens = self.stats.total_tokens
+
+                logger.info("Epoch %3d: total training loss %.2f", epoch_no + 1, epoch_loss)
+
+                # validate on the entire dev dataset
+                if self.stats.steps % self.validation_freq == 0:
+                    valid_duration_time = self.validate(valid_data)
 
                 # check after a whole epoch.
                 if self.stats.is_min_lr or self.stats.is_max_update:
-                    log_string = (f"minimum learning rate {self.learning_rate_min}"
-                                    if self.stats.is_min_lr else 
+                    log_string = (f"minimum learning rate {self.learning_rate_min}" if self.stats.is_min_lr else 
                                     f"maximun number of updates(steps) {self.max_updates}")
                     logger.info("Training enede since %s was reached!", log_string)
                     break 
-                    
-                logger.info("Epoch %3d: total training loss %.2f", epoch_no + 1, epoch_loss)
             else: # normal ended after training.
                 logger.info("Training ended after %3d epoches!", epoch_no + 1)
 
@@ -405,15 +376,16 @@ class TrainManager(object):
         trg_input = batch_data.trg_input
         src_mask = batch_data.src_mask
         trg_mask = batch_data.trg_mask
-        trg_truth = batch_data.trg
-        source_maps = batch_data.source_maps
-        alignments = batch_data.alignments
-
+        trg_truth = batch_data.trg_truth
+        # source_maps = batch_data.source_maps
+        # alignments = batch_data.alignments
+        source_maps = None 
+        alignments = None
         # get loss (run as during training with teacher forcing)
         batch_loss = self.model(return_type="loss", src_input=src_input, trg_input=trg_input,
                    src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth,
                    source_maps=source_maps, alignments=alignments)
-        
+
         # normalization = 'batch' means final loss is average-sentence level loss in batch
         # normalization = 'tokens' means final loss is average-token level loss in batch
         normalized_batch_loss = batch_data.normalize(batch_loss, self.normalization, self.n_gpu)

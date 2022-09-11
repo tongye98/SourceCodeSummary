@@ -84,7 +84,7 @@ def load_data(data_cfg: dict):
     return train_data, dev_data, test_data, src_vocab, trg_vocab
 
 def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,
-                   batch_size, num_workers, device) -> DataLoader:
+                   batch_size, num_workers) -> DataLoader:
     """
     Return a torch DataLoader for a torch Dataset.
     """
@@ -93,7 +93,7 @@ def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,
     if dataset.split_mode == "train" and shuffle is True:
         generator = torch.Generator()
         generator.manual_seed(sampler_seed)
-        sampler = RandomSampler(dataset, replacement=False,generator=generator)
+        sampler = RandomSampler(dataset, replacement=False, generator=generator)
     else:
         sampler = SequentialSampler(dataset)
     
@@ -105,8 +105,7 @@ def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,
         raise ConfigurationError("Invalid batch_type")
     
     return DataLoader(dataset, batch_sampler=batch_sampler, num_workers=num_workers,
-                      pin_memory=True, collate_fn=partial(collate_fn, device=device))
-
+                      pin_memory=True, collate_fn=collate_fn)
 
 def collate_fn(batch: List[Tuple], device:torch.device) -> Batch:
     """
@@ -134,12 +133,6 @@ def collate_fn(batch: List[Tuple], device:torch.device) -> Batch:
     #     alignment = torch.tensor([vocab.lookup(token) for token in trg_list[id]] + [0]) # [0] for eos == trg_len
     #     alignments.append(alignment)
 
-
-    # src = torch.tensor(src_ids).long()
-    # src_length = torch.tensor(src_length).long()
-    # trg = torch.tensor(trg_ids).long()
-    # trg_length = torch.tensor(trg_length).long()
-
     # source_maps = make_src_map(source_maps)
     # # source_maps [batch_size, src_len, extra_words]
     # assert source_maps.size(1) == src.size(1)
@@ -147,7 +140,7 @@ def collate_fn(batch: List[Tuple], device:torch.device) -> Batch:
     # alignments = align(alignments)
     # # alignments [batch_size, original_target_length+1]  no bos, but has eos
     
-    return Batch(src_list, trg_list, device)
+    return Batch(src_list, trg_list)
 
 
 class SentenceBatchSampler(BatchSampler):

@@ -138,8 +138,8 @@ class Transformer(nn.Module):
             cross_attention_weight [batch_size, trg_len, src_len]
         """
         embed_trg = self.trg_embed(trg_input) # embed_trg [batch_size, trg_len, embed_dim]
-        output, cross_attention_weight = self.decoder(embed_trg, encode_output, src_mask, trg_mask)
-        return output, cross_attention_weight
+        output, penultimate_representation, cross_attention_weight = self.decoder(embed_trg, encode_output, src_mask, trg_mask)
+        return output, penultimate_representation, cross_attention_weight
 
     def __repr__(self) -> str:
         """
