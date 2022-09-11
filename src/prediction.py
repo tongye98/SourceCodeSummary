@@ -16,6 +16,7 @@ from src.model import build_model
 import time
 from src.metrics import Bleu, Meteor, Rouge
 from pathlib import Path
+import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ def predict(model, data:Dataset, device:torch.device,
     hyp_scores = None
     attention_scores = None
 
-    for batch_data in data_iter:
+    for batch_data in tqdm.tqdm(data_iter, desc="Validating"):
         batch_data.move2cuda(device)
         total_nseqs += batch_data.nseqs 
 
@@ -185,7 +186,7 @@ def predict(model, data:Dataset, device:torch.device,
                 valid_scores[eval_metric] = Rouge().compute_score(gts=references_dict, res=predictions_dict)[0]
         eval_duration = time.time() - eval_metric_start_time
         eval_metrics_string = ", ".join([f"{eval_metric}:{valid_scores[eval_metric]:6.3f}" for eval_metric in 
-                                          eval_metrics+["loss","ppl"] ])
+                                          eval_metrics+["loss","ppl"]])
 
         logger.info("Evaluation result(%s) %s, evaluation time: %.4f[sec]", "Beam Search" if beam_size > 1 else "Greedy Search",
                      eval_metrics_string, eval_duration)

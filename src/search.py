@@ -29,7 +29,6 @@ def search(model, batch_data: Batch,
     with torch.no_grad():
         src_input = batch_data.src
         src_mask = batch_data.src_mask
-        source_maps = batch_data.source_maps
         encoder_output = model(return_type="encode", src_input=src_input, src_mask=src_mask)
         # encode_output [batch_size, src_len, model_dim]
 
@@ -89,7 +88,7 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
 
     for step in range(max_output_length):
         with torch.no_grad():
-            output, cross_attention_weight = model(return_type="decode", trg_input=generated_tokens, encoder_output=encoder_output,
+            output, penultimate_representation, cross_attention_weight = model(return_type="decode", trg_input=generated_tokens, encoder_output=encoder_output,
                                                           src_mask=src_mask, trg_mask=trg_mask)
             # output [batch_size, trg_len, model_dim] -> [batch_size, step+1, model_dim]
             # cross_attention_weight [batch_size, trg_len, src_len] -> [batch_size, step+1, src_len]

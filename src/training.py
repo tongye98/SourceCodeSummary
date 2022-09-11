@@ -478,14 +478,14 @@ class TrainManager(object):
             logger.info("Example #%d", id)
 
             # tokenized text
-            tokenized_src = data.get_item(idx=id, language=data.src_language)
-            tokenized_trg = data.get_item(idx=id, language=data.trg_language)
+            tokenized_src = data.tokernized_data[data.src_language][id]
+            tokenized_trg = data.tokernized_data[data.trg_language][id]
             logger.debug("\tTokenized source:  %s", tokenized_src)
             logger.debug("\tTokenized reference:  %s", tokenized_trg)
             logger.debug("\tTokenized hypothesis:  %s", hypotheses_raw[id])
             # FIXME what is tokenized and what is detokenized.
             # detokenized text
-            logger.info("\tSource:  %s",data.src[id])
+            logger.info("\tSource:  %s",data.original_data[data.src_language][id])
             logger.info("\tReference:  %s", references[id])
             logger.info("\tHypothesis: %s", hypotheses[id])
 
