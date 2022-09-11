@@ -28,7 +28,6 @@ data:
 
 training:
     model_dir: "models/rencos_python/test10"
-    tensorboard_dir: "models/tensorboard_log/rencos_python_test10"
     overwrite: True
     random_seed: 980820
     use_cuda: True

@@ -16,8 +16,7 @@ class Batch(object):
     Object for holding a batch of data with mask during training.
     Input is yield from 'collate_fn()' called by torch.data.utils.DataLoader.
     """
-    def __init__(self, src, trg, device, src_vocabs:List[Vocabulary]=None, source_maps:List[Tensor]=None, alignments:List[Tensor]=None) -> None:
-        self.device = device
+    def __init__(self, src, trg, src_vocabs:List[Vocabulary]=None, source_maps:List[Tensor]=None, alignments:List[Tensor]=None) -> None:
         src_lengths = [len(sentence) for sentence in src] # not include <bos> include <eos>
         max_src_len = max(src_lengths)
         trg_lengths = [len(sentence) for sentence in trg] # include <bos> and <eos>
@@ -76,7 +75,6 @@ class Batch(object):
         """
         Normalizes batch tensor (i.e. loss)
         """
-        
         if normalization == "sum":
             return tensor 
         elif normalization == "batch":

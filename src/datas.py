@@ -107,7 +107,7 @@ def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,
     return DataLoader(dataset, batch_sampler=batch_sampler, num_workers=num_workers,
                       pin_memory=True, collate_fn=collate_fn)
 
-def collate_fn(batch: List[Tuple], device:torch.device) -> Batch:
+def collate_fn(batch: List[Tuple]) -> Batch:
     """
     Custom collate function.
     Note: you can stack batch and any operation on batch.
