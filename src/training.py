@@ -412,7 +412,7 @@ class TrainManager(object):
         # write eval_metric and corresponding score to tensorboard
         for eval_metric, score in valid_scores.items():
             # if not math.isnan(score):
-            self.tb_writer.add_scalar(f"Valid/{eval_metric}", score, self.stats.steps)
+            self.tb_writer.add_scalar(tag=f"Valid/{eval_metric}", scalar_value=score, global_step=self.stats.steps)
 
         # write bleu-order to tensorboard
         # self.tb_writer.add_scalars("Bleu-1/2/3/4", bleu_order, self.stats.steps)

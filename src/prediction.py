@@ -2,6 +2,7 @@
 """
 This module for generating prediction of a model.
 """
+from ctypes import alignment
 import logging 
 import torch 
 from torch.utils.data import Dataset
@@ -48,7 +49,7 @@ def predict(model, data:Dataset, device:torch.device,
     assert batch_size >= n_gpu, "batch size must be bigger than n_gpu"
 
     data_iter = make_data_iter(dataset=data, sampler_seed=seed, shuffle=False, batch_type=batch_type,
-                               batch_size=batch_size, num_workers=num_workers, device=device)
+                               batch_size=batch_size, num_workers=num_workers)
 
     model.eval()
 
@@ -65,6 +66,7 @@ def predict(model, data:Dataset, device:torch.device,
     attention_scores = None
 
     for batch_data in data_iter:
+        batch_data.move2cuda(device)
         total_nseqs += batch_data.nseqs 
 
         # if compute_loss and batch_data.has_trg:
@@ -76,10 +78,13 @@ def predict(model, data:Dataset, device:torch.device,
                 trg_input = batch_data.trg_input
                 src_mask = batch_data.src_mask
                 trg_mask = batch_data.trg_mask
-                trg_truth = batch_data.trg
-                source_maps = batch_data.source_maps
-                alignments = batch_data.alignments
-                src_vocabs = batch_data.src_vocabs
+                trg_truth = batch_data.trg_truth
+                # source_maps = batch_data.source_maps
+                # alignments = batch_data.alignments
+                # src_vocabs = batch_data.src_vocabs
+                source_maps = None
+                alignments = None
+                src_vocabs = None
                 
                 batch_loss = model(return_type="loss", src_input=src_input, trg_input=trg_input,
                    src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth, 
@@ -87,16 +92,14 @@ def predict(model, data:Dataset, device:torch.device,
                 
                 # sum over multiple gpus.
                 # if normalization = 'sum', keep the same.
-                batch_loss = batch_data.normalize(batch_loss, "sum", n_gpu)
-                total_ntokens += batch_data.ntokens
+                batch_loss = batch_data.normalize(batch_loss, "sum")
                 if return_prob == "references":
                     output = trg_truth
             
             total_loss += batch_loss.item()
             total_ntokens += batch_data.ntokens
         
-        # if return_prob == "ref", then no search need. 
-        # just look up the prob of the ground truth.
+        # if return_prob == "ref", then no search need. Just look up the prob of the ground truth.
         if return_prob != "references":
             # run search as during inference to produce translations(summary)
             output, hyp_scores, attention_scores, batch_words = search(model=model, batch_data=batch_data,
@@ -124,7 +127,7 @@ def predict(model, data:Dataset, device:torch.device,
 
     assert total_nseqs == len(data)
     # FIXME all_outputs is a list of np.ndarray
-    assert len(all_outputs) == len(data)*n_best
+    assert len(all_outputs) == len(data) * n_best
 
     if compute_loss:
         if normalization == "batch":
@@ -133,7 +136,6 @@ def predict(model, data:Dataset, device:torch.device,
             normalizer = total_ntokens
         elif normalization == "none":
             normalizer = 1
-        
         # avoid zero division
         assert normalizer > 0
         

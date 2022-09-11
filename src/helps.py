@@ -173,7 +173,6 @@ def parse_train_arguments(train_cfg:dict) -> Tuple:
 
 def parse_test_arguments(test_cfg:dict) -> Tuple:
     """Parse test args."""
-    logger = logging.getLogger(__name__)
     batch_size = test_cfg.get("batch_size", 64)
     batch_type = test_cfg.get("batch_type", "sentence")
     if batch_type not in ["sentence", "token"]:
