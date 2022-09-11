@@ -279,14 +279,11 @@ class TrainManager(object):
         logger.info("Train stats:\n"
                     "\tdevice: %s\n"
                     "\tn_gpu: %d\n"
-                    "\tbatch_size: %d\n",
+                    "\tbatch_size: %d",
                     self.device.type, self.n_gpu, self.batch_size)
         try:
             for epoch_no in range(self.epochs):
                 logger.info("Epoch %d", epoch_no + 1)
-
-                if self.scheduler_step_at == "epoch":
-                    self.scheduler.step(epoch=epoch_no)
                     
                 self.model.train()
                 self.model.zero_grad()
@@ -299,13 +296,11 @@ class TrainManager(object):
                 for batch_data in self.train_iter:
                     batch_data.move2cuda(self.device)
                     normalized_batch_loss = self.train_step(batch_data)
+
+                    # reset gradients
+                    self.model.zero_grad()
+                    
                     normalized_batch_loss.backward()
-
-                    # accumulate loss
-                    epoch_loss += normalized_batch_loss.item()
-
-                    # increment token counter
-                    self.stats.total_tokens += batch_data.ntokens
 
                     # clip gradients (in-place)
                     if self.clip_grad_fun is not None:
@@ -314,13 +309,12 @@ class TrainManager(object):
                     # make gradient step
                     self.optimizer.step()
 
-                    # decay learning_rate(lr)
-                    if self.scheduler_step_at == "step":
-                        self.scheduler.step(self.stats.steps)
-                    
-                    # reset gradients
-                    self.model.zero_grad()
+                    # accumulate loss
+                    epoch_loss += normalized_batch_loss.item()
 
+                    # increment token counter
+                    self.stats.total_tokens += batch_data.ntokens
+                    
                     # increment step counter
                     self.stats.steps += 1
                     if self.stats.steps >= self.max_updates:
@@ -345,8 +339,15 @@ class TrainManager(object):
 
                         start_time = time.time()
                         start_tokens = self.stats.total_tokens
+                    
+                    # decay learning_rate(lr)
+                    if self.scheduler_step_at == "step":
+                        self.scheduler.step(self.stats.steps)
 
                 logger.info("Epoch %3d: total training loss %.2f", epoch_no + 1, epoch_loss)
+
+                if self.scheduler_step_at == "epoch":
+                    self.scheduler.step()
 
                 # validate on the entire dev dataset
                 if (epoch_no + 1) % self.validation_freq == 0:

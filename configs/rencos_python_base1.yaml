@@ -49,7 +49,7 @@ training:
     learning_rate_min: 0.0000001
     keep_best_ckpts: 3
     logging_freq: 100
-    validation_freq: 101  # after how many epochs
+    validation_freq: 2  # after how many epochs
     log_valid_sentences: [0,1,2,3,4]
     early_stopping_metric: "bleu"
     shuffle: True
