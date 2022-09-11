@@ -54,11 +54,14 @@ class PlaintextDataset(BaseDataset):
         super().__init__(path, split_mode, src_language, trg_language)
 
         self.tokenizer = tokenizer
-        # place holder for senteces_to_vocab_ids
-        place_holder = {self.src_language:None, self.trg_language:None}
-        self.sentences_to_vocab_ids = place_holder if sentences_to_vocab_ids is None else sentences_to_vocab_ids
 
-        self.data = self.load_data(path)
+        self.original_data = self.load_data(path)
+        self.tokernized_data = self.tokenize_data(self.original_data)
+
+        # place holder for senteces_to_vocab_ids
+        sentences_to_vocab_ids_place_holder = {self.src_language:None, self.trg_language:None}
+        self.sentences_to_vocab_ids = sentences_to_vocab_ids_place_holder if sentences_to_vocab_ids is None else sentences_to_vocab_ids
+
     
     def load_data(self,path:str):
         """"
@@ -89,9 +92,18 @@ class PlaintextDataset(BaseDataset):
 
         return data
     
+    def tokenize_data(self, original_data: Dict[str, List]):
+        """
+        Tokenize data
+        tokenize_data["en"] = [["hello", "word"], ["x", "x"]]
+        """
+        tokenize_data = dict()
+        tokenize_data[self.src_language] = [self.tokenizer[self.src_language](sentence) for sentence in original_data[self.src_language]]
+        tokenize_data[self.trg_language] = [self.tokenizer[self.trg_language](sentence) for sentence in original_data[self.trg_language]]
+        return tokenize_data
+
     def get_item(self, idx:int, language:str) -> List[str]:
-        # call tokernizer to process the sampled sample.
-        return self.tokenizer[language](self.data[language][idx])
+        return None 
     
     def __len__(self) -> int:
         return len(self.data[self.src_language])
