@@ -7,7 +7,7 @@ import logging
 import torch 
 from torch.utils.data import Dataset
 from typing import Dict
-from src.helps import load_config, load_model_checkpoint, parse_test_arguments
+from src.helps import load_config, load_model_checkpoint, parse_test_arguments, make_logger
 from src.helps import resolve_ckpt_path, write_list_to_file, cut_off
 import math
 from src.datas import make_data_iter, load_data
@@ -217,6 +217,8 @@ def test(cfg_file: str, ckpt_path:str, output_path:str=None, datasets:dict=None,
     num_workers = cfg["training"].get("num_workers", 0)
     normalization = cfg["training"].get("normalization","batch")
     seed = cfg["training"].get("random_seed", 980820)
+
+    make_logger(model_dir, mode="test")
 
     if datasets is None:
         train_data, dev_data, test_data, src_vocab, trg_vocab = load_data(data_cfg=cfg["data"])
