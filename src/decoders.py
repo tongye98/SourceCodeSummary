@@ -19,7 +19,7 @@ class TransformerDecoder(nn.Module):
         super().__init__()
 
         self.layers = nn.ModuleList([TransformerDecoderLayer(model_dim,ff_dim,head_count, dropout,
-                                                            layer_norm_position, max_relative_positon, use_negative_distance) for _ in range(num_layers)])
+            layer_norm_position, max_relative_positon, use_negative_distance) for _ in range(num_layers)])
         
         assert trg_pos_emb in {"absolute", "learnable", "relative"}
         self.trg_pos_emb = trg_pos_emb

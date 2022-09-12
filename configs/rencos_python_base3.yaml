@@ -28,8 +28,8 @@ data:
         filter_or_truncate: "truncate"
 
 training:
-    model_dir: "models/rencos_python/transformer_base1"
-    overwrite: False
+    model_dir: "models/rencos_python/transformer_base3"
+    overwrite: True
     random_seed: 980820
     use_cuda: True
     num_workers: 8
@@ -43,8 +43,8 @@ training:
     factor: 0.5 # for schedule="ReduceLROnPlateau"
     patience: 5 # for scheduling = 'ReduceLROnPlatea'
     step_size: 1 # for scheduling = "StepLR" 
-    gamma: 0.95 # for scheduling = "StepLR" or "ExponentialLR"
-    learning_rate: 0.002
+    gamma: 0.99 # for scheduling = "StepLR" or "ExponentialLR"
+    learning_rate: 0.0002
     weight_decay: 0
     learning_rate_min: 0.0000001
     keep_best_ckpts: 3
@@ -62,7 +62,7 @@ training:
     reset_scheduler: False
     reset_optimizer: False
     reset_iter_state: False
-    clip_grad_val: 1
+    # clip_grad_val: 1
     # clip_grad_norm:
 
 testing:
@@ -83,10 +83,10 @@ testing:
 
 model:
     initializer: "xavier_uniform"     # xavier_uniform xavier_normal uniform normal
-    # init_weight: 0.01 # for uniform normal
+    init_weight: 0.01 # for uniform normal
     embed_initializer: "xavier_uniform"
-    # embed_init_weight: 0.01
-    tied_softmax: True
+    embed_init_weight: 0.01
+    tied_softmax: False
     tied_embeddings: False
     copy: False # for copy mechanism
     encoder:
@@ -94,7 +94,7 @@ model:
         ff_dim: 2048
         num_layers: 6
         head_count: 8
-        layer_norm_position: "post"
+        layer_norm_position: "pre"
         freeze: False
         dropout: 0.2
         embeddings:
@@ -103,7 +103,7 @@ model:
             freeze: False
             dropout: 0.2
             # load_pretrained
-        src_pos_emb: "absolute" # use positional embeddings in encoder "absolute", "learnable", "relative"
+        src_pos_emb: "relative" # use positional embeddings in encoder "absolute", "learnable", "relative"
         max_src_len: 100 # for learnable. Keep same with data segment
         max_relative_position: 16 # only for relative position, else must be set to 0
         use_negative_distance: True # for relative position
@@ -112,7 +112,7 @@ model:
         ff_dim: 2048
         num_layers: 6
         head_count: 8
-        layer_norm_position: "post"
+        layer_norm_position: "pre"
         freeze: False
         dropout: 0.2
         embeddings:
@@ -121,7 +121,7 @@ model:
             freeze: False
             dropout: 0.2
             # load_pretrained
-        trg_pos_emb: "absolute" # use positional embeddings in encoder "absolute", "learnable","relative"
+        trg_pos_emb: "relative" # use positional embeddings in encoder "absolute", "learnable","relative"
         max_trg_len: 50 # for learnable. keep same with data segment
         max_relative_position: 16  # only for relative position, else must be set to 0
         use_negative_distance: True # for relative position

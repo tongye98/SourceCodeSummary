@@ -181,7 +181,7 @@ def predict(model, data:Dataset, device:torch.device,
                 try:
                     valid_scores[eval_metric] = Meteor().compute_score(gts=references_dict, res=predictions_dict)[0]
                 except:
-                    logger.warning("metero compute has something wrong!")
+                    logger.warning("meteor compute has something wrong!")
             elif eval_metric == "rouge-l":
                 valid_scores[eval_metric] = Rouge().compute_score(gts=references_dict, res=predictions_dict)[0]
         eval_duration = time.time() - eval_metric_start_time
@@ -218,7 +218,7 @@ def test(cfg_file: str, ckpt_path:str, output_path:str=None, datasets:dict=None,
     normalization = cfg["training"].get("normalization","batch")
     seed = cfg["training"].get("random_seed", 980820)
 
-    make_logger(model_dir, mode="test")
+    make_logger(Path(model_dir), mode="test")
 
     if datasets is None:
         train_data, dev_data, test_data, src_vocab, trg_vocab = load_data(data_cfg=cfg["data"])

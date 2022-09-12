@@ -39,7 +39,6 @@ class Transformer(nn.Module):
         self.model_dim = self.decoder.model_dim
         self.output_layer = nn.Linear(self.model_dim, self.trg_vocab_size, bias=False)
 
-        # self._loss_function = None # set by the TrainManager
         self.loss_function = None
         self.copy = copy
         if self.copy:
@@ -48,19 +47,6 @@ class Transformer(nn.Module):
             self.loss_function = CopyGeneratorLoss(self.trg_vocab_size, force_copy=False)
         else:
             self.loss_function = XentLoss(pad_index=self.pad_index, smoothing=0)
-
-    
-    # @property
-    # def loss_function(self):
-    #     return self._loss_function
-    
-    # @loss_function.setter
-    # def loss_function(self, tuple_loss: Tuple):
-    #     loss_type, label_smoothing = tuple_loss
-    #     assert loss_type == "CrossEntropy"
-    #     #FIXME
-    #     self._loss_function = XentLoss(pad_index=self.pad_index,
-    #                                    smoothing=label_smoothing)
 
     def forward(self, return_type: str=None,
                 src_input:Tensor=None, trg_input:Tensor=None,
@@ -90,14 +76,10 @@ class Transformer(nn.Module):
                 # return batch loss = sum over all sentences of all tokens in the batch that are not pad
             else:
                 # use copy mechanism
-                # first step
                 fuse_score, attention_score = self.copy_attention_score(decode_output, encode_output, src_mask)
                 # attention_score [batch_size, trg_len, src_len]
-                # second step
                 prob = self.copy_generator(decode_output, attention_score, source_maps)
                 # prob [batch_size, trg_len, trg_vocab_size + extra_words]
-                # logger.info(prob.size())
-                # third step
                 batch_loss = self.loss_function(prob, alignments, trg_truth)
             return batch_loss
         elif return_type == "encode":
@@ -208,7 +190,7 @@ def build_model(model_cfg: dict=None,
     
     # Build decoder
     decoder_dropout = decoder_cfg.get("dropout", 0.1)
-    decoder_emb_dropout = decoder_cfg["embeddings"].get("dropout",decoder_dropout)
+    decoder_emb_dropout = decoder_cfg["embeddings"].get("dropout", decoder_dropout)
     decoder = TransformerDecoder(model_dim=decoder_cfg["model_dim"],ff_dim=decoder_cfg["ff_dim"],
                                 num_layers=decoder_cfg["num_layers"],head_count=decoder_cfg["head_count"],
                                 vocab_size=len(trg_vocab), dropout=decoder_dropout, emb_dropout=decoder_emb_dropout,
@@ -225,25 +207,24 @@ def build_model(model_cfg: dict=None,
     
     # tie softmax layer with trg embeddings
     if model_cfg.get("tied_softmax", False):
-        if trg_embed.lut.weight.shape == model.decoder.output_layer.weight.shape:
+        if trg_embed.lut.weight.shape == model.output_layer.weight.shape:
             # share trg embeddings and softmax layer:
-            model.decoder.output_layer.weight = trg_embed.lut.weight
+            model.output_layer.weight = trg_embed.lut.weight
         else:
-            raise ConfigurationError("For tied softmax, decoder embedding_dim == decoder hidden_size.")
+            raise ConfigurationError("For tied softmax, decoder embedding_dim == model dim.")
     
     # Custom Initialization of model parameters.
-    # FIXME how to initialize need double check
     Initialize_model(model, model_cfg, src_pad_index, trg_pad_index)
 
     # Initializate embeddings from pre-trained embedding file.
-    encoder_embed_path = encoder_cfg["embeddings"].get("load_pretrained",None)
-    decoder_embed_path = decoder_cfg["embeddings"].get("load_pretrained",None)
+    encoder_embed_path = encoder_cfg["embeddings"].get("load_pretrained", None)
+    decoder_embed_path = decoder_cfg["embeddings"].get("load_pretrained", None)
     if encoder_embed_path and src_vocab is not None:
         logger.info("Loading pretrained src embedding...")
         model.src_embed.load_from_file(Path(encoder_embed_path), src_vocab)
-    if decoder_embed_path and trg_vocab is not None and not model_cfg.get("tied_embeddings",False):
+    if decoder_embed_path and trg_vocab is not None and not model_cfg.get("tied_embeddings", False):
         logger.info("Loading pretrained trg embedding...")
         model.trg_embed.load_from_file(Path(decoder_embed_path), trg_vocab)
     
-    logger.info("Transformer model built.")
+    logger.info("Transformer model is built.")
     return model

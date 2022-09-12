@@ -16,10 +16,9 @@ class TransformerEncoder(nn.Module):
                  max_relative_position:int=16, use_negative_distance:bool=True) -> None:
         super().__init__()
 
-        self.layers = nn.ModuleList([TransformerEncoderLayer(model_dim,ff_dim,head_count, dropout,
-                                    layer_norm_position, max_relative_position, use_negative_distance) for _ in range(num_layers)])
+        self.layers = nn.ModuleList([TransformerEncoderLayer(model_dim, ff_dim, head_count, dropout,
+                    layer_norm_position, max_relative_position, use_negative_distance) for _ in range(num_layers)])
         
-        # FIXME necessary to add positonal encoding or relative encoding
         assert src_pos_emb in {"absolute", "learnable", "relative"}
         self.src_pos_emb = src_pos_emb
         if self.src_pos_emb == "absolute":

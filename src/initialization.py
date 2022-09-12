@@ -22,12 +22,9 @@ def Initialize_model(model: nn.Module, model_cfg:dict,
     init_gain = float(model_cfg.get("init_gain", 1.0)) # for xavier
     init_weight = float(model_cfg.get("init_weight", 0.01)) # for uniform and normal
 
-    embed_init = model_cfg.get("embed_initializer", "normal")
+    embed_init = model_cfg.get("embed_initializer", "xavier_uniform")
     embed_init_gain = float(model_cfg.get("embed_init_gain",1.0))
     embed_init_weight = float(model_cfg.get("embed_init_weight", 0.01))
-
-    bias_init = model_cfg.get("bias_initializer", "zeros")
-    bias_init_weight = float(model_cfg.get("bias_init_weight", 0.01))
 
     def parse_init(init:str, weight: float, gain:float):
         weight = float(weight)
@@ -45,11 +42,11 @@ def Initialize_model(model: nn.Module, model_cfg:dict,
     
     init_fn = parse_init(init=init, weight=init_weight, gain=init_gain)
     embed_init_fn = parse_init(init=embed_init, weight=embed_init_weight, gain=embed_init_gain)
-    bias_init_fn = parse_init(init=bias_init, weight=bias_init_weight, gain=init_gain)
+    bias_init_fn = lambda p: nn.init.zeros_(p)
 
     with torch.no_grad():
         for name, param in model.named_parameters():
-            if "embed" in name:
+            if "emb" in name:
                 embed_init_fn(param)
             elif "bias" in name:
                 bias_init_fn(param)

@@ -40,7 +40,6 @@ class MultiHeadedAttention(nn.Module):
 
         if self.max_relative_position > 0:
             relative_position_size = self.max_relative_position*2+1 if self.use_negative_distance is True else self.max_relative_position+1
-            # NOTE self.head_size 
             self.relative_position_embedding_key = nn.Embedding(relative_position_size, self.head_size)
             self.relative_position_embedding_value = nn.Embedding(relative_position_size, self.head_size)
 
@@ -198,7 +197,8 @@ class LearnablePositionalEncoding(nn.Module):
         len = embed.size(1)
         assert len <= self.max_len, 'src len must <= max len'
         position_input = torch.arange(len).unsqueeze(0).repeat(batch_size, 1).to(embed.device)
-        return embed + self.learn_lut(position_input) * math.sqrt(self.model_dim)
+        # return embed + self.learn_lut(position_input) * math.sqrt(self.model_dim)
+        return embed + self.learn_lut(position_input)
 
 
 class GlobalAttention(nn.Module):

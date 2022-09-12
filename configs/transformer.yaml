@@ -81,14 +81,12 @@ testing:
 
 
 model:
-    initializer: "xavier_normal"     # xavier_uniform xavier_normal uniform normal
+    initializer: "xavier_uniform"     # xavier_uniform xavier_normal uniform normal
     init_gain: 1.0 # for xavier
     init_weight: 0.01 # for uniform normal
-    embed_initializer: "xavier_normal"
+    embed_initializer: "xavier_uniform"
     embed_init_gain: 1.0 # for xavier
     embed_init_weight: 0.01
-    bias_initializer: "zeros"
-    bias_init_weight: 0.01
     tied_softmax: False
     tied_embeddings: False
     copy: True  # for copy mechanism
