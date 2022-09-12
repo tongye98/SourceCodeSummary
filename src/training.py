@@ -39,7 +39,7 @@ def train(cfg_file: str, skip_test:bool=False) -> None:
 
     # store copy of origianl training config in model dir. 
     # as_posix change path separator to unix "/"
-    shutil.copy2(cfg_file, (model_dir/"configuration.yaml").as_posix())
+    shutil.copy2(cfg_file, (model_dir/"config.yaml").as_posix())
 
     # set the whole random seed
     set_seed(seed=int(cfg["training"].get("random_seed", 980820)))
@@ -412,7 +412,10 @@ class TrainManager(object):
         # write eval_metric and corresponding score to tensorboard
         for eval_metric, score in valid_scores.items():
             # if not math.isnan(score):
-            self.tb_writer.add_scalar(tag=f"Valid/{eval_metric}", scalar_value=score, global_step=self.stats.steps)
+            if eval_metric in ["loss", "ppl"]:
+                self.tb_writer.add_scalar(tag=f"Valid/{eval_metric}", scalar_value=score, global_step=self.stats.steps)
+            else:
+                self.tb_writer.add_scalar(tag=f"Valid/{eval_metric}", scalar_value=score*100, global_step=self.stats.steps)
 
         # write bleu-order to tensorboard
         # self.tb_writer.add_scalars("Bleu-1/2/3/4", bleu_order, self.stats.steps)
@@ -457,8 +460,9 @@ class TrainManager(object):
         current_lr = self.optimizer.param_groups[0]["lr"]
         valid_file = Path(self.model_dir) / "validation.log"
         with valid_file.open("a", encoding="utf-8") as fg:
-            score_string = "\t".join([f"Steps: {self.stats.steps}"] + 
-            [f"{eval_metric}: {score:.5f}" for eval_metric, score in valid_scores.items()] +
+            score_string = "\t".join([f"Steps: {self.stats.steps:7}"] + 
+            [f"{eval_metric}: {score*100:.2f}" if eval_metric in ["bleu", "meteor", "rouge-l"] 
+            else f"{eval_metric}: {score:.2f}" for eval_metric, score in valid_scores.items()] +
             [f"LR: {current_lr:.8f}", "*" if new_best else ""])
             fg.write(f"{score_string}\n") 
 
