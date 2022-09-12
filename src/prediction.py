@@ -228,8 +228,7 @@ def test(cfg_file: str, ckpt_path:str, output_path:str=None, datasets:dict=None,
     
     # build an transformer(encoder-decoder) model
     model = build_model(model_cfg=cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab)
-    model.log_parameters_list()
-    # model.loss_function = (cfg["training"].get("loss","CrossEntropy"),cfg["training"].get("label_smoothing", 0.0))
+    # model.log_parameters_list()
 
     # when checkpoint is not specified, take latest(best) from model dir
     ckpt_path = resolve_ckpt_path(ckpt_path, load_model, model_dir)
@@ -241,10 +240,6 @@ def test(cfg_file: str, ckpt_path:str, output_path:str=None, datasets:dict=None,
     model.load_state_dict(model_checkpoint["model_state"])
     if device.type == "cuda":
         model.to(device)
-    
-    # multi-gpu
-    if n_gpu > 1 and not isinstance(model, torch.nn.DataParallel):
-        model = torch.nn.DataParallel(model)
 
     # really test
     for dataset_name, dataset in data_to_predict.items():
@@ -256,8 +251,8 @@ def test(cfg_file: str, ckpt_path:str, output_path:str=None, datasets:dict=None,
             compute_loss=True, normalization=normalization, num_workers=num_workers, cfg=cfg["testing"], seed=seed)
             if valid_hypotheses is not None:
                 # save final model outputs.
-                output_path = Path(f"{output_path}.{dataset_name}")
-                write_list_to_file(file_path=output_path, array=valid_hypotheses)
-                logger.info("Results saved to: %s.", output_path)
+                test_output_path = Path(f"{output_path}.{dataset_name}")
+                write_list_to_file(file_path=test_output_path, array=valid_hypotheses)
+                logger.info("Results saved to: %s.", test_output_path)
         else:
             logger.info(f"{dataset_name} is not exist!" )
