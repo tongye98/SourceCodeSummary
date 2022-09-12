@@ -54,6 +54,7 @@ class PlaintextDataset(BaseDataset):
 
         self.original_data = self.load_data(path)
         self.tokernized_data = self.tokenize_data(self.original_data)
+        self.src_vocabs, self.src_maps, self.alignments = self.get_src_vocabs_source_maps_alignments(self.tokernized_data)
         self.tokernized_data_ids = None 
     
     def load_data(self,path:str):
@@ -103,6 +104,23 @@ class PlaintextDataset(BaseDataset):
         self.tokernized_data_ids[self.src_language] = src_vocab.sentencens_to_ids(self.tokernized_data[self.src_language], bos=False, eos=True)
         self.tokernized_data_ids[self.trg_language] = trg_vocab.sentencens_to_ids(self.tokernized_data[self.trg_language], bos=True, eos=True)
 
+        
+    def get_src_vocabs_source_maps_alignments(self, tokernized_data):
+        src_vocabs = list()
+        src_maps = list()
+        alignments = list()
+
+        src_tokernized_data = tokernized_data[self.src_language]
+        for i, sentence_tokens in enumerate(src_tokernized_data):
+            src_vocab = Vocabulary(tokens=sentence_tokens, has_bos_eos=False)
+            src_vocabs.append(src_vocab)
+            src_map = [src_vocab.lookup(token) for token in sentence_tokens]
+            src_maps.append(src_map)
+            alignment = [src_vocab.lookup(token) for token in tokernized_data[self.trg_language][i]] + [0] # [0] for eos == trg_len
+            alignments.append(alignment)
+
+        return src_vocabs, src_maps, alignments
+
     def __getitem__(self, index):
         """
         src: [id, id, id, ...]
@@ -111,7 +129,11 @@ class PlaintextDataset(BaseDataset):
         """
         src = self.tokernized_data_ids[self.src_language][index]
         trg = self.tokernized_data_ids[self.trg_language][index]
-        return (src, trg)
+        copy_param = dict()
+        copy_param["src_vocab"] = self.src_vocabs[index]
+        copy_param["src_map"] = self.src_maps[index]
+        copy_param["alignment"] = self.alignments[index]
+        return (src, trg, copy_param)
     
     def __len__(self) -> int:
         return len(self.original_data[self.src_language])
@@ -132,11 +154,6 @@ class PlaintextDataset(BaseDataset):
             sentence_list.append(sentence)
         return sentence_list
         
-
-
-
-
-
 
 
 if __name__ == "__main__":

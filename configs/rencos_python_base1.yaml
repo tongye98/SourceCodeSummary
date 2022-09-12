@@ -29,10 +29,10 @@ data:
 
 training:
     model_dir: "models/rencos_python/transformer_base1"
-    overwrite: False
-    random_seed: 980820
+    overwrite: True
+    random_seed: 980625
     use_cuda: True
-    num_workers: 8
+    num_workers: 4
     optimizer: "adam"
     adam_betas: [0.9, 0.999]
     normalization: "batch" # batch,tokens | batch means loss divide sentences in the batch; token means loss divide tokens in the batch.
@@ -44,7 +44,7 @@ training:
     patience: 5 # for scheduling = 'ReduceLROnPlatea'
     step_size: 1 # for scheduling = "StepLR" 
     gamma: 0.95 # for scheduling = "StepLR" or "ExponentialLR"
-    learning_rate: 0.002
+    learning_rate: 0.0002
     weight_decay: 0
     learning_rate_min: 0.0000001
     keep_best_ckpts: 3
@@ -94,7 +94,7 @@ model:
         ff_dim: 2048
         num_layers: 6
         head_count: 8
-        layer_norm_position: "post"
+        layer_norm_position: "pre"
         freeze: False
         dropout: 0.2
         embeddings:
@@ -112,7 +112,7 @@ model:
         ff_dim: 2048
         num_layers: 6
         head_count: 8
-        layer_norm_position: "post"
+        layer_norm_position: "pre"
         freeze: False
         dropout: 0.2
         embeddings:

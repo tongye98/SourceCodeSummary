@@ -16,7 +16,7 @@ class Batch(object):
     Object for holding a batch of data with mask during training.
     Input is yield from 'collate_fn()' called by torch.data.utils.DataLoader.
     """
-    def __init__(self, src, trg, src_vocabs:List[Vocabulary]=None, source_maps:List[Tensor]=None, alignments:List[Tensor]=None) -> None:
+    def __init__(self, src, trg, copy_param_list) -> None:
         src_lengths = [len(sentence) for sentence in src] # not include <bos> include <eos>
         max_src_len = max(src_lengths)
         trg_lengths = [len(sentence) for sentence in trg] # include <bos> and <eos>
@@ -47,12 +47,9 @@ class Batch(object):
         self.trg_mask = (self.trg_truth != PAD_ID).unsqueeze(1) # [batch_size, 1, trg_length]
         self.ntokens = (self.trg_truth != PAD_ID).data.sum().item()
         
-        # # for copy mechanism
-        # self.src_vocabs = src_vocabs
-        # self.source_maps = source_maps
-        # # source_maps [batch_size, src_len, extra_words]
-        # self.alignments = alignments
-        # # alignments [batch_size, original_target_length+1]  no bos, but has eos
+        # for copy mechanism
+        # copy_param_list [dict(), dict(), dict()]
+        self.copy_param_list = copy_param_list
     
     def move2cuda(self, device:torch.device):
         """Move batch data to GPU"""

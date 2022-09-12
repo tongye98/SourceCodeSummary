@@ -115,32 +115,10 @@ def collate_fn(batch: List[Tuple]) -> Batch:
     :param batch [(src,trg),(src,trg),...]
     Note: for copy mechanism, need src_vocabs, source_maps, alignments
     """
-    src_list, trg_list = zip(*batch) # src_list: Tuple[List[id]]
-    assert len(src_list) == len(trg_list)
-
-    # # for copy mechanism
-    # batch_size = len(batch)
-
-    # src_vocabs = []
-    # source_maps = []
-    # alignments = []
-    # for id in range(batch_size):
-    #     vocab = Vocabulary(tokens=src_list[id], has_bos_eos=False)
-    #     src_vocabs.append(vocab)
-    #     src_map = torch.tensor([vocab.lookup(token) for token in src_list[id]])
-    #     source_maps.append(src_map)
-
-    #     alignment = torch.tensor([vocab.lookup(token) for token in trg_list[id]] + [0]) # [0] for eos == trg_len
-    #     alignments.append(alignment)
-
-    # source_maps = make_src_map(source_maps)
-    # # source_maps [batch_size, src_len, extra_words]
-    # assert source_maps.size(1) == src.size(1)
-
-    # alignments = align(alignments)
-    # # alignments [batch_size, original_target_length+1]  no bos, but has eos
+    src_list, trg_list, copy_param_list = zip(*batch) # src_list: Tuple[List[id]]
+    assert len(src_list) == len(trg_list) == len(copy_param_list)
     
-    return Batch(src_list, trg_list)
+    return Batch(src_list, trg_list, copy_param_list)
 
 
 class SentenceBatchSampler(BatchSampler):
