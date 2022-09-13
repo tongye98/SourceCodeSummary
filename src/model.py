@@ -52,7 +52,7 @@ class Transformer(nn.Module):
                 src_input:Tensor=None, trg_input:Tensor=None,
                 src_mask:Tensor=None, trg_mask:Tensor=None,
                 encoder_output: Tensor=None, trg_truth:Tensor=None,
-                source_maps: Tensor=None, alignments: Tensor=None):
+                copy_param=None):
         """
         return_type: one of {"loss", "encode", "decode"}
         src_input [batch_size, src_len]
@@ -76,10 +76,13 @@ class Transformer(nn.Module):
                 # return batch loss = sum over all sentences of all tokens in the batch that are not pad
             else:
                 # use copy mechanism
+                assert copy_param is not None
                 fuse_score, attention_score = self.copy_attention_score(decode_output, encode_output, src_mask)
                 # attention_score [batch_size, trg_len, src_len]
+                source_maps = copy_param["source_maps"]
                 prob = self.copy_generator(decode_output, attention_score, source_maps)
                 # prob [batch_size, trg_len, trg_vocab_size + extra_words]
+                alignments = copy_param["alignments"]
                 batch_loss = self.loss_function(prob, alignments, trg_truth)
             return batch_loss
         elif return_type == "encode":

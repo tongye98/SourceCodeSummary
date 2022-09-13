@@ -7,6 +7,7 @@ import torch
 from torch import Tensor
 from src.constants import PAD_ID
 from typing import List
+from src.helps import make_src_map, align
 from src.vocabulary import Vocabulary
 
 logger = logging.getLogger(__name__)
@@ -48,9 +49,21 @@ class Batch(object):
         self.ntokens = (self.trg_truth != PAD_ID).data.sum().item()
         
         # for copy mechanism
+        self.src_vocabs = list()
+        src_maps = list()
+        alignments = list()
         # copy_param_list [dict(), dict(), dict()]
         self.copy_param_list = copy_param_list
-    
+        for copy_param in self.copy_param_list:
+            self.src_vocabs.append(copy_param["src_vocab"])
+            src_maps.append(torch.tensor(copy_param["src_map"]))
+            alignments.append(torch.tensor(copy_param["alignment"]))
+
+        self.src_maps = make_src_map(src_maps)
+        # self.src_maps tensor [batch_size, src_len, extra_words] # no bos, no eos
+        self.alignments = align(alignments)
+        # self.alignments tensor [batch_size, trg_len] # no bos, but has eos
+
     def move2cuda(self, device:torch.device):
         """Move batch data to GPU"""
         assert isinstance(device, torch.device)
@@ -65,8 +78,8 @@ class Batch(object):
         self.trg_lengths = self.trg_lengths.to(device, non_blocking=True)
         self.trg_mask = self.trg_mask.to(device, non_blocking=True)
 
-        # self.source_maps = self.source_maps.to(device)
-        # self.alignments = self.alignments.to(device)
+        self.src_maps = self.src_maps.to(device, non_blocking=True)
+        self.alignments = self.alignments.to(device, non_blocking=True)
 
     def normalize(self, tensor, normalization):
         """

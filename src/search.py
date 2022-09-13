@@ -2,6 +2,7 @@
 """
 Search Module
 """
+from tokenize import cookie_re
 from typing import List, Tuple
 from src.batch import Batch
 import torch 
@@ -10,6 +11,9 @@ from src.helps import collapse_copy_scores, tile, tensor2sentence_copy
 import numpy as np
 from torch import Tensor 
 from src.vocabulary import Vocabulary
+import logging 
+
+logger = logging.getLogger(__name__)
 
 def search(model, batch_data: Batch, 
            beam_size: int, beam_alpha: float, 
@@ -17,8 +21,7 @@ def search(model, batch_data: Batch,
            min_output_length: int, n_best: int,
            return_attention: bool, return_prob: str, 
            generate_unk: bool, repetition_penalty: float, 
-           no_repeat_ngram_size: float, source_maps:Tensor,
-           src_vocabs: Vocabulary) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+           no_repeat_ngram_size: float, copy_param=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Get outputs and attention scores for a given batch.
     return:
@@ -34,7 +37,7 @@ def search(model, batch_data: Batch,
 
         if beam_size < 2: # Greedy Strategy
             stacked_output, stacked_scores, stacked_attention_scores, batch_words = greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length,
-             generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size, source_maps, src_vocabs)
+             generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size, copy_param)
         else:
             stacked_output, stacked_scores, stacked_attention_scores = beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
              beam_size, beam_alpha, n_best, generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size)
@@ -44,7 +47,7 @@ def search(model, batch_data: Batch,
 
 def greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
                   generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size,
-                  source_maps, src_vocabs):
+                  copy_param):
     """
     Transformer Greedy function.
     :param: model: Transformer Model
@@ -70,7 +73,10 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
     if model.copy:
         generated_tokens_copy = encoder_output.new_full((batch_size,1), bos_index, dtype=torch.long, requires_grad=False)
         # generated_tokens_copy [batch_size, 1] generated_tokens id
-
+        source_maps = copy_param["source_maps"]
+        src_vocabs = copy_param["src_vocabs"]
+        blank_arr = copy_param["blank_arr"]
+        fill_arr = copy_param["fill_arr"]
 
     # Placeholder for scores
     generated_scores = generated_tokens.new_zeros((batch_size,1), dtype=torch.float) if return_prob == "hypotheses" else None
@@ -81,7 +87,6 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
     # generated_attention_weight [batch_size, 1, src_len]
 
     # a subsequent mask is intersected with this in decoder forward pass
-    # FIXME for torch.nn.DataParallel
     trg_mask = src_mask.new_ones((1, 1, 1))
 
     finished = src_mask.new_zeros(batch_size).byte() # [batch_size], uint8
@@ -122,10 +127,9 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
                 if compute_softmax:
                     output = F.log_softmax(output, dim=-1)
                 
-                blank_arr, fill_arr = collapse_copy_scores(model.trg_vocab, src_vocabs)
                 for sentence_id in range(output.size(0)):
-                    blank = torch.LongTensor(blank_arr[sentence_id]).cuda()
-                    fill = torch.LongTensor(fill_arr[sentence_id]).cuda()
+                    blank = torch.LongTensor(blank_arr[sentence_id]).cuda(non_blocking=True)
+                    fill = torch.LongTensor(fill_arr[sentence_id]).cuda(non_blocking=True)
                     output[sentence_id].index_add_(0, fill, output[sentence_id].index_select(0, blank))
                     output[sentence_id].index_fill_(0, blank, 1e-10)
 
@@ -163,6 +167,7 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
     
     batch_words = None
     if model.copy:
+        generated_tokens_copy = generated_tokens_copy[:, 1:]
         batch_words = tensor2sentence_copy(generated_tokens_copy, model.trg_vocab, src_vocabs)
 
     # Remove bos-symbol

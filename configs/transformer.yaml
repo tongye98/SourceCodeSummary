@@ -27,7 +27,7 @@ data:
         filter_or_truncate: "truncate"
 
 training:
-    model_dir: "models/rencos_python/test10"
+    model_dir: "models/toy/toy1"
     overwrite: True
     random_seed: 980820
     use_cuda: True
@@ -48,7 +48,7 @@ training:
     learning_rate_min: 0.000001
     keep_best_ckpts: 5
     logging_freq: 10
-    validation_freq: 5 # unit:epochs
+    validation_freq: 10 # unit:epochs
     log_valid_sentences: [0,1,2]
     early_stopping_metric: "bleu"
     shuffle: True

@@ -428,10 +428,10 @@ def tensor2sentence_copy(generated_tokens_copy, trg_vocab, src_vocabs):
         src_vocab = src_vocabs[i]
         for id in tokens_id:
             if id < len(trg_vocab):
-                words_per_sentence.append(trg_vocab.lookup(id))
+                words_per_sentence.append(trg_vocab._itos[id])
             else:
                 id = id - len(trg_vocab)
-                words_per_sentence.append(src_vocab.lookup(id))
+                words_per_sentence.append(src_vocab._itos[id])
         batch_words.append(words_per_sentence)
     return batch_words
 

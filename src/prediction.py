@@ -7,7 +7,7 @@ import logging
 import torch 
 from torch.utils.data import Dataset
 from typing import Dict
-from src.helps import load_config, load_model_checkpoint, parse_test_arguments, make_logger
+from src.helps import collapse_copy_scores, load_config, load_model_checkpoint, parse_test_arguments, make_logger
 from src.helps import resolve_ckpt_path, write_list_to_file, cut_off
 import math
 from src.datas import make_data_iter, load_data
@@ -80,16 +80,17 @@ def predict(model, data:Dataset, device:torch.device,
                 src_mask = batch_data.src_mask
                 trg_mask = batch_data.trg_mask
                 trg_truth = batch_data.trg_truth
-                # source_maps = batch_data.source_maps
-                # alignments = batch_data.alignments
-                # src_vocabs = batch_data.src_vocabs
-                source_maps = None
-                alignments = None
-                src_vocabs = None
+                copy_param = dict()
+                copy_param["source_maps"] = batch_data.src_maps
+                copy_param["alignments"] = batch_data.alignments
+                copy_param["src_vocabs"] = batch_data.src_vocabs
+                blank_arr, fill_arr = collapse_copy_scores(model.trg_vocab, batch_data.src_vocabs)
+                copy_param["blank_arr"] = blank_arr
+                copy_param["fill_arr"] = fill_arr
                 
                 batch_loss = model(return_type="loss", src_input=src_input, trg_input=trg_input,
                    src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth, 
-                   source_maps=source_maps, alignments=alignments)
+                   copy_param=copy_param)
                 
                 # sum over multiple gpus.
                 # if normalization = 'sum', keep the same.
@@ -109,8 +110,7 @@ def predict(model, data:Dataset, device:torch.device,
                                                           min_output_length=min_output_length, n_best=n_best,
                                                           return_attention=return_attention, return_prob=return_prob,
                                                           generate_unk=generate_unk, repetition_penalty=repetition_penalty,
-                                                          no_repeat_ngram_size=no_repeat_ngram_size, source_maps=source_maps,
-                                                          src_vocabs=src_vocabs)
+                                                          no_repeat_ngram_size=no_repeat_ngram_size, copy_param=copy_param)
             # output 
             #   greedy search: [batch_size, hyp_len/max_output_length] np.ndarray
             #   beam search: [batch_size*beam_size, hyp_len/max_output_length] np.ndarray
@@ -217,8 +217,6 @@ def test(cfg_file: str, ckpt_path:str, output_path:str=None, datasets:dict=None,
     num_workers = cfg["training"].get("num_workers", 0)
     normalization = cfg["training"].get("normalization","batch")
     seed = cfg["training"].get("random_seed", 980820)
-
-    make_logger(Path(model_dir), mode="test")
 
     if datasets is None:
         train_data, dev_data, test_data, src_vocab, trg_vocab = load_data(data_cfg=cfg["data"])

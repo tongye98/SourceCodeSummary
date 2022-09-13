@@ -1,4 +1,5 @@
 from typing import Callable, Dict, List
+from src.constants import EOS_TOKEN
 from src.helps import ConfigurationError, read_list_from_file
 from torch.utils.data import Dataset
 from pathlib import Path
@@ -114,9 +115,9 @@ class PlaintextDataset(BaseDataset):
         for i, sentence_tokens in enumerate(src_tokernized_data):
             src_vocab = Vocabulary(tokens=sentence_tokens, has_bos_eos=False)
             src_vocabs.append(src_vocab)
-            src_map = [src_vocab.lookup(token) for token in sentence_tokens]
+            src_map = [src_vocab.lookup(token) for token in sentence_tokens + [EOS_TOKEN]] # no bos, has eos
             src_maps.append(src_map)
-            alignment = [src_vocab.lookup(token) for token in tokernized_data[self.trg_language][i]] + [0] # [0] for eos == trg_len
+            alignment = [src_vocab.lookup(token) for token in tokernized_data[self.trg_language][i] + [EOS_TOKEN]]
             alignments.append(alignment)
 
         return src_vocabs, src_maps, alignments

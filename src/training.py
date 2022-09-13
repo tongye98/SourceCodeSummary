@@ -62,6 +62,7 @@ def train(cfg_file: str, skip_test:bool=False) -> None:
 
     # After train, let's test on test data.
     if not skip_test:
+        logger.info("Starting test after training the model!")
         # predict with best model on validation and test data.
         # Get the best model checkpoint
         model_best_checkpoint_path = model_dir / f"{trainer.stats.best_ckpt_iter}.ckpt"
@@ -381,14 +382,14 @@ class TrainManager(object):
         src_mask = batch_data.src_mask
         trg_mask = batch_data.trg_mask
         trg_truth = batch_data.trg_truth
-        # source_maps = batch_data.source_maps
-        # alignments = batch_data.alignments
-        source_maps = None 
-        alignments = None
+        copy_param = dict()
+        copy_param["source_maps"] = batch_data.src_maps
+        copy_param["alignments"] = batch_data.alignments
+
         # get loss (run as during training with teacher forcing)
         batch_loss = self.model(return_type="loss", src_input=src_input, trg_input=trg_input,
                    src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth,
-                   source_maps=source_maps, alignments=alignments)
+                   copy_param=copy_param)
 
         # normalization = 'batch' means final loss is average-sentence level loss in batch
         # normalization = 'tokens' means final loss is average-token level loss in batch
