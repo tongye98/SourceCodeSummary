@@ -1,3 +1,6 @@
+set global logging level .
+list all registered imdbs .
+get new repository .
 return the user config as a dict .
 deletes memcache items and times them .
 thin wrapper to lxc .

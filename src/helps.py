@@ -405,7 +405,7 @@ def collapse_copy_scores(trg_vocab, src_vocabs):
             trg_vocab_id = trg_vocab.lookup(src_token)
             if trg_vocab_id != UNK_ID:
                 # src token in trg vocab
-                blank.append(offset + id) # blank: src 词出现再 trg 字典中
+                blank.append(offset + id) # blank: src 词出现在 trg 字典中
                 fill.append(trg_vocab_id) # fill: 记录下 trg 字典中的 id
 
         blank_arr.append(blank)

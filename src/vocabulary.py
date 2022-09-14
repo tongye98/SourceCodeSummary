@@ -10,7 +10,7 @@ from typing import Dict, List, Tuple
 import unicodedata
 import sys
 from collections import Counter
-from src.helps import flatten, sort_and_cut
+from src.helps import flatten, read_list_from_file, sort_and_cut
 from src.helps import write_list_to_file
 import time
 
@@ -43,8 +43,10 @@ def build_language_vocab(cfg, dataset, language):
     min_freq = cfg.get("vocab_min_freq", 1)
     max_size = cfg.get("vocab_max_size", sys.maxsize)
     assert max_size > 0
-
-    if dataset is not None:
+    vocab_file = cfg.get("vocab_file", None)
+    if vocab_file is not None:
+        unique_tokens = read_list_from_file(Path(vocab_file))
+    elif dataset is not None:
         # FIXME how to use tokenizer.
         sentences = dataset.tokernized_data[language]
         # senteces: list of list of tokens (nested)

@@ -2,7 +2,6 @@
 """
 This module for generating prediction of a model.
 """
-from ctypes import alignment
 import logging 
 import torch 
 from torch.utils.data import Dataset
@@ -87,18 +86,19 @@ def predict(model, data:Dataset, device:torch.device,
                 blank_arr, fill_arr = collapse_copy_scores(model.trg_vocab, batch_data.src_vocabs)
                 copy_param["blank_arr"] = blank_arr
                 copy_param["fill_arr"] = fill_arr
-                
-                batch_loss = model(return_type="loss", src_input=src_input, trg_input=trg_input,
-                   src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth, 
-                   copy_param=copy_param)
+
+
+                # batch_loss = model(return_type="loss", src_input=src_input, trg_input=trg_input,
+                #    src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth, 
+                #    copy_param=copy_param)
                 
                 # sum over multiple gpus.
                 # if normalization = 'sum', keep the same.
-                batch_loss = batch_data.normalize(batch_loss, "sum")
-                if return_prob == "references":
-                    output = trg_truth
+                # batch_loss = batch_data.normalize(batch_loss, "sum")
+                # if return_prob == "references":
+                #     output = trg_truth
             
-            total_loss += batch_loss.item()
+            # total_loss += batch_loss.item()
             total_ntokens += batch_data.ntokens
         
         # if return_prob == "ref", then no search need. Just look up the prob of the ground truth.

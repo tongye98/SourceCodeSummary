@@ -1,3 +1,6 @@
+def set Level ( level = 0 ) : Logger . level = level
+def list imdbs ( ) : return sets . keys ( )
+def get New Repository ( ) : return Lash Repository ( ) 
 def get user config ( config file =  None  , default config =  False  ) : if default config : return copy . copy ( DEFAULT CONFIG ) if ( config file and ( config file is not USER CONFIG PATH ) ) : return get config ( config file ) try : env config file = os . environ [ u'COOKIECUTTER CONFIG' ] except  Key  Error  : if os . path . exists ( USER CONFIG PATH ) : return get config ( USER CONFIG PATH ) else : return copy . copy ( DEFAULT CONFIG ) else : return get config ( env config file ) 
 def delete ( uuid ) : timings = [ ] errors = [ ] for index in range ( 0 , constants . NUM SAMPLES ) : start = time . time ( ) try : memcache . delete ( ( uuid + str ( index ) ) ) total time = ( time . time ( ) - start ) except  Exception  as exception : logging . exception ( exception ) errors . append ( str ( exception ) ) total time = 0 timings . append ( ( total time * constants . SECONDS TO MILLI ) ) return ( timings , errors ) 
 def cloud init ( name , vm  =  None  , ** kwargs ) : init interface = cloud init interface ( name , vm  , ** kwargs ) name = init interface . pop ( 'name' , name ) return init ( name , ** init interface ) 

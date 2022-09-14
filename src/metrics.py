@@ -99,10 +99,16 @@ class Bleu(object):
 
         ratio = float(translation_length) / reference_length
 
-        if ratio > 1.0:
-            bp = 1.
-        else:
-            bp = math.exp(1 - 1. / ratio)
+        try:
+            if ratio > 1.0:
+                bp = 1.
+            else:
+                bp = math.exp(1 - 1. / ratio)
+        except:
+            bp = 0.
+            logger.warning("In bleu: float division by zero.")
+            logger.info("translation_length = {}".format(translation_length))
+            logger.info("reference_length = {}".format(reference_length))
 
         bleu = geo_mean * bp
 
@@ -132,12 +138,12 @@ class Bleu(object):
             hyps.append(hyp)
             refs.append(ref)
 
-            score = self.compute_bleu([ref], [hyp], smooth=True)[0]
-            total_score += score
-            count += 1
-            ind_score[id] = score
+            # score = self.compute_bleu([ref], [hyp], smooth=True)[0]
+            # total_score += score
+            # count += 1
+            # ind_score[id] = score
 
-        avg_score = total_score / count
+        # avg_score = total_score / count
         corpus_bleu, bleu_order = self.compute_bleu(refs, hyps, smooth=True)
         # return corpus_bleu, avg_score, ind_score
         return corpus_bleu, bleu_order

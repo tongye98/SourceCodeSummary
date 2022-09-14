@@ -4,4 +4,4 @@
 echo "Let's start do something interesting!"
 echo $0
 export CUDA_VISIBLE_DEVICES=$1
-python -m src $2 $3
+python -m src train $2 

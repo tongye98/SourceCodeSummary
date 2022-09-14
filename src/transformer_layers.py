@@ -3,6 +3,7 @@
 Transformer layers
 """
 import math
+from pkgutil import extend_path
 import torch
 import torch.nn as nn
 from torch import Tensor

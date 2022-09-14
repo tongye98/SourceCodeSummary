@@ -2,7 +2,6 @@
 """
 Search Module
 """
-from tokenize import cookie_re
 from typing import List, Tuple
 from src.batch import Batch
 import torch 
@@ -114,6 +113,7 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
                     # penalize_repetition
             else:
                 fuse_score, attention_score = model.copy_attention_score(output, encoder_output, src_mask)
+                # attention_score [batch_size, trg_len, src_len]
                 prob = model.copy_generator(output, attention_score, source_maps)
                 # prob [batch_size, step+1， trg_vocab_size + extra_words]
                 output = prob[:, -1]
@@ -124,14 +124,14 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
                     output[:, unk_index + offset] = float("-inf")
                 if step < min_output_length:
                     output[:, eos_index] = float("-inf")
-                if compute_softmax:
-                    output = F.log_softmax(output, dim=-1)
+
+                output = F.softmax(output, dim=-1)
                 
                 for sentence_id in range(output.size(0)):
                     blank = torch.LongTensor(blank_arr[sentence_id]).cuda(non_blocking=True)
                     fill = torch.LongTensor(fill_arr[sentence_id]).cuda(non_blocking=True)
                     output[sentence_id].index_add_(0, fill, output[sentence_id].index_select(0, blank))
-                    output[sentence_id].index_fill_(0, blank, 1e-10)
+                    output[sentence_id].index_fill_(0, blank, float("-inf"))
 
             # take the most likely token
             prob, next_words = torch.max(output, dim=-1)
@@ -149,7 +149,6 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
                     if next_words[id].item() > len(model.trg_vocab):
                         next_words[id] = 0   # for those generated src vocab tokens(not in trg vocab), set to unk 
                 generated_tokens = torch.cat([generated_tokens, next_words.unsqueeze(-1)], dim=-1) # [batch_size, step+2]
-
 
             if return_prob == "hypotheses":
                 prob = prob.data

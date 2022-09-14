@@ -73,7 +73,7 @@ def train(cfg_file: str, skip_test:bool=False) -> None:
             "src_vocab": src_vocab, "trg_vocab": trg_vocab
         }
 
-        test(cfg_file, ckpt_path=model_best_checkpoint_path.as_posix(),output_path=output_path, datasets=dataset_to_test)
+        test(cfg_file, ckpt_path=model_best_checkpoint_path.as_posix(), output_path=output_path, datasets=dataset_to_test)
     else:
         logger.info("Skipping test after training the model!")
 
