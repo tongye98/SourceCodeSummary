@@ -53,7 +53,7 @@ training:
     learning_rate_min: 0.0000001
     keep_best_ckpts: 3
     logging_freq: 100
-    validation_freq: 20  # after how many epochs
+    validation_freq: 4  # after how many epochs
     log_valid_sentences: [0,1,2,3,4]
     early_stopping_metric: "bleu"
     shuffle: True
@@ -66,7 +66,7 @@ training:
     reset_scheduler: False
     reset_optimizer: False
     reset_iter_state: False
-    # clip_grad_val: 1
+    clip_grad_val: 1
     # clip_grad_norm:
 
 testing:
@@ -87,10 +87,10 @@ testing:
 
 model:
     initializer: "xavier_uniform"     # xavier_uniform xavier_normal uniform normal
-    init_weight: 0.01 # for uniform normal
+    # init_weight: 0.01 # for uniform normal
     embed_initializer: "xavier_uniform"
-    embed_init_weight: 0.01
-    tied_softmax: False
+    # embed_init_weight: 0.01
+    tied_softmax: True
     tied_embeddings: False
     copy: True # for copy mechanism
     encoder:
