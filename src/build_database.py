@@ -2,7 +2,7 @@ from hashlib import md5
 import torch 
 import logging
 from pathlib import Path
-from src.constants import BOS_ID, BOS_TOKEN
+from src.constants import BOS_ID
 from src.datasets import BaseDataset
 from src.helps import load_config, load_model_checkpoint
 from src.datas import load_data, make_data_iter
