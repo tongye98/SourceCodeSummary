@@ -18,6 +18,7 @@ data:
         max_length: 100
         min_length: 1
         filter_or_truncate: "truncate"
+        vocab_file: "models/rencos_python/transformer_base3/src_vocab.txt"
     trg: 
         language: "summary"
         level: "word"
@@ -29,6 +30,7 @@ data:
         max_length: 50
         min_length: 1
         filter_or_truncate: "truncate"
+        vocab_file: "models/rencos_python/transformer_base3/trg_vocab.txt"
 
 training:
     model_dir: "models/rencos_python/transformer_base3"
