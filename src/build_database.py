@@ -1,6 +1,8 @@
+from hashlib import md5
 import torch 
 import logging
 from pathlib import Path
+from src.constants import BOS_ID, BOS_TOKEN
 from src.datasets import BaseDataset
 from src.helps import load_config, load_model_checkpoint
 from src.datas import load_data, make_data_iter
@@ -17,6 +19,10 @@ logger = logging.getLogger(__name__)
 logger.addHandler(sh)
 logger.setLevel(logging.INFO)
 
+def getmd5(sequence: list) -> str:
+    sequence = str(sequence)
+    return md5(sequence.encode()).hexdigest()
+
 def store_examples(model: Transformer, embedding_path:str, token_map_path:str, data:BaseDataset, batch_size:int,
                     batch_type:str, seed:int, shuffle:bool, num_workers:int, device:torch.device) -> None:
     """
@@ -29,6 +35,9 @@ def store_examples(model: Transformer, embedding_path:str, token_map_path:str, d
     npaa = NpyAppendArray(embedding_path)
     # token_map file FIXME 
     token_map_file = open(token_map_path, "w", encoding="utf-8")
+    already_meet_log = set()
+    total_tokens = 0
+    total_sequence = 0
 
     model.eval()
     # don't track gradients during validation
@@ -41,6 +50,7 @@ def store_examples(model: Transformer, embedding_path:str, token_map_path:str, d
             trg_mask = batch_data.trg_mask
             trg_truth = batch_data.trg_truth
             trg_lengths = batch_data.trg_lengths
+            total_sequence += batch_data.nseqs
             _, penultimate_representation, _ = model(return_type='encode_decode', src_input=src_input, 
                                         trg_input=trg_input, src_mask=src_mask, trg_mask=trg_mask)
             penultimate_representation = penultimate_representation.cpu().numpy().astype(np.float16)
@@ -49,13 +59,23 @@ def store_examples(model: Transformer, embedding_path:str, token_map_path:str, d
                 # for each sentence
                 trg_tokens_id = trg_truth[i][0:trg_lengths[i]]
                 hidden_states = penultimate_representation[i][0:trg_lengths[i]]
+                sequence = src_input[i].cpu().numpy().tolist() + [BOS_ID] # token id list
+
                 for token_id, hidden_state in zip(trg_tokens_id, hidden_states):
+                    meet_log = getmd5(sequence)
+                    if meet_log in already_meet_log:
+                        continue
+                    else:
+                        already_meet_log.add(meet_log)
                     npaa.append(hidden_state[np.newaxis,:])
                     token_map_file.write(f"{token_id}\n")
+                    sequence += [token_id]
+                    total_tokens += 1
     
     del npaa
     token_map_file.close()
     logger.info("Storing hidden state ended!")
+    logger.info("Save {} sentences with {} tokens.".format(total_sequence, total_tokens))
 
 def build_database(cfg_file: str, division:str, ckpt: str, embedding_path:str, token_map_path:str, index_path:str):
     """
