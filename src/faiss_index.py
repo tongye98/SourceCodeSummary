@@ -1,11 +1,13 @@
-from ast import Index
-from turtle import distance
 import faiss 
 import numpy as np 
 from typing import Tuple 
 import re 
 
 class FaissIndex(object):
+    """
+    FaissIndex class. factory_template; index_type
+    For train index (core: self.index)
+    """
     def __init__(self, factory_template:str="IVF256,PQ32", load_index_path:str=None,
                  use_gpu:bool=True, index_type:str="L2") -> None:
         super().__init__()
@@ -49,7 +51,7 @@ class FaissIndex(object):
             training_samples = min(total_samples, 64 * centroids)
         return centroids, training_samples
     
-    def _initiallize_index(self, dimension:int, centroids:int) -> faiss.Index:
+    def _initialize_index(self, dimension:int, centroids:int) -> faiss.Index:
         template = re.compile(r"IVF\d*").sub(f"IVF{centroids}", self.factory_template)
         if self.index_type == "L2":
             index = faiss.index_factory(dimension, template, faiss.METRIC_L2)
