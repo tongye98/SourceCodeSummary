@@ -1,9 +1,10 @@
+from itertools import combinations_with_replacement
 from logging import logProcesses
 from turtle import distance
 from typing import Tuple
 import torch 
 import torch.nn as nn
-from src.database import Database 
+from src.database import Database, EnhancedDatabase 
 import math
 import torch.nn.functional as F
 
@@ -177,3 +178,25 @@ class DynamicCombiner(Combiner):
         bandwidth = bandwidth.squeeze(-1).view(batch_size, seq_len).contiguous()
 
         return mixed_distribution, model_based_distribution, example_based_distribution, mixing_weight, bandwidth
+
+
+def build_combiner(cfg: dict) -> Combiner:
+    combiner_cfg = cfg["combiner"]
+    combiner_type = combiner_cfg["type"]
+
+    if combiner_type == "no_combiner":
+        combiner = NoCombiner()
+    elif combiner_type == "static_combiner":
+        database = Database(index_path=combiner_cfg["index_path"], token_map_path=combiner_cfg["token_map_path"])
+        combiner = StaticCombiner(database=database, top_k=combiner_cfg["top_k"], mixing_weight=combiner_cfg["mixing_weight"],
+                                    bandwidth=combiner_cfg["bandwidth"], 
+                                    kernel=GaussianKernel() if combiner_cfg["kernel"] == "gaussian" else LaplacianKernel())
+    elif combiner_type == "dynamic_combiner":
+        database = EnhancedDatabase(index_path=combiner_cfg["index_path"], token_map_path=combiner_cfg["token_map_path"],
+                                    embedding_path=combiner_cfg["emebedding_path"], in_memory=combiner_cfg["in_memory"])
+        combiner = DynamicCombiner(database=database, top_k=combiner_cfg["top_k"],
+                                    kernel=GaussianKernel() if combiner_cfg["kernel"] == "gaussian" else LaplacianKernel())
+    else:
+        raise ValueError("The {} is not supported currently.".format(combiner_type))
+    
+    return combiner
