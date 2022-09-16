@@ -125,10 +125,3 @@ def build_database(cfg_file: str, division:str, ckpt: str, embedding_path:str, t
         del index
 
     return None
-
-if __name__ == "__main__":
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(name)s - %(message)s")
-    sh = logging.StreamHandler()
-    sh.setLevel(logging.INFO)
-    sh.setFormatter(formatter)
-    logger.addHandler(sh)

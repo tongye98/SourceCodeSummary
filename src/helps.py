@@ -15,6 +15,7 @@ import numpy as np
 import operator
 from collections import Counter
 from src.constants import EOS_TOKEN, PAD_TOKEN, UNK_ID
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -126,9 +127,9 @@ def parse_train_arguments(train_cfg:dict) -> Tuple:
     if normalization not in ["batch","tokens"]:
         raise ConfigurationError("Invalid 'normalization' option.")
     
-    loss_type = train_cfg.get("loss","CrossEntropy")
+    loss_function = train_cfg.get("loss", "CrossEntropy")
     label_smoothing = train_cfg.get("label_smoothing", 0.0)
-    if loss_type not in ["CrossEntropy"]:
+    if loss_function not in ["CrossEntropy"]:
         raise ConfigurationError("Invalid 'loss'.")
     
     learning_rate_min = train_cfg.get("learning_rate_min", 1.0e-8)
@@ -162,7 +163,7 @@ def parse_train_arguments(train_cfg:dict) -> Tuple:
     reset_optimizer = train_cfg.get("reset_optimizer", False)
     reset_iter_state = train_cfg.get("rest_iter_state", False)
 
-    return(model_dir, loss_type, label_smoothing,
+    return(model_dir, loss_function, label_smoothing,
            normalization, learning_rate_min, keep_best_ckpts,
            logging_freq, validation_freq, log_valid_sentences,
            early_stopping_metric, shuffle, epochs, max_updates,
@@ -450,6 +451,31 @@ def cut_off(all_batch_words, cut_at_eos:bool=True, skip_pad=True):
                 break
         sentences.append(sentence)
     return sentences
+
+def check_retrieval_cfg(retrieval_cfg: dict) -> None:
+    """
+    This function is used to validate that the merged retrieval config is valid.
+    """
+    assert retrieval_cfg["type"] in ["no_combiner", "static_combiner", "dynamic_combiner"], \
+        "retrieval type {} is not supported currently.".format(retrieval_cfg["type"])
+    
+    if retrieval_cfg["type"] in ["static_combiner", "dynamic_combiner"]:
+        for key in ["top_k", "kernel"]:
+            assert retrieval_cfg[key] is not None, "{} is needed for {}".format(key, retrieval_cfg["type"])
+        
+        for key in ["index_path", "token_map_path"]:
+            assert retrieval_cfg[key] is not None, "{} is needed for {}".format(key, retrieval_cfg["type"])
+            path = retrieval_cfg[key]
+            assert os.path.exists(path), "{} does not exist.".format(path)
+        
+        if retrieval_cfg["type"] == "static_combiner":
+            for key in ["mixing_weight", "bandwidth"]:
+                assert retrieval_cfg[key] is not None, "{} is needed in {}".format(key, retrieval_cfg["type"])
+        
+        if retrieval_cfg["type"] == "dynamic_combiner":
+            assert retrieval_cfg["embedding_path"] is not None, "{} is needed in {}".format("embedding_path", retrieval_cfg["type"])
+            path = retrieval_cfg["embedding_path"] 
+            assert os.path.exists(path), "{} does not exist.".format(path)
 
 if __name__ == "__main__":
     # TEST 

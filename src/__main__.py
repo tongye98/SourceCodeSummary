@@ -2,11 +2,12 @@ import argparse
 from src.training import train
 from src.prediction import test 
 from src.build_database import build_database
+from src.retrieval_training import retrieval_train
 
 def main():
     parser = argparse.ArgumentParser("Transformer")
 
-    parser.add_argument("mode", choices=["train","test","build_database"], help="Train a model or Test.")
+    parser.add_argument("mode", choices=["train","test","build_database","retrieval_train"], help="Train a model or Test.")
     parser.add_argument("config_path", type=str, help="path to a config yaml file.")
     parser.add_argument("-c","--ckpt", type=str, help="model checkpoint for prediction.")
     parser.add_argument("-o","--output_path", type=str, help="path for saving test result.")
@@ -26,6 +27,8 @@ def main():
     elif args.mode == "build_database":
         build_database(cfg_file=args.config_path, division="train", ckpt=args.ckpt,
          embedding_path=args.embedding_path, token_map_path=args.token_map_path, index_path=args.index_path)
+    elif args.mode == "retrieval_train":
+        retrieval_train(cfg_file=args.config_path, skip_test=args.skip_test)
     else:
         raise ValueError("Unkonwn mode!")
 
