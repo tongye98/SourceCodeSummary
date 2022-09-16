@@ -1,6 +1,3 @@
-from itertools import combinations_with_replacement
-from logging import logProcesses
-from turtle import distance
 from typing import Tuple
 import torch 
 import torch.nn as nn
@@ -20,7 +17,7 @@ class Retriever(nn.Module):
         return:
             log_probs: [batch_size, seq_len, vocab_size]
         """
-        raise NotImplementedError("The forward method is not implemented in the Combiner class.")
+        raise NotImplementedError("The forward method is not implemented in the Retrieval class.")
     
     def detailed_forward(self, hidden:torch.Tensor, logits:torch.Tensor) -> Tuple[torch.Tensor,
         torch.Tensor, torch.Tensor, torch.Tensor]:
