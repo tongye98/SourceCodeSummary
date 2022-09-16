@@ -28,7 +28,7 @@ class TransformerDecoder(nn.Module):
         elif self.trg_pos_emb == "learnable":
             self.lpe = LearnablePositionalEncoding(model_dim, max_trg_len + 2) # add 2 for <bos> <eos>
         else:
-            pass 
+            logger.warning("self.trg_pos_emb value need double check")
 
         self.layer_norm = nn.LayerNorm(model_dim,eps=1e-6) if layer_norm_position == 'pre' else None
         self.emb_layer_norm = nn.LayerNorm(model_dim,eps=1e-6) if self.trg_pos_emb == "learnable" else None
