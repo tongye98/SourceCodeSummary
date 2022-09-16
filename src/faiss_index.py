@@ -9,7 +9,7 @@ class FaissIndex(object):
     For train index (core: self.index)
     """
     def __init__(self, factory_template:str="IVF256,PQ32", load_index_path:str=None,
-                 use_gpu:bool=True, index_type:str="L2") -> None:
+                 use_gpu:bool=True, index_type:str="INNER") -> None:
         super().__init__()
         self.factory_template = factory_template
         self.gpu_num = faiss.get_num_gpus()
@@ -29,13 +29,13 @@ class FaissIndex(object):
     def is_trained(self) -> bool:
         return self._is_trained
     
-    def train(self, embeddings_path:str) -> None:
-        embeddings = np.load(embeddings_path, mmap_mode="r")
+    def train(self, hidden_representation_path:str) -> None:
+        embeddings = np.load(hidden_representation_path, mmap_mode="r")
         total_samples, dimension = embeddings.shape
         del embeddings
         centroids, training_samples = self._get_clustering_parameters(total_samples)
         self.index = self._initialize_index(dimension, centroids)
-        training_embeddinigs = self._get_training_embeddings(embeddings_path, training_samples).astype(np.float32)
+        training_embeddinigs = self._get_training_embeddings(hidden_representation_path, training_samples).astype(np.float32)
         self.index.train(training_embeddinigs)
         self._is_trained = True
 
@@ -71,9 +71,9 @@ class FaissIndex(object):
         training_embeddings = embeddings[sample_indices]
         return training_embeddings        
     
-    def add(self, embeddings_path: str, batch_size: int = 10000) -> None:
+    def add(self, hidden_representation_path: str, batch_size: int = 10000) -> None:
         assert self.is_trained
-        embeddings = np.load(embeddings_path)
+        embeddings = np.load(hidden_representation_path)
         total_samples = embeddings.shape[0]
         for i in range(0, total_samples, batch_size):
             start = i 

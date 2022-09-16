@@ -23,7 +23,7 @@ def getmd5(sequence: list) -> str:
     sequence = str(sequence)
     return md5(sequence.encode()).hexdigest()
 
-def store_examples(model: Transformer, embedding_path:str, token_map_path:str, data:BaseDataset, batch_size:int,
+def store_examples(model: Transformer, hidden_representation_path:str, token_map_path:str, data:BaseDataset, batch_size:int,
                     batch_type:str, seed:int, shuffle:bool, num_workers:int, device:torch.device) -> None:
     """
     Extract hidden states generted by trained model
@@ -32,7 +32,7 @@ def store_examples(model: Transformer, embedding_path:str, token_map_path:str, d
                                 batch_size=batch_size, num_workers=num_workers)
 
     # Create Numpy NPY files by appending on the zero axis.
-    npaa = NpyAppendArray(embedding_path)
+    npaa = NpyAppendArray(hidden_representation_path)
     # token_map file FIXME 
     token_map_file = open(token_map_path, "w", encoding="utf-8")
     already_meet_log = set()
@@ -77,10 +77,15 @@ def store_examples(model: Transformer, embedding_path:str, token_map_path:str, d
     logger.info("Storing hidden state ended!")
     logger.info("Save {} sentences with {} tokens.".format(total_sequence, total_tokens))
 
-def build_database(cfg_file: str, division:str, ckpt: str, embedding_path:str, token_map_path:str, index_path:str):
+def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation_path:str, token_map_path:str, index_path:str):
     """
     The function to store hidden states generated from trained transformer model.
     Handles loading a model from checkpoint, generating hidden states by force decoding and storing them.
+    division: which dataset to build database.
+    ckpt: use pre-trained model to produce representation.
+    hidden_representation_path: where to store token hidden representation.
+    token_map_path: where to store corresponding token_map
+    index_path: where to store FAISS Index.
     """
     logger.info("Load config...")
     cfg = load_config(cfg_file)
@@ -113,14 +118,14 @@ def build_database(cfg_file: str, division:str, ckpt: str, embedding_path:str, t
     
     if division == "train":
         logger.info("Store examples...")
-        store_examples(model, embedding_path=embedding_path, token_map_path=token_map_path,
+        store_examples(model, hidden_representation_path=hidden_representation_path, token_map_path=token_map_path,
                        data=train_data, batch_size=batch_size, batch_type=batch_type, seed=seed,
                        shuffle=shuffle, num_workers=num_workers, device=device)
 
         logger.info("train index...")
         index = FaissIndex()
-        index.train(embedding_path)
-        index.add(embedding_path)
+        index.train(hidden_representation_path)
+        index.add(hidden_representation_path)
         index.export(index_path)
         del index
 
