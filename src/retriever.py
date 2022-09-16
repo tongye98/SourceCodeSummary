@@ -61,7 +61,7 @@ class StaticRetriever(Retriever):
         # token_indices [batch_size*trg_len, top_k] id
         distances = torch.FloatTensor(distances).to(hidden.device)
         token_indices = torch.LongTensor(token_indices).to(hidden.device)
-        example_based_distribution, _ = self.kernel.compute_example_based_distribution(distance, self.bandwidth, token_indices, vocab_size)
+        example_based_distribution, _ = self.kernel.compute_example_based_distribution(distances, self.bandwidth, token_indices, vocab_size)
         # example_based_distribution [batch_size*trg_len, trg_vocab_size]
         mixed_distribution = (1 - self.mixing_weight)*model_based_distribution + self.mixing_weight*example_based_distribution
         final_distribution = mixed_distribution.view(batch_size, trg_len, vocab_size).contiguous()
@@ -114,7 +114,7 @@ class DynamicRetriever(Retriever):
         model_based_distribution = F.softmax(logits, dim=-1)
         # model_based_distribution [batch_size*trg_len, trg_vocab_size]
         vocab_size = model_based_distribution.size(-1)
-        example_based_distribution, sparse_example_based_distribution = self.kernel.compute_example_based_distribution(distance, bandwidth, token_indices, vocab_size)
+        example_based_distribution, sparse_example_based_distribution = self.kernel.compute_example_based_distribution(distances, bandwidth, token_indices, vocab_size)
         # example_based_distribution [batch_size*trg_len, trg_vocab_size]
         # sparse_example_based_distribution [batch_size*trg_len, top_k] 
         mixing_weight = self.compute_mixing_weight(hidden, searched_hidden, sparse_example_based_distribution)
