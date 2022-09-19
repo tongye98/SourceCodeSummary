@@ -52,11 +52,10 @@ class PlaintextDataset(BaseDataset):
         super().__init__(path, split_mode, src_language, trg_language)
 
         self.tokenizer = tokenizer
-
         self.original_data = self.load_data(path)
-        self.tokernized_data = self.tokenize_data(self.original_data)
-        self.src_vocabs, self.src_maps, self.alignments = self.get_src_vocabs_source_maps_alignments(self.tokernized_data)
-        self.tokernized_data_ids = None 
+        self.tokernized_data = self.tokenize_data()
+        self.src_vocabs, self.src_maps, self.alignments = self.get_src_vocabs_source_maps_alignments()
+        self.tokernized_data_ids = None # Place_holder
     
     def load_data(self,path:str):
         """"
@@ -72,7 +71,6 @@ class PlaintextDataset(BaseDataset):
             return sentences_list
 
         path = Path(path)
-
         src_file = path.with_suffix(f"{path.suffix}.{self.src_language}")
         assert src_file.is_file(), "src file not found."
         src_list = read_list_from_file(src_file)
@@ -83,17 +81,17 @@ class PlaintextDataset(BaseDataset):
         trg_list = read_list_from_file(trg_file)
         data[self.trg_language] = pre_process(trg_list, self.trg_language)
 
-        assert len(data[self.src_language]) == len(data[self.trg_language])
+        assert len(data[self.src_language]) == len(data[self.trg_language]), "src len not equal to trg len!"
         return data
     
-    def tokenize_data(self, original_data: Dict[str, List]):
+    def tokenize_data(self):
         """
         Tokenize data
         tokenize_data["en"] = [["hello", "word"], ["x", "x"]]
         """
         tokenize_data = dict()
-        tokenize_data[self.src_language] = [self.tokenizer[self.src_language](sentence) for sentence in original_data[self.src_language]]
-        tokenize_data[self.trg_language] = [self.tokenizer[self.trg_language](sentence) for sentence in original_data[self.trg_language]]
+        tokenize_data[self.src_language] = [self.tokenizer[self.src_language](sentence) for sentence in self.original_data[self.src_language]]
+        tokenize_data[self.trg_language] = [self.tokenizer[self.trg_language](sentence) for sentence in self.original_data[self.trg_language]]
         return tokenize_data
 
     def tokernized_data_to_ids(self, src_vocab:Vocabulary, trg_vocab:Vocabulary) -> None:
@@ -106,18 +104,18 @@ class PlaintextDataset(BaseDataset):
         self.tokernized_data_ids[self.trg_language] = trg_vocab.sentencens_to_ids(self.tokernized_data[self.trg_language], bos=True, eos=True)
 
         
-    def get_src_vocabs_source_maps_alignments(self, tokernized_data):
+    def get_src_vocabs_source_maps_alignments(self):
         src_vocabs = list()
         src_maps = list()
         alignments = list()
 
-        src_tokernized_data = tokernized_data[self.src_language]
+        src_tokernized_data = self.tokernized_data[self.src_language]
         for i, sentence_tokens in enumerate(src_tokernized_data):
             src_vocab = Vocabulary(tokens=sentence_tokens, has_bos_eos=False)
             src_vocabs.append(src_vocab)
-            src_map = [src_vocab.lookup(token) for token in sentence_tokens + [EOS_TOKEN]] # no bos, has eos
+            src_map = [src_vocab.lookup(token) for token in sentence_tokens + [EOS_TOKEN]] # no bos, has eos.
             src_maps.append(src_map)
-            alignment = [src_vocab.lookup(token) for token in tokernized_data[self.trg_language][i] + [EOS_TOKEN]]
+            alignment = [src_vocab.lookup(token) for token in self.tokernized_data[self.trg_language][i] + [EOS_TOKEN]] # no bos, has eos.
             alignments.append(alignment)
 
         return src_vocabs, src_maps, alignments
