@@ -52,11 +52,12 @@ class BasicTokenizer(object):
     def filter_or_truncate_by_length(self, sentence_token:List[str]) -> List[str]:
         if self.filter_or_truncate == "filter":
             if len(sentence_token) < self.min_length or len(sentence_token) > self.max_length:
+                logger.warning("{} is filtered".format(sentence_token))
                 sentence_token = None
         elif self.filter_or_truncate == "truncate":
             sentence_token = sentence_token[:self.max_length]
         else:
-            return None 
+            assert False, "Invalid filter_or_truncate."
 
         return sentence_token
 
@@ -64,7 +65,8 @@ class BasicTokenizer(object):
         """
         Tokenize single sentence.
         """
-        sentence_token = sentence.split(self.SPACE)
+        # sentence_token = sentence.split(self.SPACE) can't handle continuous space
+        sentence_token = sentence.split()
         sentence_token = self.filter_or_truncate_by_length(sentence_token)
 
         return sentence_token
