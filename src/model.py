@@ -147,7 +147,7 @@ class Transformer(nn.Module):
         logger.info("Total parameters number: %d", n_params)
         trainable_parameters = [(name, param) for (name, param) in self.named_parameters() if param.requires_grad]
         for item in trainable_parameters:
-            logger.debug("Trainable parameters(name): %s -> %s", item[0], item[1].shape)
+            logger.debug("Trainable parameters(name): {0:<60} {1}".format(item[0], str(list(item[1].shape))))
         assert trainable_parameters
 
 def build_model(model_cfg: dict=None,
@@ -163,6 +163,7 @@ def build_model(model_cfg: dict=None,
 
     src_pad_index = src_vocab.pad_index
     trg_pad_index = trg_vocab.pad_index
+    assert src_pad_index == trg_pad_index
 
     src_embed = Embeddings(embedding_dim=encoder_cfg['embeddings']['embedding_dim'],
                            scale=encoder_cfg['embeddings']['scale'],
@@ -196,7 +197,7 @@ def build_model(model_cfg: dict=None,
     decoder_emb_dropout = decoder_cfg["embeddings"].get("dropout", decoder_dropout)
     decoder = TransformerDecoder(model_dim=decoder_cfg["model_dim"],ff_dim=decoder_cfg["ff_dim"],
                                 num_layers=decoder_cfg["num_layers"],head_count=decoder_cfg["head_count"],
-                                vocab_size=len(trg_vocab), dropout=decoder_dropout, emb_dropout=decoder_emb_dropout,
+                                dropout=decoder_dropout, emb_dropout=decoder_emb_dropout,
                                 layer_norm_position=decoder_cfg["layer_norm_position"],
                                 trg_pos_emb=decoder_cfg["trg_pos_emb"],
                                 max_trg_len=decoder_cfg["max_trg_len"],freeze=decoder_cfg["freeze"],
@@ -230,4 +231,6 @@ def build_model(model_cfg: dict=None,
         model.trg_embed.load_from_file(Path(decoder_embed_path), trg_vocab)
     
     logger.info("Transformer model is built.")
+    logger.info(model)
+    model.log_parameters_list()
     return model

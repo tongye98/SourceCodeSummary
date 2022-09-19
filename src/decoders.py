@@ -12,7 +12,7 @@ class TransformerDecoder(nn.Module):
     Classical Transformer Decoder
     """
     def __init__(self, model_dim:int=512, ff_dim:int=2048,
-                 num_layers:int=6, head_count:int=8, vocab_size:int=1, dropout:float=0.1,
+                 num_layers:int=6, head_count:int=8, dropout:float=0.1,
                  emb_dropout:float=0.1, layer_norm_position:str='post',
                  trg_pos_emb:str="absolute", max_trg_len:int=512, freeze:bool=False,
                  max_relative_positon:int=16, use_negative_distance:bool=True) -> None:

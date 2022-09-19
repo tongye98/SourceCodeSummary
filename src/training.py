@@ -53,7 +53,7 @@ def train(cfg_file: str, skip_test:bool=False) -> None:
 
     # build an transformer(encoder-decoder) model
     model = build_model(model_cfg=cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab)
-
+    assert False
     # for training management.
     trainer = TrainManager(model=model, cfg=cfg)
 
@@ -102,8 +102,6 @@ class TrainManager(object):
 
         # model
         self.model = model
-        self.model.log_parameters_list()
-        logger.info(self.model)
 
         # CPU/GPU
         self.device = device
