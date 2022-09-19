@@ -309,7 +309,7 @@ class TransformerEncoderLayer(nn.Module):
         "layer_norm_position: either 'pre' or 'post' "
         super().__init__()
 
-        self.layer_norm = nn.LayerNorm(model_dim, eps=1e-6)
+        self.layer_norm = nn.LayerNorm(model_dim)
         self.src_src_attenion = MultiHeadedAttention(head_count, model_dim, dropout, max_relative_position, use_negative_distance)
         self.feed_forward = PositionwiseFeedForward(model_dim, ff_dim, dropout=dropout, layer_norm_position=layer_norm_position)
         self.dropout = nn.Dropout(dropout)
@@ -353,7 +353,8 @@ class TransformerDecoderLayer(nn.Module):
 
         self.feed_forward = PositionwiseFeedForward(model_dim, ff_dim, dropout=dropout, layer_norm_position=layer_norm_position)
         self.dropout = nn.Dropout(dropout)
-        self.layer_norm = nn.LayerNorm(model_dim, eps=1e-6)
+        self.layer_norm = nn.LayerNorm(model_dim)
+        self.layer_norm2 = nn.LayerNorm(model_dim)
 
         self.layer_norm_position = layer_norm_position
         assert self.layer_norm_position in {'pre','post'}
@@ -381,12 +382,12 @@ class TransformerDecoderLayer(nn.Module):
 
         cross_residual = cross_attention_input
         if self.layer_norm_position == 'pre':
-            cross_attention_input = self.layer_norm(cross_attention_input)
+            cross_attention_input = self.layer_norm2(cross_attention_input)
         cross_attention_output, cross_attention_weight = self.src_trg_attention(memory, memory, cross_attention_input,mask=src_mask)
         feedforward_input = self.dropout(cross_attention_output) + cross_residual
 
         if self.layer_norm_position == 'post':
-            feedforward_input = self.layer_norm(feedforward_input)
+            feedforward_input = self.layer_norm2(feedforward_input)
 
 
         output = self.feed_forward(feedforward_input)

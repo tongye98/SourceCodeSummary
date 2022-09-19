@@ -19,7 +19,7 @@ from src.builders import build_gradient_clipper, build_optimizer, build_schedule
 import heapq
 import math
 import time
-from src.combiners import build_combiner
+from src.retriever import Retriever, build_retriever
 
 
 logger = logging.getLogger(__name__) 
@@ -70,7 +70,7 @@ def retrieval_train(cfg_file: str, skip_test:bool=False) -> None:
     for p in model.parameters():
         p.requires_grad = False
 
-    retrieval_part = build_combiner(cfg=cfg["retrieval"])
+    retrieval_part = build_retriever(cfg=cfg["retrieval"])
     # load combiner from checkpoint for dynamic combiners
 
     model.retrieval_part = retrieval_part

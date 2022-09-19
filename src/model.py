@@ -145,9 +145,9 @@ class Transformer(nn.Module):
         model_parameters = filter(lambda p: p.requires_grad, self.parameters())
         n_params = sum([np.prod(p.size()) for p in model_parameters])
         logger.info("Total parameters number: %d", n_params)
-        trainable_parameters = [name for (name, param) in self.named_parameters() if param.requires_grad]
+        trainable_parameters = [(name, param) for (name, param) in self.named_parameters() if param.requires_grad]
         for item in trainable_parameters:
-            logger.debug("Trainable parameters(name): %s", item)
+            logger.debug("Trainable parameters(name): %s -> %s", item[0], item[1].shape)
         assert trainable_parameters
 
 def build_model(model_cfg: dict=None,

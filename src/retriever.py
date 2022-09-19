@@ -4,7 +4,7 @@ import torch.nn as nn
 from src.database import Database, EnhancedDatabase 
 import math
 import torch.nn.functional as F
-from kernel import Kernel, GaussianKernel, LaplacianKernel
+from src.kernel import Kernel, GaussianKernel, LaplacianKernel
 
 class Retriever(nn.Module):
     def __init__(self) -> None:
