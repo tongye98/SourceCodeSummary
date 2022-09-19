@@ -304,6 +304,11 @@ def log_data_info(train_data, dev_data, test_data,
         trg_print = "\n\t[TRG] " + " ".join(trg)
         logger.info("First training example: %s%s", src_print, trg_print)
 
+        src_id = train_data.tokernized_data_ids[train_data.src_language][0]
+        trg_id = train_data.tokernized_data_ids[train_data.trg_language][0]
+        src_id_print = "\n\t[SRC ID] " + str(src_id)
+        trg_id_print = "\n\t[TRG ID] " + str(trg_id)
+        logger.info("First training example id: %s%s", src_id_print, trg_id_print)
 
     logger.info("Number of unique Src tokens (vocab size): %d", len(src_vocab))
     logger.info("Number of unique Trg tokens (vocab size): %d", len(trg_vocab))
