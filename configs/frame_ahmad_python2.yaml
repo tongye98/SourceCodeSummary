@@ -32,7 +32,7 @@ data:
 training:
     model_dir: "models/frame/ahmad_python2"
     overwrite: True
-    random_seed: 980820
+    random_seed: 3407
     use_cuda: True
     num_workers: 0
     optimizer: "adam"
@@ -57,7 +57,7 @@ training:
     shuffle: True
     epochs: 200
     max_updates: 800000 #  "np.inf"
-    batch_size: 32
+    batch_size: 64
     batch_type: "sentence"
     # load_model: None
     reset_best_ckpt: False

@@ -3,7 +3,6 @@
 Transformer layers
 """
 import math
-from pkgutil import extend_path
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -127,7 +126,7 @@ class PositionwiseFeedForward(nn.Module):
     """
     def __init__(self, model_dim:int, ff_dim:int, dropout:float=0.1, layer_norm_position:str="post") -> None:
         super().__init__()
-        self.layer_norm = nn.LayerNorm(model_dim, eps=1e-6)
+        self.layer_norm = nn.LayerNorm(model_dim)
         self.pwff = nn.Sequential(
             nn.Linear(model_dim, ff_dim),
             nn.ReLU(),

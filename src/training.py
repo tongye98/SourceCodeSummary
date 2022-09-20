@@ -1,6 +1,4 @@
 import logging
-import os
-os.environ["CUDA_LAUNCH_BLOCKING"] = '1'
 import numpy as np
 import torch
 from torch import Tensor, nn
@@ -53,7 +51,7 @@ def train(cfg_file: str, skip_test:bool=False) -> None:
 
     # build an transformer(encoder-decoder) model
     model = build_model(model_cfg=cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab)
-    assert False
+
     # for training management.
     trainer = TrainManager(model=model, cfg=cfg)
 
@@ -152,11 +150,6 @@ class TrainManager(object):
             self.init_from_checkpoint(load_model,
                 reset_best_ckpt=reset_best_ckpt, reset_scheduler=reset_scheduler,
                 reset_optimizer=reset_optimizer, reset_iter_state=reset_iter_state)
-        
-        # multi-gpu training
-        # FIXME DistributedDataParallal
-        if self.n_gpu > 1:
-            assert self.n_gpu == 1, "Multi-gpu training is not Implementation."
 
         # config for generation
         self.valid_cfg = cfg["testing"].copy()
@@ -176,7 +169,6 @@ class TrainManager(object):
         score: Validation score which is used as key of heap queue.
         """
         model_path = Path(self.model_dir) / f"{self.stats.steps}.ckpt"
-        # FIXME for multi gpu
         model_state_dict = self.model.state_dict()
         global_state = {
             "steps": self.stats.steps,

@@ -4,11 +4,8 @@ Implemention of a mini-batch
 """
 import logging 
 import torch 
-from torch import Tensor
 from src.constants import PAD_ID
-from typing import List
 from src.helps import make_src_map, align
-from src.vocabulary import Vocabulary
 
 logger = logging.getLogger(__name__)
 
