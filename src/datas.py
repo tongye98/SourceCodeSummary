@@ -100,7 +100,7 @@ def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,
     if batch_type == "sentence":
         batch_sampler = SentenceBatchSampler(sampler, batch_size=batch_size, drop_last=False)
     elif batch_type == "token":
-        batch_sampler = TokenBatchSampler(sampler, batch_size=batch_size, drop_last=False)
+        raise NotImplementedError
     else:
         raise ConfigurationError("Invalid batch_type")
     
@@ -122,23 +122,6 @@ def collate_fn(batch: List[Tuple]) -> Batch:
 
 
 class SentenceBatchSampler(BatchSampler):
-    def __init__(self, sampler: Union[Sampler[int], Iterable[int]], batch_size: int, drop_last: bool) -> None:
-        super().__init__(sampler, batch_size, drop_last)
-    
-    def __iter__(self) -> Iterator[List[int]]:
-        batch = []
-        for idx in self.sampler:
-            batch.append(idx)
-            if len(batch) == self.batch_size:
-                yield batch
-                batch = []
-        if len(batch) > 0 and not self.drop_last:
-            yield batch
-    
-    def __len__(self) -> int:
-        return super().__len__()
-
-class TokenBatchSampler(BatchSampler):
     def __init__(self, sampler: Union[Sampler[int], Iterable[int]], batch_size: int, drop_last: bool) -> None:
         super().__init__(sampler, batch_size, drop_last)
     

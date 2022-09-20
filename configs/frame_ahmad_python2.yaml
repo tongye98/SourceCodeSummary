@@ -34,7 +34,7 @@ training:
     overwrite: True
     random_seed: 3407
     use_cuda: True
-    num_workers: 0
+    num_workers: 4
     optimizer: "adam"
     adam_betas: [0.9, 0.999]
     normalization: "batch" # batch,tokens | batch means loss divide sentences in the batch; token means loss divide tokens in the batch.
@@ -57,7 +57,7 @@ training:
     shuffle: True
     epochs: 200
     max_updates: 800000 #  "np.inf"
-    batch_size: 64
+    batch_size: 32
     batch_type: "sentence"
     # load_model: None
     reset_best_ckpt: False
