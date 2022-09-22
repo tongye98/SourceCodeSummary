@@ -13,9 +13,9 @@ class TransformerDecoder(nn.Module):
     """
     def __init__(self, model_dim:int=512, ff_dim:int=2048,
                  num_layers:int=6, head_count:int=8, dropout:float=0.1,
-                 emb_dropout:float=0.1, layer_norm_position:str='post',
+                 emb_dropout:float=0.1, layer_norm_position:str='pre',
                  trg_pos_emb:str="absolute", max_trg_len:int=512, freeze:bool=False,
-                 max_relative_positon:int=16, use_negative_distance:bool=True) -> None:
+                 max_relative_positon:int=0, use_negative_distance:bool=False) -> None:
         super().__init__()
 
         self.layers = nn.ModuleList([TransformerDecoderLayer(model_dim,ff_dim,head_count, dropout,

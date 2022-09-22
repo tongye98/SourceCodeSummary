@@ -3,7 +3,6 @@
 Vocabulary module
 """
 import logging
-from operator import truediv
 from pathlib import Path
 import numpy as np
 from typing import Dict, List, Tuple

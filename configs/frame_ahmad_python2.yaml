@@ -34,7 +34,7 @@ training:
     overwrite: True
     random_seed: 3407
     use_cuda: True
-    num_workers: 4
+    num_workers: 0
     optimizer: "adam"
     adam_betas: [0.9, 0.999]
     normalization: "batch" # batch,tokens | batch means loss divide sentences in the batch; token means loss divide tokens in the batch.

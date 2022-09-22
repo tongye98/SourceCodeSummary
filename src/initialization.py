@@ -3,8 +3,7 @@
 Implements custom initialization
 """
 import torch 
-from torch import Tensor, nn 
-from src.helps import ConfigurationError 
+from torch import nn 
 
 def Initialize_model(model: nn.Module, model_cfg:dict,
                     src_pad_index: int, trg_pad_index: int) -> None:
