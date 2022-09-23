@@ -57,8 +57,7 @@ class TransformerDecoder(nn.Module):
             embed_trg = self.pe(embed_trg)
         elif self.trg_pos_emb == "learnable":
             embed_trg = self.lpe(embed_trg)
-            if self.emb_layer_norm is not None:
-                embed_trg = self.emb_layer_norm(embed_trg)
+            # FIXME should layer_norm?
         else:
             embed_trg = embed_trg
 

@@ -192,10 +192,10 @@ class LearnablePositionalEncoding(nn.Module):
         :param embed_src [batch_size, src_len, embed_dim]
         return embed_src + lpe(src_input)
         """
-        # FIXME should scale? I think yes
+        # FIXME should scale? I think yes; but NerualCodeSum is No!
         batch_size = embed.size(0)
         len = embed.size(1)
-        assert len <= self.max_len, 'src len must <= max len'
+        assert len <= self.max_len, 'len must <= max len'
         position_input = torch.arange(len).unsqueeze(0).repeat(batch_size, 1).to(embed.device)
         # return embed + self.learn_lut(position_input) * math.sqrt(self.model_dim)
         return embed + self.learn_lut(position_input)

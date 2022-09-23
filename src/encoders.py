@@ -24,7 +24,7 @@ class TransformerEncoder(nn.Module):
         if self.src_pos_emb == "absolute":
             self.pe = PositionalEncoding(model_dim)
         elif self.src_pos_emb == "learnable":
-            self.lpe = LearnablePositionalEncoding(model_dim, max_src_len + 2) # add 2 for <bos> <eos>
+            self.lpe = LearnablePositionalEncoding(model_dim, max_src_len + 1) # add 1 for <eos>
         else:
             logger.warning("self.src_pos_emb value need double check")
 
@@ -47,8 +47,6 @@ class TransformerEncoder(nn.Module):
         elif self.src_pos_emb == "learnable":
             embed_src = self.lpe(embed_src)
             # FIXME should layer_norm?
-            if self.emb_layer_norm is not None:
-                embed_src = self.emb_layer_norm(embed_src)
         else:
             embed_src = embed_src
             

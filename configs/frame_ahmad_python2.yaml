@@ -99,12 +99,12 @@ model:
         dropout: 0.2
         embeddings:
             embedding_dim: 512
-            scale: True
+            scale: False
             freeze: False
             dropout: 0.2
             # load_pretrained
-        src_pos_emb: "absolute" # use positional embeddings in encoder "absolute", "learnable","relative"
-        max_src_len: 0 # for learnable. keep same with data segment
+        src_pos_emb: "learnable" # use positional embeddings in encoder "absolute", "learnable","relative"
+        max_src_len: 400 # for learnable. keep same with data segment
         max_relative_position: 0  # only for relative position, else must be set to 0
         use_negative_distance: False # for relative position
     decoder:
@@ -117,11 +117,11 @@ model:
         dropout: 0.2
         embeddings:
             embedding_dim: 512
-            scale: True
+            scale: False
             freeze: False
             dropout: 0.2
             # load_pretrained
-        trg_pos_emb: "absolute" # use positional embeddings in encoder "absolute", "learnable","relative"
-        max_trg_len: 0 # for learnable. keep same with data segment
+        trg_pos_emb: "learnable" # use positional embeddings in encoder "absolute", "learnable","relative"
+        max_trg_len: 30 # for learnable. keep same with data segment
         max_relative_position: 0  # only for relative position, else must be set to 0
         use_negative_distance: False # for relative position
