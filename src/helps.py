@@ -117,7 +117,7 @@ def parse_train_arguments(train_cfg:dict) -> Tuple:
     use_cuda = train_cfg["use_cuda"] and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
     n_gpu = torch.cuda.device_count() if use_cuda else 0
-    logger.info("*"*20 + "{} GPU" + "*"*20)
+    logger.info("*"*20 + "{} GPU".format(n_gpu) + "*"*20)
     num_workers = train_cfg.get("num_workers", 0)
     if num_workers > 0:
         num_workers = min(cpu_count(), num_workers)
