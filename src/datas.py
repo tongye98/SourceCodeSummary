@@ -55,12 +55,6 @@ def load_data(data_cfg: dict):
         logger.info("Loading train dataset...")
         train_data = build_dataset(dataset_type=dataset_type,path=train_data_path, split_mode="train",
                                    src_language=src_language, trg_language=trg_language, tokenizer=tokenizer)
-    
-    # build vocabulary
-    logger.info("Building vocabulary...")
-    src_vocab, trg_vocab = build_vocab(data_cfg, dataset=train_data)
-
-    train_data.tokernized_data_to_ids(src_vocab, trg_vocab)
 
     # dev data
     dev_data = None
@@ -68,14 +62,20 @@ def load_data(data_cfg: dict):
         logger.info("Loading dev dataset...")
         dev_data = build_dataset(dataset_type=dataset_type, path=dev_data_path, split_mode="dev",
                                  src_language=src_language, trg_language=trg_language, tokenizer=tokenizer)
-        dev_data.tokernized_data_to_ids(src_vocab, trg_vocab)
 
     # test data
     if test_data_path is not None:
         logger.info("Loading test dataset...")
         test_data = build_dataset(dataset_type=dataset_type, path=test_data_path, split_mode="test",
                                  src_language=src_language, trg_language=trg_language, tokenizer=tokenizer)
-        test_data.tokernized_data_to_ids(src_vocab, trg_vocab)
+    
+    # build vocabulary
+    logger.info("Building vocabulary...")
+    src_vocab, trg_vocab = build_vocab(data_cfg, datasets=[train_data, dev_data])
+
+    train_data.tokernized_data_to_ids(src_vocab, trg_vocab)
+    dev_data.tokernized_data_to_ids(src_vocab, trg_vocab)
+    test_data.tokernized_data_to_ids(src_vocab, trg_vocab)
 
     logger.info("Dataset has loaded.")
     log_data_info(train_data, dev_data, test_data, src_vocab, trg_vocab)

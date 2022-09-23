@@ -26,17 +26,17 @@ from src.constants import (
 
 logger = logging.getLogger(__name__)
 
-def build_vocab(data_cfg:Dict, dataset):
+def build_vocab(data_cfg:Dict, datasets:List):
     """
     Build vocabulary for src side and trg side.
     Note: vocabulary either from file(todo) or dataset.
     """
-    src_vocab = build_language_vocab(data_cfg["src"], dataset, data_cfg["src"]["language"])
-    trg_vocab = build_language_vocab(data_cfg["trg"], dataset, data_cfg["trg"]["language"])
+    src_vocab = build_language_vocab(data_cfg["src"], datasets, data_cfg["src"]["language"])
+    trg_vocab = build_language_vocab(data_cfg["trg"], datasets, data_cfg["trg"]["language"])
 
     return src_vocab, trg_vocab
 
-def build_language_vocab(cfg, dataset, language):
+def build_language_vocab(cfg, datasets, language):
 
     min_freq = cfg.get("vocab_min_freq", 1)
     max_size = cfg.get("vocab_max_size", sys.maxsize)
@@ -44,9 +44,11 @@ def build_language_vocab(cfg, dataset, language):
     vocab_file = cfg.get("vocab_file", None)
     if vocab_file is not None:
         unique_tokens = read_list_from_file(Path(vocab_file))
-    elif dataset is not None:
-        sentences = dataset.tokernized_data[language]
-        # senteces: list of list of tokens (nested)
+    elif datasets is not None:
+        sentences = []
+        for dataset in datasets:
+            sentences.extend(dataset.tokernized_data[language])
+        # flatten(senteces) = list of list of tokens (nested)
         counter = Counter(flatten(sentences))
         unique_tokens = sort_and_cut(counter, max_size, min_freq)
     else:
