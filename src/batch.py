@@ -1,6 +1,6 @@
 # coding: utf-8
 """
-Implemention of a mini-batch
+Implemention of a mini-batch as the return of DataLoader.
 """
 import logging 
 import torch 
@@ -23,13 +23,13 @@ class Batch(object):
         padded_src_sentences = []
         for sentence in src:
             pad_number = max_src_len - len(sentence)
-            assert pad_number >= 0
+            assert pad_number >= 0, "pad number must >= 0!"
             padded_src_sentences.append(sentence + [PAD_ID] * pad_number)
         
         padded_trg_sentences = []
         for sentence in trg:
             pad_number = max_trg_len -len(sentence)
-            assert pad_number >= 0
+            assert pad_number >= 0, "pad number must >=0!"
             padded_trg_sentences.append(sentence + [PAD_ID] * pad_number)
         
         self.src = torch.tensor(padded_src_sentences).long()

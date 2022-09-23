@@ -5,7 +5,7 @@ Vocabulary module
 import logging
 from pathlib import Path
 import numpy as np
-from typing import Dict, List, Tuple
+from typing import Dict, List
 import unicodedata
 import sys
 from collections import Counter
@@ -31,7 +31,6 @@ def build_vocab(data_cfg:Dict, dataset):
     Build vocabulary for src side and trg side.
     Note: vocabulary either from file(todo) or dataset.
     """
-
     src_vocab = build_language_vocab(data_cfg["src"], dataset, data_cfg["src"]["language"])
     trg_vocab = build_language_vocab(data_cfg["trg"], dataset, data_cfg["trg"]["language"])
 
@@ -46,7 +45,6 @@ def build_language_vocab(cfg, dataset, language):
     if vocab_file is not None:
         unique_tokens = read_list_from_file(Path(vocab_file))
     elif dataset is not None:
-        # FIXME how to use tokenizer.
         sentences = dataset.tokernized_data[language]
         # senteces: list of list of tokens (nested)
         counter = Counter(flatten(sentences))
@@ -152,36 +150,6 @@ class Vocabulary(object):
         """
         return [self.array_to_sentence(array=array, cut_at_eos=cut_at_eos, skip_pad=skip_pad) 
                 for array in arrays]
-    
-    # def sentences_to_ids(self, sentences:List[List[str]], bos:bool=False, eos:bool=False) -> Tuple[List[List[int]], List[int]]:
-    #     """
-    #     Encode sentences to indices and pad sentences to the maximum length 
-    #     of the sentences given.
-    #     Used in collate_fn function.
-    #     return 
-    #         - padded ids
-    #         - original lengths before padding(but include bos and eos token)
-    #     """
-    #     max_len = max([len(sentence) for sentence in sentences])
-    #     if bos is True:
-    #         max_len += 1
-    #     if eos is True:
-    #         max_len += 1
-        
-    #     padded_sentences = []
-    #     sentences_lengths = []
-    #     for sentence in sentences:
-    #         sentence_ids = [self.lookup(token) for token in sentence]
-    #         if bos is True:
-    #             sentence_ids = [self.bos_index] + sentence_ids
-    #         if eos is True:
-    #             sentence_ids = sentence_ids + [self.eos_index]
-    #         pad_number = max_len - len(sentence_ids)
-    #         assert pad_number >= 0, "pad number < 0, must Error!"
-    #         padded_sentences.append(sentence_ids + [self.pad_index] * pad_number)
-    #         sentences_lengths.append(len(sentence_ids)) # sentence_length include bos and eos token, but not include pad token.
-        
-    #     return padded_sentences, sentences_lengths
 
     def sentencens_to_ids(self, sentences:List[List[str]], bos:bool=False, eos:bool=False):
         """

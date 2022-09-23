@@ -192,7 +192,7 @@ class LearnablePositionalEncoding(nn.Module):
         :param embed_src [batch_size, src_len, embed_dim]
         return embed_src + lpe(src_input)
         """
-        # FIXME should scale? i think yes
+        # FIXME should scale? I think yes
         batch_size = embed.size(0)
         len = embed.size(1)
         assert len <= self.max_len, 'src len must <= max len'
@@ -303,11 +303,9 @@ class TransformerEncoderLayer(nn.Module):
     containing a Multi-Head attention layer and a position-wise feed-forward layer.
     """
     def __init__(self, model_dim:int, ff_dim:int, head_count:int, 
-                 dropout:float=0.1, layer_norm_position:str="post",
-                 max_relative_position:int=16, use_negative_distance:bool=True) -> None:
-        "layer_norm_position: either 'pre' or 'post' "
+                 dropout:float=0.1, layer_norm_position:str="pre",
+                 max_relative_position:int=0, use_negative_distance:bool=False) -> None:
         super().__init__()
-
         self.layer_norm = nn.LayerNorm(model_dim)
         self.src_src_attenion = MultiHeadedAttention(head_count, model_dim, dropout, max_relative_position, use_negative_distance)
         self.feed_forward = PositionwiseFeedForward(model_dim, ff_dim, dropout=dropout, layer_norm_position=layer_norm_position)
@@ -342,8 +340,8 @@ class TransformerDecoderLayer(nn.Module):
     Classical transformer Decoder Layer
     """
     def __init__(self, model_dim:int, ff_dim:int,head_count:int,
-                 dropout:float=0.1, layer_norm_position:str='post',
-                 max_relative_position:int=16, use_negative_distance:bool=True) -> None:
+                 dropout:float=0.1, layer_norm_position:str='pre',
+                 max_relative_position:int=0, use_negative_distance:bool=False) -> None:
         "layer norm position either 'pre' or 'post'."
         super().__init__()
         self.model_dim = model_dim
@@ -388,11 +386,14 @@ class TransformerDecoderLayer(nn.Module):
         if self.layer_norm_position == 'post':
             feedforward_input = self.layer_norm2(feedforward_input)
 
-
         output = self.feed_forward(feedforward_input)
         return output, cross_attention_weight
     
-    def context_representation(self, penultimate, encoder_output, src_mask, trg_mask) -> Tensor:
+    def context_representation(self, penultimate:Tensor, encoder_output:Tensor, src_mask:Tensor, trg_mask:Tensor) -> Tensor:
+        """
+        Get the hidden state for search purpose.
+        The hidden state means the token semantic.
+        """
         residual = penultimate
         if self.layer_norm_position == 'pre':
             penultimate = self.layer_norm(penultimate)

@@ -6,12 +6,11 @@ import logging
 import torch 
 from src.tokenizers import build_tokenizer
 from src.datasets import build_dataset
-from src.vocabulary import Vocabulary, build_vocab
-from src.helps import ConfigurationError, log_data_info, make_src_map, align
+from src.vocabulary import build_vocab
+from src.helps import ConfigurationError, log_data_info
 from torch.utils.data import Dataset, Sampler, DataLoader
 from torch.utils.data import SequentialSampler, RandomSampler, BatchSampler
 from typing import List, Union, Tuple, Iterator, Iterable
-from functools import partial
 from src.batch import Batch
 
 logger = logging.getLogger(__name__)

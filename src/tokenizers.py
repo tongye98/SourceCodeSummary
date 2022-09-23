@@ -22,7 +22,6 @@ class BasicTokenizer(object):
         self.filter_or_truncate = filter_or_truncate
         assert self.filter_or_truncate in ["filter", "truncate"], "Invalid filter_or_truncate!"
 
-    
     def pre_process(self, sentence:str) -> str:
         """
         Pre-process setence. 
@@ -78,6 +77,7 @@ class BasicTokenizer(object):
 
 import sentencepiece as sp
 class SentencePieceTokenizer(BasicTokenizer):
+    # TODO
     def __init__(self, level: str = "bpe", lowercase: bool = False, normalize: bool = False, 
                  max_length: int = -1, min_length: int = 1) -> None:
         super().__init__(level, lowercase, normalize, max_length, min_length)
@@ -88,8 +88,8 @@ class SentencePieceTokenizer(BasicTokenizer):
         self.spm.load(self.model_file)
     
 
-
 class SubwordNMTTokenizer(BasicTokenizer):
+    # TODO
     def __init__(self, level: str = "word", lowercase: bool = False, normalize: bool = False, 
                  max_length: int = -1, min_length: int = 1) -> None:
         super().__init__(level, lowercase, normalize, max_length, min_length)

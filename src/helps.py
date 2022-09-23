@@ -117,6 +117,7 @@ def parse_train_arguments(train_cfg:dict) -> Tuple:
     use_cuda = train_cfg["use_cuda"] and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
     n_gpu = torch.cuda.device_count() if use_cuda else 0
+    logger.info("*"*20 + "{} GPU" + "*"*20)
     num_workers = train_cfg.get("num_workers", 0)
     if num_workers > 0:
         num_workers = min(cpu_count(), num_workers)
@@ -417,7 +418,6 @@ def collapse_copy_scores(trg_vocab, src_vocabs):
 
     return blank_arr, fill_arr
 
-
 def tensor2sentence_copy(generated_tokens_copy, trg_vocab, src_vocabs):
     """
     generated_tokens_copy [batch_size, len]
@@ -479,20 +479,3 @@ def check_retrieval_cfg(retrieval_cfg: dict) -> None:
             assert retrieval_cfg["embedding_path"] is not None, "{} is needed in {}".format("embedding_path", retrieval_cfg["type"])
             path = retrieval_cfg["embedding_path"] 
             assert os.path.exists(path), "{} does not exist.".format(path)
-
-if __name__ == "__main__":
-    # TEST 
-    # print(subsequent_mask(5))
-    # sentences = read_list_from_file(Path('data/test_datasets/train.txt'))
-    # print(sentences)
-    # sentences = [sentence.split(" ") for sentence in sentences]
-    # print(sentences)
-    # print(flatten(sentences))
-
-    # generate_relative_position_matrix(5, 3, True)
-    length_q = 3
-    length_k = 5
-    range_vec_q = torch.arange(length_q)
-    range_vec_k = torch.arange(length_k)
-    distance_mat = range_vec_k[None, :] - range_vec_q[:, None]
-    print(distance_mat)

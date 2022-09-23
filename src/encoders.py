@@ -29,8 +29,8 @@ class TransformerEncoder(nn.Module):
             logger.warning("self.src_pos_emb value need double check")
 
         self.emb_dropout = nn.Dropout(emb_dropout)
-        self.emb_layer_norm = nn.LayerNorm(model_dim, eps=1e-6) if self.src_pos_emb == "learnable" else None
-        self.layer_norm = nn.LayerNorm(model_dim,eps=1e-6) if layer_norm_position == 'pre' else None
+        self.emb_layer_norm = nn.LayerNorm(model_dim) if self.src_pos_emb == "learnable" else None
+        self.layer_norm = nn.LayerNorm(model_dim) if layer_norm_position == 'pre' else None
         self.head_count = head_count
         self.layer_norm_position = layer_norm_position
         if freeze:
@@ -42,7 +42,6 @@ class TransformerEncoder(nn.Module):
         embed_src [batch_size, src_len, embed_size]
         mask: indicates padding areas (zeros where padding) [batch_size, 1, src_len]
         """
-        # TODO get each layer representation and attention score
         if self.src_pos_emb == "absolute":
             embed_src = self.pe(embed_src)  # add absolute position encoding
         elif self.src_pos_emb == "learnable":
@@ -66,7 +65,6 @@ class TransformerEncoder(nn.Module):
         return (f"{self.__class__.__name__}(num_layers={len(self.layers)}, "
                 f"head_count={self.head_count}, " 
                 f"layer_norm_position={self.layer_norm_position})")
-
 
 
 if __name__ == "__main__":
