@@ -31,7 +31,7 @@ class TransformerDecoder(nn.Module):
             logger.warning("self.trg_pos_emb value need double check")
 
         self.layer_norm = nn.LayerNorm(model_dim) if layer_norm_position == 'pre' else None
-        self.emb_layer_norm = nn.LayerNorm(model_dim) if self.trg_pos_emb == "learnable" else None
+        # self.emb_layer_norm = nn.LayerNorm(model_dim) if self.trg_pos_emb == "learnable" else None
         self.emb_dropout = nn.Dropout(emb_dropout)
         
         self.head_count = head_count

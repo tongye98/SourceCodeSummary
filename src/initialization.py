@@ -45,7 +45,7 @@ def Initialize_model(model: nn.Module, model_cfg:dict,
 
     with torch.no_grad():
         for name, param in model.named_parameters():
-            if "emb" in name:
+            if "emb" in name or "lut" in name:
                 embed_init_fn(param)
             elif "bias" in name:
                 bias_init_fn(param)
