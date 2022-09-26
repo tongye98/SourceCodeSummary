@@ -218,6 +218,7 @@ def build_model(model_cfg: dict=None,
             raise ConfigurationError("For tied softmax, decoder embedding_dim == model dim.")
     
     # Custom Initialization of model parameters.
+    # FIXME initialize or scale problem?
     # Initialize_model(model, model_cfg, src_pad_index, trg_pad_index)
 
     # Initializate embeddings from pre-trained embedding file.
