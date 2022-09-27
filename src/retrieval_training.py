@@ -1,9 +1,8 @@
 import logging
 import os
-# os.environ["CUDA_LAUNCH_BLOCKING"] = '1'
+# NOTE os.environ["CUDA_LAUNCH_BLOCKING"] = '1' 
 import numpy as np
 import torch
-from torch import Tensor, nn
 from torch.utils.data import Dataset
 from pathlib import Path
 import shutil
@@ -11,7 +10,7 @@ from typing import List
 from src.helps import load_config, make_model_dir, make_logger, log_cfg, check_retrieval_cfg
 from src.helps import set_seed, parse_train_arguments, load_model_checkpoint
 from src.helps import symlink_update, delete_ckpt, write_validation_output_to_file
-from src.prediction import predict, test
+from src.prediction import predict
 from src.datas import load_data, make_data_iter
 from src.model import build_model, Transformer
 from torch.utils.tensorboard import SummaryWriter
@@ -24,7 +23,7 @@ from src.retriever import Retriever, build_retriever
 
 logger = logging.getLogger(__name__) 
 
-def retrieval_train(cfg_file: str, skip_test:bool=False) -> None:
+def retrieval_train(cfg_file: str, skip_test: bool=False) -> None:
     """
     Training function. After training, also test on test data if given.
     """
@@ -34,7 +33,7 @@ def retrieval_train(cfg_file: str, skip_test:bool=False) -> None:
     model_dir = make_model_dir(Path(cfg["retrieval_training"]["model_dir"]),overwrite=cfg["retrieval_training"].get("overwrite",False))
 
     # make logger
-    make_logger(model_dir, mode="train")
+    make_logger(model_dir, mode="retrieval_train")
 
     # check retrieval cfg
     check_retrieval_cfg(retrieval_cfg=cfg["retrieval"])
@@ -70,10 +69,10 @@ def retrieval_train(cfg_file: str, skip_test:bool=False) -> None:
     for p in model.parameters():
         p.requires_grad = False
 
-    retrieval_part = build_retriever(cfg=cfg["retrieval"])
+    retrieval = build_retriever(cfg=cfg["retrieval"])
     # load combiner from checkpoint for dynamic combiners
 
-    model.retrieval_part = retrieval_part
+    model.retrieval = retrieval
 
     # for training management.
     trainer = RetrievalTrainManager(model=model, cfg=cfg)
