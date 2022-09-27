@@ -3,12 +3,12 @@ from src.training import train
 from src.prediction import test 
 from src.build_database import build_database
 from src.retrieval_training import retrieval_train
-from src.retrieval_test import retrieval_test
+from src.retrieval_prediction import retrieval_test
 
 def main():
     parser = argparse.ArgumentParser("Transformer")
 
-    parser.add_argument("mode", choices=["train","test","build_database","retrieval_train"], help="Train a model or Test.")
+    parser.add_argument("mode", choices=["train","test","build_database","retrieval_train","retrieval_test"], help="Train a model or Test.")
     parser.add_argument("config_path", type=str, help="path to a config yaml file.")
     parser.add_argument("-c","--ckpt", type=str, help="model checkpoint for prediction.")
     parser.add_argument("-o","--output_path", type=str, help="path for saving test result.")
