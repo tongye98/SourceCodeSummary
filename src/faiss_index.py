@@ -9,7 +9,7 @@ class FaissIndex(object):
     For train index (core: self.index)
     """
     def __init__(self, factory_template:str="IVF256,PQ32", load_index_path:str=None,
-                 use_gpu:bool=True, index_type:str="INNER") -> None:
+                 use_gpu:bool=True, index_type:str="L2") -> None:
         super().__init__()
         self.factory_template = factory_template
         self.gpu_num = faiss.get_num_gpus()
