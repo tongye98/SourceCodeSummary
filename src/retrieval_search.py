@@ -14,7 +14,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def search(model, batch_data: Batch, 
+def retrieval_search(model, batch_data: Batch, 
            beam_size: int, beam_alpha: float, 
            max_output_length: int, 
            min_output_length: int, n_best: int,
@@ -35,16 +35,16 @@ def search(model, batch_data: Batch,
         # encode_output [batch_size, src_len, model_dim]
 
         if beam_size < 2: # Greedy Strategy
-            stacked_output, stacked_scores, stacked_attention_scores, batch_words = greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length,
+            stacked_output, stacked_scores, stacked_attention_scores, batch_words = retrieval_greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length,
              generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size, copy_param)
         else:
-            stacked_output, stacked_scores, stacked_attention_scores = beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
+            stacked_output, stacked_scores, stacked_attention_scores = retrieval_beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
              beam_size, beam_alpha, n_best, generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size)
         
         return stacked_output, stacked_scores, stacked_attention_scores, batch_words
 
 
-def greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
+def retrieval_greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
                   generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size,
                   copy_param):
     """
@@ -94,23 +94,24 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
         with torch.no_grad():
             output, penultimate_representation, cross_attention_weight = model(return_type="decode", trg_input=generated_tokens, encoder_output=encoder_output,
                                                           src_mask=src_mask, trg_mask=trg_mask)
-            # output [batch_size, trg_len, model_dim] -> [batch_size, step+1, model_dim]
-            # cross_attention_weight [batch_size, trg_len, src_len] -> [batch_size, step+1, src_len]
+            # output [batch_size, step+1, model_dim]
+            # penultimate_representation [batch_size, step+1, model_dim]
+            # cross_attention_weight [batch_size, step+1, src_len]
             if model.copy is False:
-                output = model.output_layer(output)
-                # output [batch_size, step+1, trg_vocab_size]
-                output = output[:, -1] 
-                # output [batch_size, trg_vocab_size]
+                logits = model.output_layer(output)
+                # logits [batch_size, step+1, trg_vocab_size]
+                logits = logits[:, -1] 
+                # logits [batch_size, trg_vocab_size]
+                penultimate_representation = penultimate_representation[:, -1, :]
+                # penultimate_representation [batch_size, model_dim]
+                log_probs = model.retriever(penultimate_representation, logits)
+                # log_probs [batch_size, trg_vocab_size]
                 if not generate_unk:
-                    output[:, unk_index] = float("-inf")
+                    logits[:, unk_index] = float("-inf")
                 # Don't generate EOS until we reached min_output_length
                 if step < min_output_length:
-                    output[:, eos_index] = float("-inf")
-                if compute_softmax:
-                    output = F.log_softmax(output, dim=-1)
-                    #TODO
-                    # no_repeat_ngram_size
-                    # penalize_repetition
+                    logits[:, eos_index] = float("-inf")
+
             else:
                 fuse_score, attention_score = model.copy_attention_score(output, encoder_output, src_mask)
                 # attention_score [batch_size, trg_len, src_len]
@@ -134,7 +135,7 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
                     output[sentence_id].index_fill_(0, blank, float("-inf"))
 
             # take the most likely token
-            prob, next_words = torch.max(output, dim=-1)
+            prob, next_words = torch.max(logits, dim=-1)
             # prob [batch_size]
             # next_words [batch_size]
             next_words = next_words.data
@@ -177,8 +178,7 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
     return stacked_output, stacked_scores, stacked_attention, batch_words
 
 
-
-def beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, beam_size, beam_alpha,
+def retrieval_beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, beam_size, beam_alpha,
                 n_best, generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size):
     """
     Transformer Beam Search function.

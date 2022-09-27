@@ -10,7 +10,7 @@ from src.helps import collapse_copy_scores, load_config, load_model_checkpoint, 
 from src.helps import resolve_ckpt_path, write_list_to_file, cut_off
 import math
 from src.datas import make_data_iter, load_data
-from src.search import search
+from src.retrieval_search import retrieval_search
 from src.model import build_model
 import time
 from src.metrics import Bleu, Meteor, Rouge
@@ -71,7 +71,7 @@ def retrieval_predict(model, data:Dataset, device:torch.device,
 
         if return_prob != "references":
             # run search as during inference to produce translations(summary)
-            output, hyp_scores, attention_scores, batch_words = search(model=model, batch_data=batch_data,
+            output, hyp_scores, attention_scores, batch_words = retrieval_search(model=model, batch_data=batch_data,
                                                           beam_size=beam_size, beam_alpha=beam_alpha,
                                                           max_output_length=max_output_length, 
                                                           min_output_length=min_output_length, n_best=n_best,
