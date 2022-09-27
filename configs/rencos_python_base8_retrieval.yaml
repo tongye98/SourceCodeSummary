@@ -165,14 +165,15 @@ retrieval_training:
     reset_iter_state: False
     # clip_grad_val: 1
     clip_grad_norm: 5
-    pre_trained_model_path: None
+    pre_trained_model_path: "models/rencos_python/transformer_base8/best.ckpt"
 
 retriever:
     type: "no_retriever" # [no_retriever, static_retriever, dynamic_retriever]
     kernel: "Gaussian"  # [static_retriever, dynamic_retriever]
-    top_k: 16 # for static retriever, dynamic retriever
-    index_path: None # for static retriever, dynamic retriever
-    token_map_path: None  # for static retriever, dynamic retriever
-    mixing_weight: None  # for static retriever
-    bandwidth: None  # for static retriever
-    embedding_path: None  # for dynamic retriever
+    top_k: 16 # for static_retriever, dynamic_retriever
+    index_path: None # for static_retriever, dynamic_retriever
+    token_map_path: None  # for static_retriever, dynamic_retriever
+    mixing_weight: None  # for static_retriever
+    bandwidth: None  # for static_retriever
+    embedding_path: None  # for dynamic_retriever
+    in_memory: True # for dynamic_retriever

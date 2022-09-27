@@ -51,7 +51,7 @@ def retrieval_train(cfg_file: str, skip_test: bool=False) -> None:
     # load the data
     train_data, dev_data, test_data, src_vocab, trg_vocab = load_data(data_cfg=cfg["data"])
 
-    # store the vocabs and tokenizers TODO
+    # store the vocabs and tokenizers
     src_vocab.to_file(model_dir / "src_vocab.txt")
     trg_vocab.to_file(model_dir / "trg_vocab.txt")
 
