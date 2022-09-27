@@ -198,7 +198,7 @@ class DynamicRetriever(Retriever):
 
 
 def build_retriever(cfg: dict) -> Retriever:
-    retriever_cfg = cfg["retriever"]
+    retriever_cfg = cfg
     retriever_type = retriever_cfg["type"]
 
     if retriever_type == "no_retriever":
@@ -210,7 +210,7 @@ def build_retriever(cfg: dict) -> Retriever:
                                     kernel=GaussianKernel() if retriever_cfg["kernel"] == "Gaussian" else LaplacianKernel())
     elif retriever_type == "dynamic_retriever":
         database = EnhancedDatabase(index_path=retriever_cfg["index_path"], token_map_path=retriever_cfg["token_map_path"],
-                                    embedding_path=retriever_cfg["emebedding_path"], in_memory=retriever_cfg["in_memory"])
+                                    embedding_path=retriever_cfg["embedding_path"], in_memory=retriever_cfg["in_memory"])
         retriever = DynamicRetriever(database=database, top_k=retriever_cfg["top_k"],
                                     kernel=GaussianKernel() if retriever_cfg["kernel"] == "Gaussian" else LaplacianKernel())
     else:

@@ -459,10 +459,10 @@ def check_retrieval_cfg(retrieval_cfg: dict) -> None:
     """
     This function is used to validate that the merged retrieval config is valid.
     """
-    assert retrieval_cfg["type"] in ["no_combiner", "static_combiner", "dynamic_combiner"], \
+    assert retrieval_cfg["type"] in ["no_retriever", "static_retriever", "dynamic_retriever"], \
         "retrieval type {} is not supported currently.".format(retrieval_cfg["type"])
     
-    if retrieval_cfg["type"] in ["static_combiner", "dynamic_combiner"]:
+    if retrieval_cfg["type"] in ["static_retriever", "dynamic_retriever"]:
         for key in ["top_k", "kernel"]:
             assert retrieval_cfg[key] is not None, "{} is needed for {}".format(key, retrieval_cfg["type"])
         
@@ -471,11 +471,11 @@ def check_retrieval_cfg(retrieval_cfg: dict) -> None:
             path = retrieval_cfg[key]
             assert os.path.exists(path), "{} does not exist.".format(path)
         
-        if retrieval_cfg["type"] == "static_combiner":
+        if retrieval_cfg["type"] == "static_retriever":
             for key in ["mixing_weight", "bandwidth"]:
                 assert retrieval_cfg[key] is not None, "{} is needed in {}".format(key, retrieval_cfg["type"])
         
-        if retrieval_cfg["type"] == "dynamic_combiner":
+        if retrieval_cfg["type"] == "dynamic_retriever":
             assert retrieval_cfg["embedding_path"] is not None, "{} is needed in {}".format("embedding_path", retrieval_cfg["type"])
             path = retrieval_cfg["embedding_path"] 
             assert os.path.exists(path), "{} does not exist.".format(path)

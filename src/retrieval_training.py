@@ -36,7 +36,7 @@ def retrieval_train(cfg_file: str, skip_test: bool=False) -> None:
     make_logger(model_dir, mode="retrieval_train")
 
     # check retrieval cfg
-    check_retrieval_cfg(retrieval_cfg=cfg["retrieval"])
+    check_retrieval_cfg(retrieval_cfg=cfg["retriever"])
 
     # write all entries of config to the log file.
     log_cfg(cfg)
@@ -56,10 +56,10 @@ def retrieval_train(cfg_file: str, skip_test: bool=False) -> None:
     trg_vocab.to_file(model_dir / "trg_vocab.txt")
 
     # load model state from trained model
-    pre_trained_model_path = cfg["retrieval_training"].get(["pre_trained_model_path"], None)
+    pre_trained_model_path = cfg["retrieval_training"].get("pre_trained_model_path", None)
     use_cuda = cfg["retrieval_training"].get("use_cuda", False)
     device = torch.device("cuda" if use_cuda else "cpu")
-    model_checkpoint = load_model_checkpoint(path=pre_trained_model_path, device=device)
+    model_checkpoint = load_model_checkpoint(path=Path(pre_trained_model_path), device=device)
 
     # build an transformer(encoder-decoder) model
     model = build_model(model_cfg=cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab)
@@ -69,14 +69,15 @@ def retrieval_train(cfg_file: str, skip_test: bool=False) -> None:
     for p in model.parameters():
         p.requires_grad = False
 
-    retrieval = build_retriever(cfg=cfg["retrieval"])
+    retriever = build_retriever(cfg=cfg["retriever"])
     # load combiner from checkpoint for dynamic combiners
 
-    model.retrieval = retrieval
-    assert False
+    model.retriever = retriever
+    model.log_parameters_list()
+
     # for training management.
     trainer = RetrievalTrainManager(model=model, cfg=cfg)
-
+    assert False
     # train the model
     trainer.train_and_validate(train_data=train_data, valid_data=dev_data)
 
@@ -105,8 +106,6 @@ class RetrievalTrainManager(object):
 
         # model
         self.model = model
-        self.model.log_parameters_list()
-        logger.info(self.model)
 
         # CPU/GPU
         self.device = device
@@ -117,7 +116,7 @@ class RetrievalTrainManager(object):
         
         # optimization
         self.clip_grad_fun = build_gradient_clipper(train_cfg=cfg["retrieval_training"])
-        self.optimizer = build_optimizer(train_cfg=cfg["retrieval_training"], parameters=self.model.parameters())
+        self.optimizer = build_optimizer(train_cfg=cfg["retrieval_training"], parameters=self.model.retriever.parameters())
 
         # save/delete checkpoints
         self.num_ckpts = keep_best_ckpts
@@ -157,11 +156,6 @@ class RetrievalTrainManager(object):
             self.init_from_checkpoint(load_model,
                 reset_best_ckpt=reset_best_ckpt, reset_scheduler=reset_scheduler,
                 reset_optimizer=reset_optimizer, reset_iter_state=reset_iter_state)
-        
-        # multi-gpu training
-        # FIXME DistributedDataParallal
-        if self.n_gpu > 1:
-            assert self.n_gpu == 1, "Multi-gpu training is not Implementation."
 
         # config for generation
         self.valid_cfg = cfg["testing"].copy()
