@@ -66,6 +66,7 @@ class StaticRetriever(Retriever):
         mixed_distribution = (1 - self.mixing_weight)*model_based_distribution + self.mixing_weight*example_based_distribution
         final_distribution = mixed_distribution.view(batch_size, trg_len, vocab_size).contiguous()
         # final_distribution [batch_size, trg_len, vocab_size]
+        # FIXME no log_softmax?
         return final_distribution
 
 class DynamicRetriever(Retriever):
