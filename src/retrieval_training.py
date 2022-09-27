@@ -528,6 +528,3 @@ class RetrievalTrainManager(object):
             else:
                 is_better = score > heapq.nsmallest(1, heap_queue)[0][0]
             return is_better
-
-if __name__ == "__main__":
-    cfg_file = "configs/rencos_python_base2.yaml"

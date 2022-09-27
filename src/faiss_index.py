@@ -96,6 +96,8 @@ class FaissIndex(object):
         return distances, indices
 
     def set_prob(self, nprobe):
+        # default nprobe = 1, can try a few more
+        # nprobe: 在多少个聚类中进行搜索，默认为1, nprobe越大，结果越精确，但是速度越慢
         self.index.nprobe = nprobe
 
     @property
