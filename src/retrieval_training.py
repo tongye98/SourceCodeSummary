@@ -96,7 +96,7 @@ class RetrievalTrainManager(object):
         batch_size, batch_type, random_seed,
         device, n_gpu, num_workers,load_model,
         reset_best_ckpt, reset_scheduler,
-        reset_optimizer, reset_iter_state) = parse_train_arguments(retrieval_train_cfg=cfg["retrieval_training"])
+        reset_optimizer, reset_iter_state) = parse_train_arguments(train_cfg=cfg["retrieval_training"])
 
         self.model_dir = model_dir
         self.logging_freq = logging_freq
