@@ -73,7 +73,7 @@ def retrieval_train(cfg_file: str, skip_test: bool=False) -> None:
     # load combiner from checkpoint for dynamic combiners
 
     model.retrieval = retrieval
-
+    assert False
     # for training management.
     trainer = RetrievalTrainManager(model=model, cfg=cfg)
 
