@@ -199,16 +199,17 @@ def retrieval_predict(model, data:Dataset, device:torch.device,
 
 def retrieval_test(cfg_file: str) -> None:
     """
-    Main test function.
-    Handles loading a model from checkpoint, generating translation, storing, and (optional) plotting attention.
-    :param cfg_file: path to configuration file
-    :param ckpt: path to model checkpoint to load
-    :param output_path: path to output
-    :param datasets: dict, to predict
-    :param: sava_scores: whether to save scores
-    :param: save_attention: whether to save attention visualization
+    Main Retrieval Test function.
     """ 
     cfg = load_config(Path(cfg_file))
+
+    model_dir = cfg["retrieval_training"]["model_dir"]
+    if len(logger.handlers) == 0:
+        make_logger(log_dir=Path(model_dir), mode="retrieval_test")
+
+    normalization = cfg["retrieval_training"].get("normalization",  "batch")
+    num_workers = cfg["retrieval_training"].get("num_workers", 0)
+    seed = cfg["retrieval_training"].get("random_seed", 980820)
 
     train_data, dev_data, test_data, src_vocab, trg_vocab = load_data(data_cfg=cfg["data"])
     data_to_predict = {"dev": dev_data, "test":test_data}
@@ -219,6 +220,7 @@ def retrieval_test(cfg_file: str) -> None:
     # load model state from trained model
     pre_trained_model_path = cfg["retrieval_training"].get("pre_trained_model_path", None)
     use_cuda = cfg["retrieval_training"].get("use_cuda", False)
+    n_gpu = torch.cuda.device_count() if use_cuda else 0
     device = torch.device("cuda" if use_cuda else "cpu")
     model_checkpoint = load_model_checkpoint(path=Path(pre_trained_model_path), device=device)
 
@@ -231,3 +233,14 @@ def retrieval_test(cfg_file: str) -> None:
     # load combiner from checkpoint for dynamic combiners
     model.retriever = retriever
     model.log_parameters_list()
+
+    if device.type == "cuda":
+        model.to(device)
+
+    for dataset_name, dataset in data_to_predict.items():
+        if dataset is None:
+            continue
+
+        logger.info("Decoding on {} dataset...".format(dataset_name))
+        retrieval_predict(model, data=dataset, device=device, n_gpu=n_gpu, compute_loss=False, 
+                          normalization=normalization, num_workers=num_workers, cfg=cfg, seed=seed)
