@@ -3,6 +3,7 @@ from src.training import train
 from src.prediction import test 
 from src.build_database import build_database
 from src.retrieval_training import retrieval_train
+from src.retrieval_test import retrieval_test
 
 def main():
     parser = argparse.ArgumentParser("Transformer")
@@ -29,6 +30,8 @@ def main():
          hidden_representation_path=args.hidden_representation_path, token_map_path=args.token_map_path, index_path=args.index_path)
     elif args.mode == "retrieval_train":
         retrieval_train(cfg_file=args.config_path, skip_test=args.skip_test)
+    elif args.mode == "retrieval_test":
+        retrieval_test(cfg_file=args.config_path)
     else:
         raise ValueError("Unkonwn mode!")
 

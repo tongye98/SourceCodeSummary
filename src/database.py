@@ -45,9 +45,9 @@ class EnhancedDatabase(Database):
         """
         Search nearest top_k embeddings from Faiss index.
         hidden: np.ndarray [batch_size*trg_len, model_dim]
-        return distances np.ndarray (batch_size, top_k)
-        return token_indices: np.ndarray (batch_size, top_k)
-        return hidden: np.ndarray (batch_size, top_k, d)
+        return distances np.ndarray (batch_size*trg_len, top_k)
+        return token_indices: np.ndarray (batch_size*trg_len, top_k)
+        return searched_hidden: np.ndarray (batch_size*trg_len, top_k, model_dim)
         """
         if retrieval_dropout:
             distances, indices = self.index.search(hidden, top_k+1)
@@ -60,9 +60,6 @@ class EnhancedDatabase(Database):
 
         token_indices = self.token_map[indices]
         # token_indices [batch_size*trg_len, top_k]
-        hidden = self.embeddings[indices]
-        # hidden [batch_size*trg_len, top_k, dim]
-        dim = hidden.shape[-1]
-        # hidden = hidden.reshape(-1, top_k, dim)
-        # hidden [batch_size*trg_len, top_k, model_dim]
-        return distances, token_indices, hidden
+        searched_hidden = self.embeddings[indices]
+        # searched_hidden [batch_size*trg_len, top_k, dim]
+        return distances, token_indices, searched_hidden

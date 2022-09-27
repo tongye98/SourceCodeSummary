@@ -85,7 +85,10 @@ class DynamicRetriever(Retriever):
             self.bandwidth_estimator.bias.data[0] = math.log(100)
         else:
             self.bandwidth_estimator.bias.data[0] = math.log(10)
-        self.mixing_weight_estimator = nn.Sequential(nn.Linear(2*dimension, dimension),nn.ReLU(),nn.Linear(dimension,1))
+        self.mixing_weight_estimator = nn.Sequential(
+                nn.Linear(2*dimension, dimension),
+                nn.ReLU(),
+                nn.Linear(dimension, 1))
     
     def forward(self, hidden:torch.Tensor, logits:torch.Tensor) -> torch.Tensor:
         """
@@ -131,10 +134,6 @@ class DynamicRetriever(Retriever):
         log_probs = torch.log(mixed_distribution)
         log_probs = log_probs.view(batch_size, trg_len, vocab_size).contiguous()
         # log_probs [batch_size, trg_len, vocab_size]
-        logger.info("trg len = {}".format(trg_len))
-        logger.info("mixing_weight = {}".format(mixing_weight))
-        logger.info("bandwidth = {}".format(bandwidth))
-        assert False
         return log_probs
     
     def compute_bandwidth(self, hidden:torch.Tensor, searched_hidden:torch.Tensor) -> torch.Tensor:
@@ -156,7 +155,7 @@ class DynamicRetriever(Retriever):
         return
             mixing_weight [batch_size*trg_len, 1]
         """
-        merged_hidden = sparse_probs.unsqueeze(1).contiguous().matmul(searched_hidden).squeeze(1)
+        merged_hidden = sparse_probs.unsqueeze(1).matmul(searched_hidden).squeeze(1)
         # merged_hidden [batch_size*trg_len, model_dim]
         mixing_weight = torch.sigmoid(self.mixing_weight_estimator(torch.cat([hidden, merged_hidden], dim=-1)))
         return mixing_weight
