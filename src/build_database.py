@@ -34,6 +34,7 @@ def store_examples(model: Transformer, hidden_representation_path:str, token_map
     already_meet_log = set()
     total_tokens = 0
     total_sequence = 0
+    total_original_tokens = 0
 
     model.eval()
     # don't track gradients during validation
@@ -53,7 +54,8 @@ def store_examples(model: Transformer, hidden_representation_path:str, token_map
             
             for i in range(batch_data.nseqs):
                 # for each sentence
-                trg_tokens_id = trg_truth[i][0:trg_lengths[i]]
+                total_original_tokens += trg_lengths[i]
+                trg_tokens_id = trg_truth[i][0:trg_lengths[i]]   # FIXME include final <eos> token id(3)
                 hidden_states = penultimate_representation[i][0:trg_lengths[i]]
                 sequence = src_input[i].cpu().numpy().tolist() + [BOS_ID] # token id list
 
@@ -67,11 +69,11 @@ def store_examples(model: Transformer, hidden_representation_path:str, token_map
                     token_map_file.write(f"{token_id}\n")
                     sequence += [token_id]
                     total_tokens += 1
-    
+            
     del npaa
     token_map_file.close()
     logger.info("Storing hidden state ended!")
-    logger.info("Save {} sentences with {} tokens.".format(total_sequence, total_tokens))
+    logger.info("Save {} sentences with {} tokens. | Original has {} tokens.".format(total_sequence, total_tokens, total_original_tokens))
 
 def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation_path:str, token_map_path:str, index_path:str):
     """
@@ -116,7 +118,7 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
 
     if use_cuda:
         model.to(device)
-    assert False
+
     if division == "train":
         logger.info("Store train examples...")
         store_examples(model, hidden_representation_path=hidden_representation_path, token_map_path=token_map_path,
