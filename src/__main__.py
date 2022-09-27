@@ -3,7 +3,6 @@ from src.training import train
 from src.prediction import test 
 from src.build_database import build_database
 from src.retrieval_training import retrieval_train
-import logging
 
 def main():
     parser = argparse.ArgumentParser("Transformer")
