@@ -5,6 +5,9 @@ from src.database import Database, EnhancedDatabase
 import math
 import torch.nn.functional as F
 from src.kernel import Kernel, GaussianKernel, LaplacianKernel
+import logging 
+
+logger = logging.getLogger(__name__)
 
 class Retriever(nn.Module):
     def __init__(self) -> None:
@@ -128,6 +131,10 @@ class DynamicRetriever(Retriever):
         log_probs = torch.log(mixed_distribution)
         log_probs = log_probs.view(batch_size, trg_len, vocab_size).contiguous()
         # log_probs [batch_size, trg_len, vocab_size]
+        logger.info("trg len = {}".format(trg_len))
+        logger.info("mixing_weight = {}".format(mixing_weight))
+        logger.info("bandwidth = {}".format(bandwidth))
+        assert False
         return log_probs
     
     def compute_bandwidth(self, hidden:torch.Tensor, searched_hidden:torch.Tensor) -> torch.Tensor:
