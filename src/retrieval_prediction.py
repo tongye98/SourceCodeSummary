@@ -35,7 +35,6 @@ def retrieval_predict(model, data:Dataset, device:torch.device,
      eval_metrics, beam_size, beam_alpha, n_best, return_attention, 
      return_prob, generate_unk, repetition_penalty, no_repeat_ngram_size) = parse_test_arguments(cfg)
 
-    # FIXME what is return_prob
     if return_prob == "references":
         decoding_description = ""
     else:
@@ -55,7 +54,7 @@ def retrieval_predict(model, data:Dataset, device:torch.device,
     model.eval()
 
     # Place holders for scores.
-    valid_scores = {"loss":float("nan"), "ppl":float("nan"), "bleu":float(0),"meteor":float(0), "rouge-l":float(0)}
+    valid_scores = {"loss":float("nan"), "ppl":float("nan"), "bleu":float(0), "meteor":float(0), "rouge-l":float(0)}
     total_nseqs = 0
     total_ntokens = 0
     total_loss = 0
@@ -70,39 +69,6 @@ def retrieval_predict(model, data:Dataset, device:torch.device,
         batch_data.move2cuda(device)
         total_nseqs += batch_data.nseqs 
 
-        # if compute_loss and batch_data.has_trg:
-        if compute_loss: 
-            assert model.loss_function is not None
-            # don't track gradients during validation 
-            with torch.no_grad():
-                src_input = batch_data.src
-                trg_input = batch_data.trg_input
-                src_mask = batch_data.src_mask
-                trg_mask = batch_data.trg_mask
-                trg_truth = batch_data.trg_truth
-                copy_param = dict()
-                copy_param["source_maps"] = batch_data.src_maps
-                copy_param["alignments"] = batch_data.alignments
-                copy_param["src_vocabs"] = batch_data.src_vocabs
-                blank_arr, fill_arr = collapse_copy_scores(model.trg_vocab, batch_data.src_vocabs)
-                copy_param["blank_arr"] = blank_arr
-                copy_param["fill_arr"] = fill_arr
-
-
-                # batch_loss = model(return_type="loss", src_input=src_input, trg_input=trg_input,
-                #    src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth, 
-                #    copy_param=copy_param)
-                
-                # sum over multiple gpus.
-                # if normalization = 'sum', keep the same.
-                # batch_loss = batch_data.normalize(batch_loss, "sum")
-                # if return_prob == "references":
-                #     output = trg_truth
-            
-            # total_loss += batch_loss.item()
-            total_ntokens += batch_data.ntokens
-        
-        # if return_prob == "ref", then no search need. Just look up the prob of the ground truth.
         if return_prob != "references":
             # run search as during inference to produce translations(summary)
             output, hyp_scores, attention_scores, batch_words = search(model=model, batch_data=batch_data,
@@ -111,7 +77,7 @@ def retrieval_predict(model, data:Dataset, device:torch.device,
                                                           min_output_length=min_output_length, n_best=n_best,
                                                           return_attention=return_attention, return_prob=return_prob,
                                                           generate_unk=generate_unk, repetition_penalty=repetition_penalty,
-                                                          no_repeat_ngram_size=no_repeat_ngram_size, copy_param=copy_param)
+                                                          no_repeat_ngram_size=no_repeat_ngram_size)
             # output 
             #   greedy search: [batch_size, hyp_len/max_output_length] np.ndarray
             #   beam search: [batch_size*beam_size, hyp_len/max_output_length] np.ndarray
@@ -121,7 +87,6 @@ def retrieval_predict(model, data:Dataset, device:torch.device,
             # attention_scores 
             #   greedy search: [batch_size, steps/max_output_length, src_len] np.ndarray
             #   beam search: None
-        
         all_outputs.extend(output)
         valid_sentences_scores.extend(hyp_scores if hyp_scores is not None else [])
         valid_attention_scores.extend(attention_scores if attention_scores is not None else [])
@@ -130,21 +95,6 @@ def retrieval_predict(model, data:Dataset, device:torch.device,
     assert total_nseqs == len(data)
     # FIXME all_outputs is a list of np.ndarray
     assert len(all_outputs) == len(data) * n_best
-
-    if compute_loss:
-        if normalization == "batch":
-            normalizer = total_nseqs
-        elif normalization == "tokens":
-            normalizer = total_ntokens
-        elif normalization == "none":
-            normalizer = 1
-        # avoid zero division
-        assert normalizer > 0
-        
-        # normalized loss
-        valid_scores["loss"] = total_loss / normalizer
-        # exponent of token-level negative log likelihood
-        valid_scores["ppl"] = math.exp(total_loss / total_ntokens)
     
     if model.copy is False:
         # decode ids back to str symbols (cut_off After eos, but eos itself is included. ) # NOTE eos is included.
@@ -152,11 +102,6 @@ def retrieval_predict(model, data:Dataset, device:torch.device,
     else:
         # copy mode
         decoded_valid = cut_off(all_batch_words, cut_at_eos=True, skip_pad=True)
-
-    if return_prob == "references": # no evalution needed
-        logger.info("Evaluation result (scoring) %s", 
-                    ", ".join([f"{eval_metric}: {valid_scores[eval_metric]:6.2f}" for eval_metric in ["loss","ppl"]]))
-        return (valid_scores, None, None, decoded_valid, None, None)
 
     # retrieve detokenized hypotheses and references
     valid_hypotheses = [data.tokenizer[data.trg_language].post_process(sentence, generate_unk=generate_unk) for sentence in decoded_valid]
