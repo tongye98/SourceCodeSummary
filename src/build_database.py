@@ -11,13 +11,9 @@ from src.faiss_index import FaissIndex
 from npy_append_array import NpyAppendArray
 import tqdm
 import numpy as np
+from src.helps import make_logger
 
-formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(name)s - %(message)s")
-sh = logging.StreamHandler()
-sh.setFormatter(formatter)
 logger = logging.getLogger(__name__)
-logger.addHandler(sh)
-logger.setLevel(logging.INFO)
 
 def getmd5(sequence: list) -> str:
     sequence = str(sequence)
@@ -87,6 +83,11 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
     token_map_path: where to store corresponding token_map
     index_path: where to store FAISS Index.
     """
+    # make logger
+    # FIXME this is just for test
+    model_dir = Path("test/")
+    make_logger(model_dir, mode="build_database")
+
     logger.info("Load config...")
     cfg = load_config(cfg_file)
     use_cuda = cfg["training"]["use_cuda"]
@@ -115,9 +116,9 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
 
     if use_cuda:
         model.to(device)
-    
+    assert False
     if division == "train":
-        logger.info("Store examples...")
+        logger.info("Store train examples...")
         store_examples(model, hidden_representation_path=hidden_representation_path, token_map_path=token_map_path,
                        data=train_data, batch_size=batch_size, batch_type=batch_type, seed=seed,
                        shuffle=shuffle, num_workers=num_workers, device=device)
