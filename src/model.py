@@ -164,7 +164,7 @@ class Transformer(nn.Module):
         trainable_parameters = [(name, param) for (name, param) in self.named_parameters() if param.requires_grad]
         for item in trainable_parameters:
             logger.debug("Trainable parameters(name): {0:<60} {1}".format(item[0], str(list(item[1].shape))))
-        # assert trainable_parameters
+        assert trainable_parameters
 
 def build_model(model_cfg: dict=None,
                 src_vocab: Vocabulary=None,
