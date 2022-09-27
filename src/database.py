@@ -36,9 +36,9 @@ class Database(object):
 class EnhancedDatabase(Database):
     def __init__(self, index_path:str, token_map_path:str, embedding_path:str, nprobe:int=16, in_memory:bool=True) -> None:
         super().__init__(index_path, token_map_path, nprobe)
-        if in_memory: # FIXME
+        if in_memory: # read data to memory
             self.embeddings = np.load(embedding_path)
-        else:
+        else:         # the data still on disk
             self.embeddings = np.load(embedding_path, mmap_mode="r")
 
     def enhanced_search(self, hidden:np.ndarray, top_k:int=16, retrieval_dropout:bool=True) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
