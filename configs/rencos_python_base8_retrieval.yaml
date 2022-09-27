@@ -169,11 +169,11 @@ retrieval_training:
 
 retriever:
     type: "no_retriever" # [no_retriever, static_retriever, dynamic_retriever]
-    kernel: "Gaussian"  # [static_retriever, dynamic_retriever]
+    kernel: "Gaussian"  # [Gaussian, Laplacian] for static_retriever, dynamic_retriever
     top_k: 16 # for static_retriever, dynamic_retriever
-    index_path: None # for static_retriever, dynamic_retriever
-    token_map_path: None  # for static_retriever, dynamic_retriever
+    index_path: "test/index" # for static_retriever, dynamic_retriever
+    token_map_path: "test/token_map"  # for static_retriever, dynamic_retriever
     mixing_weight: None  # for static_retriever
     bandwidth: None  # for static_retriever
-    embedding_path: None  # for dynamic_retriever
+    embedding_path: "test/embedding"  # for dynamic_retriever
     in_memory: True # for dynamic_retriever

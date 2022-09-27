@@ -206,12 +206,12 @@ def build_retriever(cfg: dict) -> Retriever:
         database = Database(index_path=retriever_cfg["index_path"], token_map_path=retriever_cfg["token_map_path"])
         retriever = StaticRetriever(database=database, top_k=retriever_cfg["top_k"], mixing_weight=retriever_cfg["mixing_weight"],
                                     bandwidth=retriever_cfg["bandwidth"], 
-                                    kernel=GaussianKernel() if retriever_cfg["kernel"] == "gaussian" else LaplacianKernel())
+                                    kernel=GaussianKernel() if retriever_cfg["kernel"] == "Gaussian" else LaplacianKernel())
     elif retriever_type == "dynamic_retriever":
         database = EnhancedDatabase(index_path=retriever_cfg["index_path"], token_map_path=retriever_cfg["token_map_path"],
                                     embedding_path=retriever_cfg["emebedding_path"], in_memory=retriever_cfg["in_memory"])
         retriever = DynamicRetriever(database=database, top_k=retriever_cfg["top_k"],
-                                    kernel=GaussianKernel() if retriever_cfg["kernel"] == "gaussian" else LaplacianKernel())
+                                    kernel=GaussianKernel() if retriever_cfg["kernel"] == "Gaussian" else LaplacianKernel())
     else:
         raise ValueError("The {} is not supported currently.".format(retriever_type))
     
