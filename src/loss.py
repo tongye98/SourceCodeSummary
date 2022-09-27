@@ -40,13 +40,12 @@ class XentLoss(nn.Module):
 
         return log_probs, target
     
-    def forward(self, logits: Tensor, target: Tensor) -> Tensor:
+    def forward(self, log_probs: Tensor, target: Tensor) -> Tensor:
         """
         Compute the cross-entropy between logits and targets.
-        :param logits [batch_size, trg_len, vocab_size]
+        :param log_probs [batch_size, trg_len, vocab_size]
         :param target [batch_size, trg_len]
         """
-        log_probs = F.log_softmax(logits, dim=-1)
         log_probs, target = self.reshape(log_probs, target)
         batch_loss = self.criterion(log_probs, target)
         return batch_loss

@@ -64,10 +64,11 @@ class StaticRetriever(Retriever):
         example_based_distribution, _ = self.kernel.compute_example_based_distribution(distances, self.bandwidth, token_indices, vocab_size)
         # example_based_distribution [batch_size*trg_len, trg_vocab_size]
         mixed_distribution = (1 - self.mixing_weight)*model_based_distribution + self.mixing_weight*example_based_distribution
-        final_distribution = mixed_distribution.view(batch_size, trg_len, vocab_size).contiguous()
-        # final_distribution [batch_size, trg_len, vocab_size]
-        # FIXME no log_softmax?
-        return final_distribution
+
+        log_probs = torch.log(mixed_distribution)
+        log_probs = log_probs.view(batch_size, trg_len, vocab_size).contiguous()
+        # log_probs [batch_size, trg_len, vocab_size]
+        return log_probs
 
 class DynamicRetriever(Retriever):
     def __init__(self, database:Database, top_k:int, kernel:Kernel) -> None:
@@ -124,8 +125,10 @@ class DynamicRetriever(Retriever):
         mixed_distribution = (1-mixing_weight)*model_based_distribution + mixing_weight*example_based_distribution
         # mixed_distribution [batch_size*trg_len, trg_vocab_size]
 
-        mixed_distribution = mixed_distribution.view(batch_size, trg_len, vocab_size).contiguous()
-        return mixed_distribution
+        log_probs = torch.log(mixed_distribution)
+        log_probs = log_probs.view(batch_size, trg_len, vocab_size).contiguous()
+        # log_probs [batch_size, trg_len, vocab_size]
+        return log_probs
     
     def compute_bandwidth(self, hidden:torch.Tensor, searched_hidden:torch.Tensor) -> torch.Tensor:
         """

@@ -77,7 +77,7 @@ def retrieval_train(cfg_file: str, skip_test: bool=False) -> None:
 
     # for training management.
     trainer = RetrievalTrainManager(model=model, cfg=cfg)
-    assert False
+
     # train the model
     trainer.train_and_validate(train_data=train_data, valid_data=dev_data)
 
@@ -285,8 +285,8 @@ class RetrievalTrainManager(object):
             for epoch_no in range(self.epochs):
                 logger.info("Epoch %d", epoch_no + 1)
                     
-                self.model.retrieval_part.train()
-                self.model.zero_grad()
+                self.model.retriever.train()
+                self.model.retriever.zero_grad()
                 
                 # Statistic for each epoch.
                 start_time = time.time()
@@ -298,13 +298,13 @@ class RetrievalTrainManager(object):
                     normalized_batch_loss = self.train_step(batch_data)
 
                     # reset gradients
-                    self.model.retrieval_part.zero_grad()
+                    self.model.retriever.zero_grad()
                     
                     normalized_batch_loss.backward()
 
                     # clip gradients (in-place)
                     if self.clip_grad_fun is not None:
-                        self.clip_grad_fun(parameters=self.model.parameters())
+                        self.clip_grad_fun(parameters=self.model.retriever.parameters())
                     
                     # make gradient step
                     self.optimizer.step()
@@ -386,7 +386,7 @@ class RetrievalTrainManager(object):
         copy_param["alignments"] = batch_data.alignments
 
         # get loss (run as during training with teacher forcing)
-        batch_loss = self.model(return_type="loss", src_input=src_input, trg_input=trg_input,
+        batch_loss = self.model(return_type="retrieval_loss", src_input=src_input, trg_input=trg_input,
                    src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth,
                    copy_param=copy_param)
 
