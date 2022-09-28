@@ -166,7 +166,7 @@ retrieval_training:
     pre_trained_model_path: "models/rencos_python/transformer_base8/best.ckpt"
 
 retriever:
-    type: "no_retriever" # [no_retriever, static_retriever, dynamic_retriever]
+    type: "dynamic_retriever" # [no_retriever, static_retriever, dynamic_retriever]
     kernel: "Gaussian"  # [Gaussian, Laplacian] for static_retriever, dynamic_retriever
     top_k: 8 # for static_retriever, dynamic_retriever
     index_path: "test/index" # for static_retriever, dynamic_retriever

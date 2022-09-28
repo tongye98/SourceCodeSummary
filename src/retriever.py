@@ -3,6 +3,7 @@ import math
 import torch 
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 from typing import Tuple, Union 
 from src.build_database import Database, EnhancedDatabase 
 
@@ -124,8 +125,8 @@ class DynamicRetriever(Retriever):
     
     def forward(self, hidden:torch.Tensor, logits:torch.Tensor) -> torch.Tensor:
         """
-        hidden [batch_size, trg_len, model_dim]
-        logits [batch_size, trg_len, trg_vocab_size]
+        hidden [batch_size, trg_len, model_dim] detach from graph
+        logits [batch_size, trg_len, trg_vocab_size] detach from graph
         """
         batch_size, trg_len, model_dim = hidden.size()
         vocab_size = logits.size(-1)
@@ -140,12 +141,20 @@ class DynamicRetriever(Retriever):
             distances, token_indices, searched_hidden = self.database.enhanced_search(hidden.cpu().numpy(),
                                                         top_k=self.top_k, retrieval_dropout=False)
         
-        distances = torch.FloatTensor(distances).to(hidden.device)
+        distances = torch.FloatTensor(distances).to(logits.device)
         # distances [batch_size*trg_len, top_k]
-        token_indices = torch.LongTensor(token_indices).to(hidden.device)
+        token_indices = torch.LongTensor(token_indices).to(logits.device)
         # token_indices [batch_size*trg_len, top_k]
-        searched_hidden = torch.FloatTensor(searched_hidden).to(hidden.device)
+        searched_hidden = torch.FloatTensor(searched_hidden).to(logits.device)
         # searched_hidden [batch_size*trg_len, top_k, model_dim]
+
+        # logger.info('distance require grad = {}'.format(distances.requires_grad))
+        # logger.info('token indices require grad = {}'.format(token_indices.requires_grad))
+        # logger.info('search hidden require grad = {}'.format(searched_hidden.requires_grad))
+        # logger.info('hidden require grad = {}'.format(hidden.requires_grad))
+        # logger.info('logits require grad = {}'.format(logits.requires_grad))
+        # assert False
+    
 
         # compute dynamic database bandwidth 
         bandwidth = self.compute_bandwidth(hidden, searched_hidden)

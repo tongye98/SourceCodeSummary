@@ -290,9 +290,6 @@ class RetrievalTrainManager(object):
                 for batch_data in self.train_iter:
                     batch_data.move2cuda(self.device)
                     normalized_batch_loss = self.train_step(batch_data)
-
-                    # reset gradients
-                    self.model.retriever.zero_grad()
                     
                     normalized_batch_loss.backward()
 
@@ -302,6 +299,9 @@ class RetrievalTrainManager(object):
                     
                     # make gradient step
                     self.optimizer.step()
+
+                    # reset gradients
+                    self.model.retriever.zero_grad()
 
                     # accumulate loss
                     epoch_loss += normalized_batch_loss.item()
