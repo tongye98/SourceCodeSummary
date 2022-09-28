@@ -1,6 +1,7 @@
 # coding: utf-8
 """
 Data module.
+Implementation: load_data(); make_data_iter(); collate_fn(); Batch
 """
 import logging
 import torch 
@@ -13,7 +14,6 @@ from src.constants import PAD_ID
 from torch.utils.data import Dataset, Sampler, DataLoader
 from torch.utils.data import SequentialSampler, RandomSampler, BatchSampler
 from typing import List, Union, Tuple, Iterator, Iterable
-
 
 logger = logging.getLogger(__name__)
 
@@ -34,16 +34,15 @@ def load_data(data_cfg: dict):
     src_cfg = data_cfg["src"]
     trg_cfg = data_cfg["trg"]
 
-    # Load data from files
     src_language = src_cfg["language"]
     trg_language = trg_cfg["language"]
+
     train_data_path = data_cfg.get("train_data_path", None)
     dev_data_path = data_cfg.get("dev_data_path", None)
     test_data_path = data_cfg.get("test_data_path", None)
-
     assert train_data_path is not None
     assert dev_data_path is not None 
-    # assert test_data_path is not None 
+    assert test_data_path is not None 
     
     # build tokenizer
     logger.info("Build tokenizer...")
@@ -53,23 +52,18 @@ def load_data(data_cfg: dict):
 
     # train data 
     train_data = None 
-    if train_data_path is not None:
-        logger.info("Loading train dataset...")
-        train_data = build_dataset(dataset_type=dataset_type,path=train_data_path, split_mode="train",
-                                   src_language=src_language, trg_language=trg_language, tokenizer=tokenizer)
-
+    logger.info("Loading train dataset...")
+    train_data = build_dataset(dataset_type=dataset_type,path=train_data_path, split_mode="train",
+                                src_language=src_language, trg_language=trg_language, tokenizer=tokenizer)
     # dev data
     dev_data = None
-    if dev_data_path is not None:
-        logger.info("Loading dev dataset...")
-        dev_data = build_dataset(dataset_type=dataset_type, path=dev_data_path, split_mode="dev",
-                                 src_language=src_language, trg_language=trg_language, tokenizer=tokenizer)
-
+    logger.info("Loading dev dataset...")
+    dev_data = build_dataset(dataset_type=dataset_type, path=dev_data_path, split_mode="dev",
+                             src_language=src_language, trg_language=trg_language, tokenizer=tokenizer)
     # test data
-    if test_data_path is not None:
-        logger.info("Loading test dataset...")
-        test_data = build_dataset(dataset_type=dataset_type, path=test_data_path, split_mode="test",
-                                 src_language=src_language, trg_language=trg_language, tokenizer=tokenizer)
+    logger.info("Loading test dataset...")
+    test_data = build_dataset(dataset_type=dataset_type, path=test_data_path, split_mode="test",
+                              src_language=src_language, trg_language=trg_language, tokenizer=tokenizer)
     
     # build vocabulary
     logger.info("Building vocabulary...")
@@ -80,6 +74,7 @@ def load_data(data_cfg: dict):
     test_data.tokernized_data_to_ids(src_vocab, trg_vocab)
 
     logger.info("Dataset has loaded.")
+    # log dataset and vocabulary information.
     log_data_info(train_data, dev_data, test_data, src_vocab, trg_vocab)
 
     return train_data, dev_data, test_data, src_vocab, trg_vocab
@@ -87,7 +82,7 @@ def load_data(data_cfg: dict):
 def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,
                    batch_size, num_workers) -> DataLoader:
     """
-    Return a torch DataLoader for a torch Dataset.
+    Return a torch DataLoader.
     """
     assert isinstance(dataset, Dataset), "For pytorch, dataset is based on torch.utils.data.Dataset"
 
@@ -101,15 +96,18 @@ def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,
     if batch_type == "sentence":
         batch_sampler = SentenceBatchSampler(sampler, batch_size=batch_size, drop_last=False)
     elif batch_type == "token":
-        raise NotImplementedError
+        raise NotImplementedError("This batch_type Not Implementation.")
     else:
-        raise ConfigurationError("Invalid batch_type")
+        raise ConfigurationError("Invalid batch_type.")
     
     return DataLoader(dataset, batch_sampler=batch_sampler, num_workers=num_workers,
                       pin_memory=True, collate_fn=collate_fn)
 
 
 class SentenceBatchSampler(BatchSampler):
+    """
+    Classical BatchSampler.
+    """
     def __init__(self, sampler: Union[Sampler[int], Iterable[int]], batch_size: int, drop_last: bool) -> None:
         super().__init__(sampler, batch_size, drop_last)
     
@@ -126,28 +124,26 @@ class SentenceBatchSampler(BatchSampler):
     def __len__(self) -> int:
         return super().__len__()
 
-
 def collate_fn(batch: List[Tuple]):
     """
     Custom collate function.
     Note: you can stack batch and any operation on batch.
     DataLoader every iter result is collate_fn's return value -> Batch.
-    :param batch [(src,trg),(src,trg),...]
-    Note: for copy mechanism, need src_vocabs, source_maps, alignments
+    :param batch [(src,trg), (src,trg), ...]
     """
-    src_list, trg_list, copy_param_list = zip(*batch) # src_list: Tuple[List[id]]
+    src_list, trg_list, copy_param_list = zip(*batch)  
+    # src_list: Tuple[List[id]] trg_list: Tuple[List[id]]
     assert len(src_list) == len(trg_list) == len(copy_param_list)
-    
-    return Batch(src_list, trg_list, copy_param_list)
 
+    return Batch(src_list, trg_list, copy_param_list)
 
 class Batch(object):
     """
     Object for holding a batch of data with mask during training.
     Input is yield from 'collate_fn()' called by torch.data.utils.DataLoader.
     """
-    def __init__(self, src, trg, copy_param_list) -> None:
-        src_lengths = [len(sentence) for sentence in src] # not include <bos> include <eos>
+    def __init__(self, src, trg, copy_param_list):
+        src_lengths = [len(sentence) for sentence in src] # not include <bos>, include <eos>
         max_src_len = max(src_lengths)
         trg_lengths = [len(sentence) for sentence in trg] # include <bos> and <eos>
         max_trg_len = max(trg_lengths)
@@ -167,14 +163,14 @@ class Batch(object):
         self.src = torch.tensor(padded_src_sentences).long()
         self.src_lengths = torch.tensor(src_lengths).long()
         self.src_mask = (self.src != PAD_ID).unsqueeze(1)
-        # src_mask unpad is true, pad is false (batch, 1, pad_src_length)
+        # src_mask unpad is true, pad is false; Shape:(batch, 1, pad_src_length)
         self.nseqs = self.src.size(0)
         
         self.trg = torch.tensor(padded_trg_sentences).long()
         self.trg_input = self.trg[:, :-1]
-        self.trg_truth = self.trg[:, 1:] # self.trg_truth is used for loss computation
+        self.trg_truth = self.trg[:, 1:]  # self.trg_truth is used for loss computation
         self.trg_lengths = torch.tensor(trg_lengths).long() - 1 # original trg length + 1
-        self.trg_mask = (self.trg_truth != PAD_ID).unsqueeze(1) # [batch_size, 1, trg_length]
+        self.trg_mask = (self.trg_truth != PAD_ID).unsqueeze(1) # Shape: [batch_size, 1, trg_length]
         self.ntokens = (self.trg_truth != PAD_ID).data.sum().item()
         
         # for copy mechanism
@@ -189,14 +185,14 @@ class Batch(object):
             alignments.append(torch.tensor(copy_param["alignment"]))
 
         self.src_maps = make_src_map(src_maps)
-        # self.src_maps tensor [batch_size, src_len, extra_words] # no bos, no eos
+        # self.src_maps: tensor; Shape: [batch_size, src_len, extra_words]  # no bos, no eos
         self.alignments = align(alignments)
-        # self.alignments tensor [batch_size, trg_len] # no bos, but has eos
+        # self.alignments:tensor; Shape: [batch_size, trg_len] # no bos, but has eos
 
     def move2cuda(self, device:torch.device):
         """Move batch data to GPU"""
         assert isinstance(device, torch.device)
-        assert device.type == "cuda", "device type != cuda"
+        assert device.type == "cuda", "In move2data: device type != cuda."
 
         self.src = self.src.to(device, non_blocking=True)
         self.src_lengths = self.src_lengths.to(device, non_blocking=True)
