@@ -39,10 +39,10 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
                             f"beam_size={beam_size}, beam_alpha={beam_alpha}, n_best={n_best}")
     decoding_description += (f"min_output_length={min_output_length}, "
                                 f"max_output_length={max_output_length}, return_prob={return_prob}, "
-                                f"genereate_unk={generate_unk})")
+                                f"genereate_unk={generate_unk}, batch_size={batch_size})")
     logger.info("Predicting %d examples...%s", len(data), decoding_description)
 
-    data_iter = make_data_iter(dataset=data, shuffle=False, batch_type=batch_type,
+    data_iter = make_data_iter(dataset=data, sampler_seed=None, shuffle=False, batch_type=batch_type,
                                batch_size=batch_size, num_workers=num_workers)
 
     model.eval()
@@ -131,7 +131,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
     eval_metric_start_time = time.time()
     for eval_metric in eval_metrics:
         if eval_metric == "bleu":  # geometric mean of bleu scores
-            valid_scores[eval_metric] = Bleu().corpus_bleu(hypotheses=predictions_dict, references=references_dict)
+            valid_scores[eval_metric], bleu_order = Bleu().corpus_bleu(hypotheses=predictions_dict, references=references_dict)
         elif eval_metric == "meteor":
             try:
                 valid_scores[eval_metric] = Meteor().compute_score(gts=references_dict, res=predictions_dict)[0]
@@ -143,8 +143,9 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
     eval_metrics_string = ", ".join([f"{eval_metric}:{valid_scores[eval_metric]:6.3f}" for eval_metric in 
                                         eval_metrics+["loss","ppl"]])
 
-    logger.info("Evaluation result(%s) %s, evaluation time: %.4f[sec]", "Beam Search" if beam_size > 1 else "Greedy Search",
-                    eval_metrics_string, eval_duration)
+    logger.info("Evaluation result({}) {}, evaluation time: {:.2f}[sec]".format("Beam Search" if beam_size > 1 else "Greedy Search",
+                    eval_metrics_string, eval_duration))
+    logger.info("Bleu order = {}".format(bleu_order))
 
     return (valid_scores, valid_references, valid_hypotheses, valid_sentences_scores, valid_attention_scores)
 

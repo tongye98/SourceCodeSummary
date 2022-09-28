@@ -10,7 +10,6 @@ from src.helps import collapse_copy_scores, load_config, load_model_checkpoint, 
 from src.helps import resolve_ckpt_path, write_list_to_file, cut_off
 import math
 from src.datas import make_data_iter, load_data
-from src.retrieval_search import retrieval_search
 from src.model import build_model
 import time
 from src.metrics import Bleu, Meteor, Rouge

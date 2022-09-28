@@ -12,7 +12,6 @@ from src.transformer_layers import CopyGenerator, GlobalAttention
 from src.vocabulary import Vocabulary
 from src.helps import ConfigurationError, freeze_params, subsequent_mask
 from src.loss import XentLoss, CopyGeneratorLoss
-from src.retriever import Retriever
 
 logger = logging.getLogger(__name__)
 
@@ -302,7 +301,6 @@ class Transformer(nn.Module):
         elif return_type == "retrieval_loss":
             assert self.loss_function is not None 
             assert self.retriever is not None 
-            assert isinstance(self.retriever, Retriever)
             encode_output = self.encode(src_input, src_mask)
             decode_output, penultimate_representation, cross_attention_weight = self.decode(trg_input, encode_output, src_mask, trg_mask)
             logits = self.output_layer(decode_output)

@@ -342,7 +342,7 @@ def resolve_ckpt_path(ckpt_path:str, load_model:str, model_dir:Path) -> Path:
     logger = logging.getLogger(__name__)
     if ckpt_path is None:
         if load_model is None:
-            if (model_dir/ "best.ckpt").is_file():
+            if (model_dir / "best.ckpt").is_file():
                 ckpt_path = model_dir / "best.ckpt"
             else:
                 logger.warning("No ckpt_path, no load_model, no best_model, Please Check!")

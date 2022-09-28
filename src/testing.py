@@ -9,7 +9,7 @@ from src.helps import load_model_checkpoint, write_list_to_file
 
 logger = logging.getLogger(__name__)
 
-def test(cfg_file: str, ckpt_path:str, output_path:str=None) -> None:
+def test(cfg_file: str, ckpt_path:str=None, output_path:str=None) -> None:
     """
     Main test function. Handles loading a model from checkpoint, generating translation.
     :param cfg_file: path to configuration file
@@ -23,7 +23,7 @@ def test(cfg_file: str, ckpt_path:str, output_path:str=None) -> None:
     assert model_dir is not None 
 
     # make logger
-    make_logger(model_dir, mode="test")
+    make_logger(Path(model_dir), mode="test")
 
     load_model = cfg["training"].get("load_model", None)
     use_cuda = cfg["training"].get("use_cuda", False) and torch.cuda.is_available()
@@ -38,7 +38,8 @@ def test(cfg_file: str, ckpt_path:str, output_path:str=None) -> None:
     model = build_model(model_cfg=cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab)
 
     # when checkpoint is not specified, take latest(best) from model dir
-    ckpt_path = resolve_ckpt_path(ckpt_path, load_model, model_dir)
+    ckpt_path = resolve_ckpt_path(ckpt_path, load_model, Path(model_dir))
+    logger.info("ckpt_path = {}".format(ckpt_path))
 
     # load model checkpoint
     model_checkpoint = load_model_checkpoint(path=ckpt_path, device=device)

@@ -8,7 +8,7 @@ from typing import List
 from src.helps import load_config, make_model_dir, make_logger, log_cfg
 from src.helps import set_seed, parse_train_arguments, load_model_checkpoint
 from src.helps import symlink_update, delete_ckpt, write_validation_output_to_file
-from src.prediction import predict, test
+from src.prediction import predict
 from src.datas import load_data, make_data_iter
 from src.model import build_model, Transformer
 from torch.utils.tensorboard import SummaryWriter
