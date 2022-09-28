@@ -160,7 +160,7 @@ class DynamicRetriever(Retriever):
         mixing_weight = self.compute_mixing_weight(hidden, searched_hidden, sparse_example_based_distribution)
         # mixing_weight [batch_size*trg_len, 1]
         # compute prediciton distribution by interpolating between model distribution and database distribution
-        mixed_distribution = (1-mixing_weight)*model_based_distribution + mixing_weight*example_based_distribution
+        mixed_distribution = (1 - mixing_weight) * model_based_distribution + mixing_weight * example_based_distribution
         # mixed_distribution [batch_size*trg_len, trg_vocab_size]
 
         log_probs = torch.log(mixed_distribution)
@@ -236,7 +236,6 @@ class DynamicRetriever(Retriever):
         bandwidth = bandwidth.squeeze(-1).view(batch_size, seq_len).contiguous()
 
         return mixed_distribution, model_based_distribution, example_based_distribution, mixing_weight, bandwidth
-
 
 def build_retriever(retriever_cfg: dict) -> Retriever:
     retriever_type = retriever_cfg["type"]
