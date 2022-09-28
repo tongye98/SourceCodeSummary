@@ -12,11 +12,10 @@ import numpy as np
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 from typing import Dict, List, Tuple
-from src.vocabulary import Vocabulary
 from src.helps import collapse_copy_scores, load_config, load_model_checkpoint, parse_test_arguments
 from src.helps import resolve_ckpt_path, write_list_to_file, cut_off, make_logger
 from src.helps import collapse_copy_scores, tile, tensor2sentence_copy
-from src.datas import make_data_iter, load_data
+from src.datas import Batch, make_data_iter
 from src.metrics import Bleu, Meteor, Rouge
 
 logger = logging.getLogger(__name__)
@@ -94,15 +93,7 @@ def predict(model, data:Dataset, device:torch.device,
                 beam_size=beam_size, beam_alpha=beam_alpha, max_output_length=max_output_length, 
                 min_output_length=min_output_length, n_best=n_best, return_attention=return_attention,
                 return_prob=return_prob, generate_unk=generate_unk, copy_param=copy_param)
-        # output 
-        #   greedy search: [batch_size, hyp_len/max_output_length] np.ndarray
-        #   beam search: [batch_size*beam_size, hyp_len/max_output_length] np.ndarray
-        # hyp_scores
-        #   greedy search: [batch_size, hyp_len/max_output_length] np.ndarray
-        #   beam search: [batch_size*n_best, hyp_len/max_output_length] np.ndarray
-        # attention_scores 
-        #   greedy search: [batch_size, steps/max_output_length, src_len] np.ndarray
-        #   beam search: None
+
         all_outputs.extend(output)
         valid_sentences_scores.extend(hyp_scores if hyp_scores is not None else [])
         valid_attention_scores.extend(attention_scores if attention_scores is not None else [])
@@ -177,6 +168,15 @@ def search(model, batch_data: Batch,
         - stacked_output : hypotheses for batch
         - stacked_scores : log probability for batch
         - stacked_attention_scores: attention scores for batch
+        output 
+            greedy search: [batch_size, hyp_len/max_output_length] np.ndarray
+            beam search: [batch_size*beam_size, hyp_len/max_output_length] np.ndarray
+        hyp_scores
+            greedy search: [batch_size, hyp_len/max_output_length] np.ndarray
+            beam search: [batch_size*n_best, hyp_len/max_output_length] np.ndarray
+        attention_scores 
+            greedy search: [batch_size, steps/max_output_length, src_len] np.ndarray
+            beam search: None
     """
     with torch.no_grad():
         src_input = batch_data.src
