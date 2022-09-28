@@ -147,7 +147,7 @@ retrieval_training:
     weight_decay: 0
     learning_rate_min: 0.0000001
     keep_best_ckpts: 3
-    logging_freq: 100
+    logging_freq: 10
     validation_freq: 1 # unit:epochs
     log_valid_sentences: [0,1,2,3,4]
     early_stopping_metric: "bleu"

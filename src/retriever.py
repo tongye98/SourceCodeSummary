@@ -147,15 +147,7 @@ class DynamicRetriever(Retriever):
         # token_indices [batch_size*trg_len, top_k]
         searched_hidden = torch.FloatTensor(searched_hidden).to(logits.device)
         # searched_hidden [batch_size*trg_len, top_k, model_dim]
-
-        # logger.info('distance require grad = {}'.format(distances.requires_grad))
-        # logger.info('token indices require grad = {}'.format(token_indices.requires_grad))
-        # logger.info('search hidden require grad = {}'.format(searched_hidden.requires_grad))
-        # logger.info('hidden require grad = {}'.format(hidden.requires_grad))
-        # logger.info('logits require grad = {}'.format(logits.requires_grad))
-        # assert False
     
-
         # compute dynamic database bandwidth 
         bandwidth = self.compute_bandwidth(hidden, searched_hidden)
         # bandwidth [batch_size*trg_len, 1]
