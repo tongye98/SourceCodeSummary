@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 def predict(model, data:Dataset, device:torch.device,
             n_gpu:int, compute_loss:bool=False, normalization:str="batch",
-            num_workers:int=0, test_cfg:Dict=None, seed:int=980820):
+            num_workers:int=0, test_cfg:Dict=None):
     """
     Generate outputs(translations/summary) for the given data.
     If 'compute_loss' is True and references are given, also computes the loss.
@@ -44,7 +44,7 @@ def predict(model, data:Dataset, device:torch.device,
 
     assert batch_size >= n_gpu, "batch size must be bigger than n_gpu"
 
-    data_iter = make_data_iter(dataset=data, sampler_seed=seed, shuffle=False, batch_type=batch_type,
+    data_iter = make_data_iter(dataset=data, shuffle=False, batch_type=batch_type,
                                batch_size=batch_size, num_workers=num_workers)
 
     model.eval()
@@ -186,17 +186,16 @@ def search(model, batch_data: Batch,
 
         if beam_size < 2: # Greedy Strategy
             stacked_output, stacked_scores, stacked_attention_scores, batch_words = greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length,
-             generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size, copy_param)
+             generate_unk, return_attention, return_prob, copy_param)
         else:
             stacked_output, stacked_scores, stacked_attention_scores = beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
-             beam_size, beam_alpha, n_best, generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size)
+             beam_size, beam_alpha, n_best, generate_unk, return_attention, return_prob)
         
         return stacked_output, stacked_scores, stacked_attention_scores, batch_words
 
 
 def greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
-                  generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size,
-                  copy_param):
+                  generate_unk, return_attention, return_prob, copy_param):
     """
     Transformer Greedy function.
     :param: model: Transformer Model
@@ -258,9 +257,6 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
                     output[:, eos_index] = float("-inf")
                 if compute_softmax:
                     output = F.log_softmax(output, dim=-1)
-                    #TODO
-                    # no_repeat_ngram_size
-                    # penalize_repetition
             else:
                 fuse_score, attention_score = model.copy_attention_score(output, encoder_output, src_mask)
                 # attention_score [batch_size, trg_len, src_len]
@@ -327,7 +323,7 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
     return stacked_output, stacked_scores, stacked_attention, batch_words
 
 def beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, beam_size, beam_alpha,
-                n_best, generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size):
+                n_best, generate_unk, return_attention, return_prob):
     """
     Transformer Beam Search function.
     In each decoding step, find the k most likely partial hypotheses.
@@ -404,10 +400,6 @@ def beam_search(model, encoder_output, src_mask, max_output_length, min_output_l
         # don't genereate EOS symbol until we reach min_output_length
         if step < min_output_length:
             log_probs[:, eos_index] = float("-inf")
-        
-        #TODO
-        # no_repeat_ngram_size
-        # repetition_penalty
 
         # multiply probs by the beam probability (means add log_probs after log operation)
         log_probs += top_k_log_probs.view(-1).unsqueeze(1)
