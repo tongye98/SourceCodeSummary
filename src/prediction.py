@@ -20,16 +20,17 @@ from src.metrics import Bleu, Meteor, Rouge
 
 logger = logging.getLogger(__name__)
 
-def predict(model, data:Dataset, device:torch.device,
-            n_gpu:int, compute_loss:bool=False, normalization:str="batch",
-            num_workers:int=0, test_cfg:Dict=None):
+def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False, 
+            normalization:str="batch", num_workers:int=0, test_cfg:Dict=None):
     """
     Generate outputs(translations/summary) for the given data.
-    If 'compute_loss' is True and references are given, also computes the loss.
-    num_works: number of worers for 'collate_fn()' in data iterator.
-    cfg: 'testing' section in yaml config file.
+    If 'compute_loss' is True, also computes the loss.
     return:
-        - valid
+        - valid_scores (loss, ppl, bleu, meteor, rouge-l)
+        - valid_references
+        - valid_hypotheses
+        - valid_sentences_scores
+        - valid_attention_scores
     """
     (batch_size, batch_type, max_output_length, min_output_length,
      eval_metrics, beam_size, beam_alpha, n_best, return_attention, 
@@ -41,8 +42,6 @@ def predict(model, data:Dataset, device:torch.device,
                                 f"max_output_length={max_output_length}, return_prob={return_prob}, "
                                 f"genereate_unk={generate_unk})")
     logger.info("Predicting %d examples...%s", len(data), decoding_description)
-
-    assert batch_size >= n_gpu, "batch size must be bigger than n_gpu"
 
     data_iter = make_data_iter(dataset=data, shuffle=False, batch_type=batch_type,
                                batch_size=batch_size, num_workers=num_workers)
@@ -100,7 +99,7 @@ def predict(model, data:Dataset, device:torch.device,
         all_batch_words.extend(batch_words if batch_words is not None else [])
 
     assert total_nseqs == len(data)
-    # FIXME all_outputs is a list of np.ndarray
+    # NOTE all_outputs is a list of np.ndarray
     assert len(all_outputs) == len(data) * n_best
 
     if compute_loss:
@@ -114,10 +113,8 @@ def predict(model, data:Dataset, device:torch.device,
         valid_scores["ppl"] = math.exp(total_loss / total_ntokens)
     
     if model.copy is False:
-        # decode ids back to str symbols (cut_off After eos, but eos itself is included. ) # NOTE eos is included.
         decoded_valid = model.trg_vocab.arrays_to_sentences(arrays=all_outputs, cut_at_eos=True)
-    else:
-        # copy mode
+    else: # copy mode
         decoded_valid = cut_off(all_batch_words, cut_at_eos=True, skip_pad=True)
 
     # retrieve detokenized hypotheses and references
@@ -129,15 +126,13 @@ def predict(model, data:Dataset, device:torch.device,
     assert len(valid_hyp_1best) == len(valid_references)
 
     predictions_dict = {k: [v.strip().lower()] for k,v in enumerate(valid_hyp_1best)}
-    # 0: ['partitions a list of suite from a interval .']
     references_dict = {k: [v.strip().lower()] for k,v in enumerate(valid_references)}
     # 0: ['partitions a list of suite from a interval .']
 
     eval_metric_start_time = time.time()
     for eval_metric in eval_metrics:
-        if eval_metric == "bleu":
-            valid_scores[eval_metric], bleu_order = Bleu().corpus_bleu(hypotheses=predictions_dict, references=references_dict)
-            # geometric mean of bleu scores
+        if eval_metric == "bleu":  # geometric mean of bleu scores
+            valid_scores[eval_metric] = Bleu().corpus_bleu(hypotheses=predictions_dict, references=references_dict)
         elif eval_metric == "meteor":
             try:
                 valid_scores[eval_metric] = Meteor().compute_score(gts=references_dict, res=predictions_dict)[0]
@@ -152,8 +147,7 @@ def predict(model, data:Dataset, device:torch.device,
     logger.info("Evaluation result(%s) %s, evaluation time: %.4f[sec]", "Beam Search" if beam_size > 1 else "Greedy Search",
                     eval_metrics_string, eval_duration)
 
-    return (valid_scores, bleu_order, valid_references, valid_hypotheses, decoded_valid,
-            valid_sentences_scores, valid_attention_scores)
+    return (valid_scores, valid_references, valid_hypotheses, valid_sentences_scores, valid_attention_scores)
 
 def search(model, batch_data: Batch, 
            beam_size: int, beam_alpha: float, 
