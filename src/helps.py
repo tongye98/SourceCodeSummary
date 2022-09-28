@@ -203,14 +203,10 @@ def parse_test_arguments(test_cfg:dict) -> Tuple:
     if return_prob not in ["hypotheses","references","none"]:
         raise ConfigurationError("Invalid return_prob")
     generate_unk = test_cfg.get("generate_unk", True)
-    repetition_penalty = test_cfg.get("repetition_penalty", -1)
-    if repetition_penalty < 1 and repetition_penalty != -1:
-        raise ConfigurationError("Invalid repetition_penalty.")
-    no_repeat_ngram_size = test_cfg.get("no_repeat_ngram_size", -1)
 
     return (batch_size, batch_type, max_output_length, min_output_length,
             eval_metrics, beam_size, beam_alpah, n_best, return_attention, 
-            return_prob, generate_unk, repetition_penalty, no_repeat_ngram_size)
+            return_prob, generate_unk)
 
 def load_model_checkpoint(path:Path, device:torch.device) -> Dict:
     """

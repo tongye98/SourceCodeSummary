@@ -396,7 +396,7 @@ class TrainManager(object):
          valid_hypotheses_raw, valid_sentences_scores, 
          valid_attention_scores) = predict(model=self.model, data=valid_data, device=self.device, 
                                             n_gpu=self.n_gpu, compute_loss=True, normalization=self.normalization, 
-                                            num_workers=self.num_workers, cfg=self.valid_cfg, seed=self.seed)
+                                            num_workers=self.num_workers, test_cfg=self.valid_cfg, seed=self.seed)
         valid_duration_time = time.time() - validate_start_time
         
         # write eval_metric and corresponding score to tensorboard

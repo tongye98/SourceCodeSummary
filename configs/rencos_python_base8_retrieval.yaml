@@ -79,8 +79,6 @@ testing:
     return_attention: False
     return_prob: "hypotheses" # hypotheses, references, none
     generate_unk: True
-    repetition_penalty: 2 # >1, -1 means no repetition penalty. # no implemented
-    no_repeat_ngram_size: -1 # no implemented
 
 
 model:

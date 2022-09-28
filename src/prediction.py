@@ -13,8 +13,8 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 from typing import Dict, List, Tuple
 from src.vocabulary import Vocabulary
-from src.helps import collapse_copy_scores, load_config, load_model_checkpoint, parse_test_arguments, make_logger
-from src.helps import resolve_ckpt_path, write_list_to_file, cut_off
+from src.helps import collapse_copy_scores, load_config, load_model_checkpoint, parse_test_arguments
+from src.helps import resolve_ckpt_path, write_list_to_file, cut_off, make_logger
 from src.helps import collapse_copy_scores, tile, tensor2sentence_copy
 from src.datas import make_data_iter, load_data
 from src.metrics import Bleu, Meteor, Rouge
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 def predict(model, data:Dataset, device:torch.device,
             n_gpu:int, compute_loss:bool=False, normalization:str="batch",
-            num_workers:int=0, cfg:Dict=None, seed:int=980820):
+            num_workers:int=0, test_cfg:Dict=None, seed:int=980820):
     """
     Generate outputs(translations/summary) for the given data.
     If 'compute_loss' is True and references are given, also computes the loss.
@@ -34,18 +34,13 @@ def predict(model, data:Dataset, device:torch.device,
     """
     (batch_size, batch_type, max_output_length, min_output_length,
      eval_metrics, beam_size, beam_alpha, n_best, return_attention, 
-     return_prob, generate_unk, repetition_penalty, no_repeat_ngram_size) = parse_test_arguments(cfg)
+     return_prob, generate_unk) = parse_test_arguments(test_cfg)
 
-    # FIXME what is return_prob
-    if return_prob == "references":
-        decoding_description = ""
-    else:
-        decoding_description = ("(Greedy decoding with " if beam_size < 2 else f"(Beam search with "
-                                f"beam_size={beam_size}, beam_alpha={beam_alpha}, n_best={n_best}")
-        decoding_description += (f"min_output_length={min_output_length}, "
-                                 f"max_output_length={max_output_length}, return_prob={return_prob}, "
-                                 f"genereate_unk={generate_unk}, repetition_penalty={repetition_penalty}, "
-                                 f"no_repeat_ngram_size={no_repeat_ngram_size})")
+    decoding_description = ("(Greedy decoding with " if beam_size < 2 else f"(Beam search with "
+                            f"beam_size={beam_size}, beam_alpha={beam_alpha}, n_best={n_best}")
+    decoding_description += (f"min_output_length={min_output_length}, "
+                                f"max_output_length={max_output_length}, return_prob={return_prob}, "
+                                f"genereate_unk={generate_unk})")
     logger.info("Predicting %d examples...%s", len(data), decoding_description)
 
     assert batch_size >= n_gpu, "batch size must be bigger than n_gpu"
@@ -55,8 +50,7 @@ def predict(model, data:Dataset, device:torch.device,
 
     model.eval()
 
-    # Place holders for scores.
-    valid_scores = {"loss":float("nan"), "ppl":float("nan"), "bleu":float(0),"meteor":float(0), "rouge-l":float(0)}
+    valid_scores = {"loss":float("nan"), "ppl":float("nan"), "bleu":float(0), "meteor":float(0), "rouge-l":float(0)}
     total_nseqs = 0
     total_ntokens = 0
     total_loss = 0
@@ -71,9 +65,7 @@ def predict(model, data:Dataset, device:torch.device,
         batch_data.move2cuda(device)
         total_nseqs += batch_data.nseqs 
 
-        # if compute_loss and batch_data.has_trg:
         if compute_loss: 
-            assert model.loss_function is not None
             # don't track gradients during validation 
             with torch.no_grad():
                 src_input = batch_data.src
@@ -89,40 +81,28 @@ def predict(model, data:Dataset, device:torch.device,
                 copy_param["blank_arr"] = blank_arr
                 copy_param["fill_arr"] = fill_arr
 
-
-                # batch_loss = model(return_type="loss", src_input=src_input, trg_input=trg_input,
-                #    src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth, 
-                #    copy_param=copy_param)
+                batch_loss = model(return_type="loss", src_input=src_input, trg_input=trg_input,
+                src_mask=src_mask, trg_mask=trg_mask, encoder_output=None, trg_truth=trg_truth, copy_param=copy_param)
                 
-                # sum over multiple gpus.
-                # if normalization = 'sum', keep the same.
-                # batch_loss = batch_data.normalize(batch_loss, "sum")
-                # if return_prob == "references":
-                #     output = trg_truth
-            
-            # total_loss += batch_loss.item()
+                batch_loss = batch_data.normalize(batch_loss, "sum")
+
+            total_loss += batch_loss.item()
             total_ntokens += batch_data.ntokens
-        
-        # if return_prob == "ref", then no search need. Just look up the prob of the ground truth.
-        if return_prob != "references":
-            # run search as during inference to produce translations(summary)
-            output, hyp_scores, attention_scores, batch_words = search(model=model, batch_data=batch_data,
-                                                          beam_size=beam_size, beam_alpha=beam_alpha,
-                                                          max_output_length=max_output_length, 
-                                                          min_output_length=min_output_length, n_best=n_best,
-                                                          return_attention=return_attention, return_prob=return_prob,
-                                                          generate_unk=generate_unk, repetition_penalty=repetition_penalty,
-                                                          no_repeat_ngram_size=no_repeat_ngram_size, copy_param=copy_param)
-            # output 
-            #   greedy search: [batch_size, hyp_len/max_output_length] np.ndarray
-            #   beam search: [batch_size*beam_size, hyp_len/max_output_length] np.ndarray
-            # hyp_scores
-            #   greedy search: [batch_size, hyp_len/max_output_length] np.ndarray
-            #   beam search: [batch_size*n_best, hyp_len/max_output_length] np.ndarray
-            # attention_scores 
-            #   greedy search: [batch_size, steps/max_output_length, src_len] np.ndarray
-            #   beam search: None
-        
+
+        # run search as during inference to produce translations (summary).
+        output, hyp_scores, attention_scores, batch_words = search(model=model, batch_data=batch_data,
+                beam_size=beam_size, beam_alpha=beam_alpha, max_output_length=max_output_length, 
+                min_output_length=min_output_length, n_best=n_best, return_attention=return_attention,
+                return_prob=return_prob, generate_unk=generate_unk, copy_param=copy_param)
+        # output 
+        #   greedy search: [batch_size, hyp_len/max_output_length] np.ndarray
+        #   beam search: [batch_size*beam_size, hyp_len/max_output_length] np.ndarray
+        # hyp_scores
+        #   greedy search: [batch_size, hyp_len/max_output_length] np.ndarray
+        #   beam search: [batch_size*n_best, hyp_len/max_output_length] np.ndarray
+        # attention_scores 
+        #   greedy search: [batch_size, steps/max_output_length, src_len] np.ndarray
+        #   beam search: None
         all_outputs.extend(output)
         valid_sentences_scores.extend(hyp_scores if hyp_scores is not None else [])
         valid_attention_scores.extend(attention_scores if attention_scores is not None else [])
@@ -139,12 +119,7 @@ def predict(model, data:Dataset, device:torch.device,
             normalizer = total_ntokens
         elif normalization == "none":
             normalizer = 1
-        # avoid zero division
-        assert normalizer > 0
-        
-        # normalized loss
         valid_scores["loss"] = total_loss / normalizer
-        # exponent of token-level negative log likelihood
         valid_scores["ppl"] = math.exp(total_loss / total_ntokens)
     
     if model.copy is False:
@@ -154,47 +129,38 @@ def predict(model, data:Dataset, device:torch.device,
         # copy mode
         decoded_valid = cut_off(all_batch_words, cut_at_eos=True, skip_pad=True)
 
-    if return_prob == "references": # no evalution needed
-        logger.info("Evaluation result (scoring) %s", 
-                    ", ".join([f"{eval_metric}: {valid_scores[eval_metric]:6.2f}" for eval_metric in ["loss","ppl"]]))
-        return (valid_scores, None, None, decoded_valid, None, None)
-
     # retrieve detokenized hypotheses and references
     valid_hypotheses = [data.tokenizer[data.trg_language].post_process(sentence, generate_unk=generate_unk) for sentence in decoded_valid]
     # valid_hypotheses -> list of strings
-    # FIXME  add dataset trg function return -> list of strings
     valid_references = data.trg
 
-    if True or data.has_trg: #TODO consider data has no trg situation.
-        valid_hyp_1best = (valid_hypotheses if n_best == 1 else [valid_hypotheses[i] for i in range(0, len(valid_hypotheses), n_best)])
-        assert len(valid_hyp_1best) == len(valid_references)
+    valid_hyp_1best = (valid_hypotheses if n_best == 1 else [valid_hypotheses[i] for i in range(0, len(valid_hypotheses), n_best)])
+    assert len(valid_hyp_1best) == len(valid_references)
 
-        predictions_dict = {k: [v.strip().lower()] for k,v in enumerate(valid_hyp_1best)}
-        # 0: ['partitions a list of suite from a interval .']
-        references_dict = {k: [v.strip().lower()] for k,v in enumerate(valid_references)}
-        # 0: ['partitions a list of suite from a interval .']
+    predictions_dict = {k: [v.strip().lower()] for k,v in enumerate(valid_hyp_1best)}
+    # 0: ['partitions a list of suite from a interval .']
+    references_dict = {k: [v.strip().lower()] for k,v in enumerate(valid_references)}
+    # 0: ['partitions a list of suite from a interval .']
 
-        eval_metric_start_time = time.time()
-        for eval_metric in eval_metrics:
-            if eval_metric == "bleu":
-                valid_scores[eval_metric], bleu_order = Bleu().corpus_bleu(hypotheses=predictions_dict, references=references_dict)
-                # geometric mean of bleu scores
-            elif eval_metric == "meteor":
-                try:
-                    valid_scores[eval_metric] = Meteor().compute_score(gts=references_dict, res=predictions_dict)[0]
-                except:
-                    logger.warning("meteor compute has something wrong!")
-            elif eval_metric == "rouge-l":
-                valid_scores[eval_metric] = Rouge().compute_score(gts=references_dict, res=predictions_dict)[0]
-        eval_duration = time.time() - eval_metric_start_time
-        eval_metrics_string = ", ".join([f"{eval_metric}:{valid_scores[eval_metric]:6.3f}" for eval_metric in 
-                                          eval_metrics+["loss","ppl"]])
+    eval_metric_start_time = time.time()
+    for eval_metric in eval_metrics:
+        if eval_metric == "bleu":
+            valid_scores[eval_metric], bleu_order = Bleu().corpus_bleu(hypotheses=predictions_dict, references=references_dict)
+            # geometric mean of bleu scores
+        elif eval_metric == "meteor":
+            try:
+                valid_scores[eval_metric] = Meteor().compute_score(gts=references_dict, res=predictions_dict)[0]
+            except:
+                logger.warning("meteor compute has something wrong!")
+        elif eval_metric == "rouge-l":
+            valid_scores[eval_metric] = Rouge().compute_score(gts=references_dict, res=predictions_dict)[0]
+    eval_duration = time.time() - eval_metric_start_time
+    eval_metrics_string = ", ".join([f"{eval_metric}:{valid_scores[eval_metric]:6.3f}" for eval_metric in 
+                                        eval_metrics+["loss","ppl"]])
 
-        logger.info("Evaluation result(%s) %s, evaluation time: %.4f[sec]", "Beam Search" if beam_size > 1 else "Greedy Search",
-                     eval_metrics_string, eval_duration)
-    else:
-        logger.info("No data trg truth provided.")
-    
+    logger.info("Evaluation result(%s) %s, evaluation time: %.4f[sec]", "Beam Search" if beam_size > 1 else "Greedy Search",
+                    eval_metrics_string, eval_duration)
+
     return (valid_scores, bleu_order, valid_references, valid_hypotheses, decoded_valid,
             valid_sentences_scores, valid_attention_scores)
 
@@ -359,8 +325,6 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
     stacked_attention = generated_attention_weight[:, 1:, :].detach().cpu().numpy() if return_attention else None
 
     return stacked_output, stacked_scores, stacked_attention, batch_words
-
-
 
 def beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, beam_size, beam_alpha,
                 n_best, generate_unk, return_attention, return_prob, repetition_penalty, no_repeat_ngram_size):
