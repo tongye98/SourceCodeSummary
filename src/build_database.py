@@ -1,19 +1,187 @@
-from hashlib import md5
-import torch 
+"""
+build_database module.
+FaissIndex, Database, EnhancedDatabase.
+"""
 import logging
+import torch 
+import tqdm 
+import faiss 
+import re
+import numpy as np
 from pathlib import Path
+from typing import Tuple 
+from hashlib import md5
 from src.constants import BOS_ID
 from src.datasets import BaseDataset
-from src.helps import load_config, load_model_checkpoint
+from src.helps import load_config, load_model_checkpoint, make_logger
 from src.datas import load_data, make_data_iter
 from src.model import Transformer, build_model
-from src.faiss_index import FaissIndex
 from npy_append_array import NpyAppendArray
-import tqdm
-import numpy as np
-from src.helps import make_logger
 
 logger = logging.getLogger(__name__)
+
+class FaissIndex(object):
+    """
+    FaissIndex class. factory_template; index_type
+    For train index (core: self.index)
+    """
+    def __init__(self, factory_template:str="IVF256,PQ32", load_index_path:str=None,
+                 use_gpu:bool=True, index_type:str="L2") -> None:
+        super().__init__()
+        self.factory_template = factory_template
+        self.gpu_num = faiss.get_num_gpus()
+        self.use_gpu = use_gpu and (self.gpu_num > 0)
+        self.index_type= index_type
+        self._is_trained= False
+        if load_index_path != None:
+            self.load(index_path=load_index_path)
+        
+    def load(self, index_path:str) -> faiss.Index:
+        self.index = faiss.read_index(index_path)
+        if self.use_gpu:
+            self.index = faiss.index_cpu_to_all_gpus(self.index)
+        self._is_trained = True
+    
+    @property
+    def is_trained(self) -> bool:
+        return self._is_trained
+    
+    def train(self, hidden_representation_path:str) -> None:
+        embeddings = np.load(hidden_representation_path, mmap_mode="r")
+        total_samples, dimension = embeddings.shape
+        del embeddings
+        centroids, training_samples = self._get_clustering_parameters(total_samples)
+        self.index = self._initialize_index(dimension, centroids)
+        training_embeddinigs = self._get_training_embeddings(hidden_representation_path, training_samples).astype(np.float32)
+        self.index.train(training_embeddinigs)
+        self._is_trained = True
+
+    def _get_clustering_parameters(self, total_samples: int) -> Tuple[int, int]:
+        if 0 < total_samples <= 10 ** 6:
+            centroids = int(8 * total_samples ** 0.5)
+            training_samples = total_samples
+        elif 10 ** 6 < total_samples <= 10 ** 7:
+            centroids = 65536
+            training_samples = min(total_samples, 64 * centroids)
+        else:
+            centroids = 262144
+            training_samples = min(total_samples, 64 * centroids)
+        return centroids, training_samples
+    
+    def _initialize_index(self, dimension:int, centroids:int) -> faiss.Index:
+        template = re.compile(r"IVF\d*").sub(f"IVF{centroids}", self.factory_template)
+        if self.index_type == "L2":
+            index = faiss.index_factory(dimension, template, faiss.METRIC_L2)
+        else:
+            index = faiss.index_factory(dimension, template, faiss.METRIC_INNER_PRODUCT)
+        
+        if self.use_gpu:
+            index = faiss.index_cpu_to_all_gpus(index)
+        
+        return index
+    
+    def _get_training_embeddings(self, embeddings_path:str, training_samples: int) -> np.ndarray:
+        embeddings = np.load(embeddings_path, mmap_mode="r")
+        total_samples = embeddings.shape[0]
+        sample_indices = np.random.choice(total_samples, training_samples, replace=False)
+        sample_indices.sort()
+        training_embeddings = embeddings[sample_indices]
+        return training_embeddings        
+    
+    def add(self, hidden_representation_path: str, batch_size: int = 10000) -> None:
+        assert self.is_trained
+        embeddings = np.load(hidden_representation_path)
+        total_samples = embeddings.shape[0]
+        for i in range(0, total_samples, batch_size):
+            start = i 
+            end = min(total_samples, i+batch_size)
+            batch_embeddings = embeddings[start: end].astype(np.float32)
+            self.index.add(batch_embeddings)
+        del embeddings
+    
+    def export(self, index_path:str) -> None:
+        assert self.is_trained
+        if self.use_gpu:
+            index = faiss.index_gpu_to_cpu(self.index)
+        else:
+            index = self.index 
+        faiss.write_index(index, index_path)
+    
+    def search(self, embeddings: np.ndarray, top_k:int=1)-> Tuple[np.ndarray, np.ndarray]:
+        assert self.is_trained
+        distances, indices = self.index.search(embeddings, k=top_k)
+        return distances, indices
+
+    def set_prob(self, nprobe):
+        # default nprobe = 1, can try a few more
+        # nprobe: 在多少个聚类中进行搜索，默认为1, nprobe越大，结果越精确，但是速度越慢
+        self.index.nprobe = nprobe
+
+    @property
+    def total(self):
+        return self.index.ntotal
+
+class Database(object):
+    """
+    Initilize with index_path, which is built offline,
+    and token path which mapping retrieval indices to token id.
+    """
+    def __init__(self, index_path:str, token_map_path: str, nprobe:int=16) -> None:
+        super().__init__()
+        self.index = FaissIndex(load_index_path=index_path, use_gpu=True)
+        self.index.set_prob(nprobe)
+        self.token_map = self.load_token_mapping(token_map_path)
+    
+    @staticmethod
+    def load_token_mapping(token_map_path: str) -> np.ndarray:
+        """
+        Load token mapping from file.
+        """
+        with open(token_map_path) as f:
+            token_map = [int(token_id) for token_id in f.readlines()]
+        token_map = np.asarray(token_map).astype(np.int32)
+        return token_map
+    
+    def search(self, embeddings:np.ndarray, top_k: int=16) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Search nearest top_k embeddings from the Faiss index.
+        embeddings: np.ndarray (batch_size, d)
+        return token_indices: np.ndarray (batch_size, top_k)
+        """
+        distances, indices = self.index.search(embeddings, top_k)
+        token_indices = self.token_map[indices]
+        return distances, token_indices
+
+class EnhancedDatabase(Database):
+    def __init__(self, index_path:str, token_map_path:str, embedding_path:str, nprobe:int=16, in_memory:bool=True) -> None:
+        super().__init__(index_path, token_map_path, nprobe)
+        if in_memory: # read data to memory
+            self.embeddings = np.load(embedding_path)
+        else:         # the data still on disk
+            self.embeddings = np.load(embedding_path, mmap_mode="r")
+
+    def enhanced_search(self, hidden:np.ndarray, top_k:int=16, retrieval_dropout:bool=True) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Search nearest top_k embeddings from Faiss index.
+        hidden: np.ndarray [batch_size*trg_len, model_dim]
+        return distances np.ndarray (batch_size*trg_len, top_k)
+        return token_indices: np.ndarray (batch_size*trg_len, top_k)
+        return searched_hidden: np.ndarray (batch_size*trg_len, top_k, model_dim)
+        """
+        if retrieval_dropout:
+            distances, indices = self.index.search(hidden, top_k+1)
+            distances = distances[:, 1:]
+            indices = indices[:, 1:]
+        else:
+            distances, indices = self.index.search(hidden, top_k)
+        # distances [batch_size*trg_len, top_k]
+        # indices [batch_size*trg_len, top_k]
+
+        token_indices = self.token_map[indices]
+        # token_indices [batch_size*trg_len, top_k]
+        searched_hidden = self.embeddings[indices]
+        # searched_hidden [batch_size*trg_len, top_k, dim]
+        return distances, token_indices, searched_hidden
 
 def getmd5(sequence: list) -> str:
     sequence = str(sequence)
