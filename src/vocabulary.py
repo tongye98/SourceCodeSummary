@@ -100,7 +100,7 @@ class Vocabulary(object):
     
     def add_tokens(self, tokens:List[str]) -> None:
         for token in tokens:
-            token = self.normalize(token)
+            # token = self.normalize(token)
             new_index = len(self._itos)
             # add to vocabulary if not already there
             if token not in self._itos:
