@@ -19,7 +19,7 @@ import time
 
 logger = logging.getLogger(__name__) 
 
-def train(cfg_file: str, skip_test:bool=False) -> None:
+def train(cfg_file: str) -> None:
     """
     Training function. After training, also test on test data if given.
     """
@@ -56,23 +56,6 @@ def train(cfg_file: str, skip_test:bool=False) -> None:
 
     # train the model
     trainer.train_and_validate(train_data=train_data, valid_data=dev_data)
-
-    # After train, let's test on test data.
-    if not skip_test:
-        logger.info("Starting test after training the model!")
-        # predict with best model on validation and test data.
-        # Get the best model checkpoint
-        model_best_checkpoint_path = model_dir / f"{trainer.stats.best_ckpt_iter}.ckpt"
-        output_path = model_dir/f"output_{trainer.stats.best_ckpt_iter}.hyps"
-
-        dataset_to_test = {
-            "dev": dev_data, "test":test_data,
-            "src_vocab": src_vocab, "trg_vocab": trg_vocab
-        }
-
-        test(cfg_file, ckpt_path=model_best_checkpoint_path.as_posix(), output_path=output_path, datasets=dataset_to_test)
-    else:
-        logger.info("Skipping test after training the model!")
 
 
 class TrainManager(object):
@@ -392,23 +375,17 @@ class TrainManager(object):
         """
         validate_start_time = time.time()
         # vallid_hypotheses_raw is befor tokenizer post_process
-        (valid_scores, bleu_order, valid_references, valid_hypotheses, 
-         valid_hypotheses_raw, valid_sentences_scores, 
-         valid_attention_scores) = predict(model=self.model, data=valid_data, device=self.device, 
-                                            n_gpu=self.n_gpu, compute_loss=True, normalization=self.normalization, 
-                                            num_workers=self.num_workers, test_cfg=self.valid_cfg, seed=self.seed)
+        (valid_scores, valid_references, valid_hypotheses, 
+         valid_sentences_scores, valid_attention_scores) = predict(model=self.model, data=valid_data, device=self.device, 
+                compute_loss=True, normalization=self.normalization, num_workers=self.num_workers, test_cfg=self.valid_cfg)
         valid_duration_time = time.time() - validate_start_time
         
         # write eval_metric and corresponding score to tensorboard
         for eval_metric, score in valid_scores.items():
-            # if not math.isnan(score):
             if eval_metric in ["loss", "ppl"]:
                 self.tb_writer.add_scalar(tag=f"Valid/{eval_metric}", scalar_value=score, global_step=self.stats.steps)
             else:
                 self.tb_writer.add_scalar(tag=f"Valid/{eval_metric}", scalar_value=score*100, global_step=self.stats.steps)
-
-        # write bleu-order to tensorboard
-        # self.tb_writer.add_scalars("Bleu-1/2/3/4", bleu_order, self.stats.steps)
         
         # the most important metric
         ckpt_score = valid_scores[self.early_stopping_metric]
@@ -431,8 +408,7 @@ class TrainManager(object):
         
         # append to validation report 
         self.add_validation_report(valid_scores=valid_scores, new_best=new_best)
-        self.log_examples(valid_hypotheses, valid_references,
-                          valid_hypotheses_raw, data=valid_data)
+        self.log_examples(valid_hypotheses, valid_references, data=valid_data)
 
         # store validation set outputs
         validate_output_path = Path(self.model_dir) / f"{self.stats.steps}.hyps"
@@ -456,10 +432,7 @@ class TrainManager(object):
             [f"LR: {current_lr:.8f}", "*" if new_best else ""])
             fg.write(f"{score_string}\n") 
 
-        return None
-
-    def log_examples(self, hypotheses:List[str], references:List[str],
-                     hypotheses_raw: List[List[str]], data:Dataset) -> None:
+    def log_examples(self, hypotheses:List[str], references:List[str], data:Dataset) -> None:
         """
         Log the first self.log_valid_sentences from given examples.
         hypotheses: decoded hypotheses (list of strings)
@@ -471,19 +444,10 @@ class TrainManager(object):
                 continue
             logger.info("Example #%d", id)
 
-            # tokenized text
-            tokenized_src = data.tokernized_data[data.src_language][id]
-            tokenized_trg = data.tokernized_data[data.trg_language][id]
-            logger.debug("\tTokenized source:  %s", tokenized_src)
-            logger.debug("\tTokenized reference:  %s", tokenized_trg)
-            logger.debug("\tTokenized hypothesis:  %s", hypotheses_raw[id])
-            # FIXME what is tokenized and what is detokenized.
             # detokenized text
             logger.info("\tSource:  %s",data.original_data[data.src_language][id])
             logger.info("\tReference:  %s", references[id])
             logger.info("\tHypothesis: %s", hypotheses[id])
-
-        return None
 
     class TrainStatistics:
         def __init__(self, steps:int=0, is_min_lr:bool=False,
@@ -512,7 +476,3 @@ class TrainManager(object):
             else:
                 is_better = score > heapq.nsmallest(1, heap_queue)[0][0]
             return is_better
-
-if __name__ == "__main__":
-    cfg_file = "configs/rencos_python_base2.yaml"
-    train(cfg_file=cfg_file, skip_test=False)

@@ -1,6 +1,6 @@
 import argparse
 from src.training import train
-from src.prediction import test 
+from src.testing import test
 from src.build_database import build_database
 from src.retrieval_training import retrieval_train
 from src.retrieval_prediction import retrieval_test
@@ -14,7 +14,6 @@ def main():
     parser.add_argument("-o","--output_path", type=str, help="path for saving test result.")
     parser.add_argument("-attention","--save_attention", action="store_true", help="save attenton visualization")
     parser.add_argument("-s","--save_scores", action="store_true", help="save log_probability scores.")
-    parser.add_argument("--skip_test", action="store_true", help="Skip test after training.")
     parser.add_argument("--hidden_representation_path", type=str, help="where to store the hidden state")
     parser.add_argument("--token_map_path", type=str, help="where to store the corresponding token id")
     parser.add_argument("--index_path", type=str, help="where to store faiss index")
@@ -22,14 +21,14 @@ def main():
     args = parser.parse_args()
 
     if args.mode == "train":
-        train(cfg_file=args.config_path, skip_test=args.skip_test)
+        train(cfg_file=args.config_path)
     elif args.mode == "test":
         test(cfg_file=args.config_path, ckpt_path=args.ckpt, output_path=args.output_path)
     elif args.mode == "build_database":
         build_database(cfg_file=args.config_path, division="train", ckpt=args.ckpt,
          hidden_representation_path=args.hidden_representation_path, token_map_path=args.token_map_path, index_path=args.index_path)
     elif args.mode == "retrieval_train":
-        retrieval_train(cfg_file=args.config_path, skip_test=args.skip_test)
+        retrieval_train(cfg_file=args.config_path)
     elif args.mode == "retrieval_test":
         retrieval_test(cfg_file=args.config_path)
     else:
