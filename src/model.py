@@ -1,6 +1,3 @@
-from audioop import cross
-from typing import Tuple
-import torch
 from torch import Tensor, nn
 import torch.nn.functional as F
 from src.retriever import Retriever
