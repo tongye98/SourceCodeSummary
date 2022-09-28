@@ -237,12 +237,12 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
                     output[:, unk_index] = float("-inf")
                 if step < min_output_length:
                     output[:, eos_index] = float("-inf")
-                output = F.log_softmax(output, dim=-1)
+                output = F.softmax(output, dim=-1)
             else:
                 fuse_score, attention_score = model.copy_attention_score(output, encoder_output, src_mask)
                 # attention_score [batch_size, trg_len, src_len]
                 prob = model.copy_generator(output, attention_score, source_maps)
-                # prob [batch_size, step+1， trg_vocab_size + extra_words]
+                # prob [batch_size, step+1, trg_vocab_size + extra_words]
                 output = prob[:, -1]
                 # output [batch_size, trg_vocab_size + extra_words]
                 if not generate_unk:
@@ -251,6 +251,7 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
                     output[:, unk_index + offset] = float("-inf")
                 if step < min_output_length:
                     output[:, eos_index] = float("-inf")
+                    output[:, eos_index + offset] = float("-inf")
                 output = F.softmax(output, dim=-1)
                 
                 for sentence_id in range(output.size(0)):
@@ -358,14 +359,14 @@ def beam_search(model, encoder_output, src_mask, max_output_length, min_output_l
         # feed the complete predicted sentences so far.
         decoder_input = alive_sentences
         with torch.no_grad():
-            output, input, cross_attention_weight = model(return_type="decode", trg_input=decoder_input, encoder_output=encoder_output,
-                                                          src_mask=src_mask, trg_mask=trg_mask)
-            # output: after output layer [batch_size*beam_size, trg_len, vocab_size] -> [batch_size*beam_size, step+1, vocab_size]
-            # input: before output layer [batch_size*beam_size, trg_len, model_dim] -> [batch_size*beam_size, step+1, model_dim]
-            # cross_attention_weight [batch_size*beam_size, trg_len, src_len] -> [batch_size*beam_size, step+1, src_len]
+            output, penultimate_representation, cross_attention_weight = model(return_type="decode", trg_input=decoder_input, 
+                                                            encoder_output=encoder_output, src_mask=src_mask, trg_mask=trg_mask)
+            output = model.output_layer(output)
+            # output  [batch_size*beam_size, step+1, vocab_size]
+            # penultimate_representation [batch_size*beam_size, step+1, model_dim]
+            # cross_attention_weight  [batch_size*beam_size, step+1, src_len]
 
-            # for the transformer we made predictions for all time steps up to this point,
-            # so we only want to know about the last time step.
+            # for the transformer we made predictions for all time steps up to this point, so we only want to know about the last time step.
             output = output[:, -1] # output [batch_size*beam_size, vocab_size]
 
         # compute log probability distribution over trg vocab
@@ -374,7 +375,6 @@ def beam_search(model, encoder_output, src_mask, max_output_length, min_output_l
 
         if not generate_unk:
             log_probs[:, unk_index] = float("-inf")
-        # don't genereate EOS symbol until we reach min_output_length
         if step < min_output_length:
             log_probs[:, eos_index] = float("-inf")
 
@@ -489,4 +489,4 @@ def beam_search(model, encoder_output, src_mask, max_output_length, min_output_l
     final_outputs = pad_and_stack_hyps(predictions_list)
     scores = (np.array([[u.item()] for r in results['scores'] for u in r]) if return_prob else None)
 
-    return final_outputs, scores, None
+    return final_outputs, scores, None, None
