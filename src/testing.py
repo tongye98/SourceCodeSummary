@@ -58,12 +58,12 @@ def test(cfg_file: str, ckpt_path:str=None, output_path:str=None) -> None:
             normalization=normalization, num_workers=num_workers, test_cfg=cfg["testing"])
             for eval_metric, score in valid_scores.items():
                 if eval_metric in ["loss", "ppl"]:
-                    logger.info("eval metric = {}, score = {}.".format(eval_metric, score))
+                    logger.info("eval metric {} = {}.".format(eval_metric, score))
                 else:
-                    logger.info("eval metric = {}, score = {}.".format(eval_metric, score*100))
+                    logger.info("eval metric {} = {}.".format(eval_metric, score*100))
             if valid_hypotheses is not None:
                 # save final model outputs.
-                test_output_path = Path(f"{output_path}.{dataset_name}")
+                test_output_path = Path(model_dir) / "output.{}".format(dataset_name)
                 write_list_to_file(file_path=test_output_path, array=valid_hypotheses)
                 logger.info("Results saved to: %s.", test_output_path)
         else:
