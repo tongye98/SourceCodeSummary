@@ -154,8 +154,7 @@ def search(model, batch_data: Batch,
            max_output_length: int, 
            min_output_length: int, n_best: int,
            return_attention: bool, return_prob: str, 
-           generate_unk: bool, repetition_penalty: float, 
-           no_repeat_ngram_size: float, copy_param=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+           generate_unk: bool, copy_param=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Get outputs and attention scores for a given batch.
     return:
