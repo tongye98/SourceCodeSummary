@@ -153,7 +153,6 @@ class DynamicRetriever(Retriever):
 
         model_based_distribution = F.softmax(logits, dim=-1)
         # model_based_distribution [batch_size*trg_len, trg_vocab_size]
-        vocab_size = model_based_distribution.size(-1)
         example_based_distribution, sparse_example_based_distribution = self.kernel.compute_example_based_distribution(distances, bandwidth, token_indices, vocab_size)
         # example_based_distribution [batch_size*trg_len, trg_vocab_size]
         # sparse_example_based_distribution [batch_size*trg_len, top_k] 

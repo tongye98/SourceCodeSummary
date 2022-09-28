@@ -304,6 +304,8 @@ class Transformer(nn.Module):
             encode_output = self.encode(src_input, src_mask)
             decode_output, penultimate_representation, cross_attention_weight = self.decode(trg_input, encode_output, src_mask, trg_mask)
             logits = self.output_layer(decode_output)
+            penultimate_representation = penultimate_representation.detach().cpu().numpy()
+            logits = logits.detach().cpu().numpy()
             log_probs = self.retriever(hidden=penultimate_representation, logits=logits)
             # log_probs [batch_size, trg_len, vocab_size]
             batch_loss = self.loss_function(log_probs, target=trg_truth)

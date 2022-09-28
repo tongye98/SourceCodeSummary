@@ -155,12 +155,12 @@ class Database(object):
 class EnhancedDatabase(Database):
     def __init__(self, index_path:str, token_map_path:str, embedding_path:str, nprobe:int=16, in_memory:bool=True) -> None:
         super().__init__(index_path, token_map_path, nprobe)
-        if in_memory: # read data to memory
+        if in_memory: # load data to memory
             self.embeddings = np.load(embedding_path)
         else:         # the data still on disk
             self.embeddings = np.load(embedding_path, mmap_mode="r")
 
-    def enhanced_search(self, hidden:np.ndarray, top_k:int=16, retrieval_dropout:bool=True) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def enhanced_search(self, hidden:np.ndarray, top_k:int=8, retrieval_dropout:bool=True) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Search nearest top_k embeddings from Faiss index.
         hidden: np.ndarray [batch_size*trg_len, model_dim]
@@ -169,7 +169,7 @@ class EnhancedDatabase(Database):
         return searched_hidden: np.ndarray (batch_size*trg_len, top_k, model_dim)
         """
         if retrieval_dropout:
-            distances, indices = self.index.search(hidden, top_k+1)
+            distances, indices = self.index.search(hidden, top_k + 1)
             distances = distances[:, 1:]
             indices = indices[:, 1:]
         else:

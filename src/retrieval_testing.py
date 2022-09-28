@@ -6,10 +6,11 @@ from src.model import build_model
 from src.prediction import predict
 from src.helps import load_config, make_logger, resolve_ckpt_path
 from src.helps import load_model_checkpoint, write_list_to_file
+from src.retriever import build_retriever
 
 logger = logging.getLogger(__name__)
 
-def test(cfg_file: str, ckpt_path:str=None) -> None:
+def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
     """
     Main test function. Handles loading a model from checkpoint, generating translation.
     :param cfg_file: path to configuration file
@@ -18,17 +19,17 @@ def test(cfg_file: str, ckpt_path:str=None) -> None:
     """ 
     cfg = load_config(Path(cfg_file))
 
-    model_dir = cfg["training"].get("model_dir", None)
+    model_dir = cfg["retrieval_training"].get("model_dir", None)
     assert model_dir is not None 
 
     # make logger
-    make_logger(Path(model_dir), mode="test")
+    make_logger(Path(model_dir), mode="retrieval_test")
 
-    load_model = cfg["training"].get("load_model", None)
-    use_cuda = cfg["training"].get("use_cuda", False) and torch.cuda.is_available()
+    load_model = cfg["retrieval_training"].get("load_model", None)
+    use_cuda = cfg["retreival_training"].get("use_cuda", False) and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
-    num_workers = cfg["training"].get("num_workers", 0)
-    normalization = cfg["training"].get("normalization","batch")
+    num_workers = cfg["retrieval_training"].get("num_workers", 0)
+    normalization = cfg["retrieval_training"].get("normalization","batch")
 
     train_data, dev_data, test_data, src_vocab, trg_vocab = load_data(data_cfg=cfg["data"])
     data_to_predict = {"dev": dev_data, "test":test_data}
@@ -45,6 +46,10 @@ def test(cfg_file: str, ckpt_path:str=None) -> None:
 
     #restore model and optimizer parameters
     model.load_state_dict(model_checkpoint["model_state"])
+
+    retriever = build_retriever(retriever_cfg=cfg["retriever"])
+    model.retriever =  retriever 
+    
     if device.type == "cuda":
         model.to(device)
 

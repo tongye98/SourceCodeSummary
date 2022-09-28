@@ -3,7 +3,7 @@ from src.training import train
 from src.testing import test
 from src.build_database import build_database
 from src.retrieval_training import retrieval_train
-from src.retrieval_prediction import retrieval_test
+from src.retrieval_testing import retrieval_test
 
 def main():
     parser = argparse.ArgumentParser("Transformer")
@@ -23,14 +23,14 @@ def main():
     if args.mode == "train":
         train(cfg_file=args.config_path)
     elif args.mode == "test":
-        test(cfg_file=args.config_path, ckpt_path=args.ckpt, output_path=args.output_path)
+        test(cfg_file=args.config_path, ckpt_path=args.ckpt)
     elif args.mode == "build_database":
         build_database(cfg_file=args.config_path, division="train", ckpt=args.ckpt,
          hidden_representation_path=args.hidden_representation_path, token_map_path=args.token_map_path, index_path=args.index_path)
     elif args.mode == "retrieval_train":
         retrieval_train(cfg_file=args.config_path)
     elif args.mode == "retrieval_test":
-        retrieval_test(cfg_file=args.config_path)
+        retrieval_test(cfg_file=args.config_path, ckpt_path=args.ckpt)
     else:
         raise ValueError("Unkonwn mode!")
 
