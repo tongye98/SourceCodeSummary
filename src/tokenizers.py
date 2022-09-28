@@ -2,18 +2,16 @@ import logging
 from typing import Dict, List
 from src.helps import ConfigurationError
 from pathlib import Path
-logger = logging.getLogger(__name__)
-
 from src.constants import BOS_TOKEN, EOS_TOKEN, PAD_TOKEN, UNK_TOKEN
 
+logger = logging.getLogger(__name__)
+
 class BasicTokenizer(object):
-    SPACE = chr(32)  # ' ': half-width white space (ascii)
+    SPACE = chr(32)           # ' ': half-width white space (ASCII)
     SPACE_ESCAPE = chr(9601)  # '▁': sentencepiece default
     SPECIALS = [BOS_TOKEN, EOS_TOKEN, PAD_TOKEN, UNK_TOKEN]
-
-    def __init__(self, level:str="word", lowercase:bool=False,
-                 normalize: bool=False, max_length: int=-1, min_length:int=1,
-                 filter_or_truncate: str="truncate") -> None:
+    def __init__(self, level:str="word", lowercase:bool=False, normalize: bool=False, max_length: int=-1, 
+                 min_length:int=1, filter_or_truncate: str="truncate") -> None:
         self.level = level
         self.lowercase = lowercase
         self.normalize = normalize
@@ -25,26 +23,24 @@ class BasicTokenizer(object):
     def pre_process(self, sentence:str) -> str:
         """
         Pre-process setence. 
-        Lowercase, normalize.
+        Lowercase, Normalize.
         """
         if self.normalize:
             sentence = sentence.strip()
         if self.lowercase:
             sentence = sentence.lower()
-        
         return sentence
     
     def post_process(self, sentence: List[str], generate_unk: bool=True) -> str:
         """
         Post-process sentence tokens.
-        result a sentence(a string.)
+        result a sentence (a string).
         """
         sentence = self.remove_special(sentence, generate_unk=generate_unk)
         sentence = self.SPACE.join(sentence)
-
         return sentence
 
-    def remove_special(self, sentence: List[str], generate_unk: bool=False) -> List[str]:
+    def remove_special(self, sentence: List[str], generate_unk: bool=True) -> List[str]:
         specials = self.SPECIALS[:-1] if generate_unk else self.SPECIALS
         return [token for token in sentence if token not in specials]
 
@@ -53,10 +49,12 @@ class BasicTokenizer(object):
             if len(sentence_token) < self.min_length or len(sentence_token) > self.max_length:
                 logger.warning("{} is filtered".format(sentence_token))
                 sentence_token = None
+            else:
+                sentence_token = sentence_token
         elif self.filter_or_truncate == "truncate":
             sentence_token = sentence_token[:self.max_length]
         else:
-            assert False, "Invalid filter_or_truncate."
+            raise NotImplementedError("Invalid filter_or_truncate.")
 
         return sentence_token
 
@@ -96,6 +94,9 @@ class SubwordNMTTokenizer(BasicTokenizer):
 
 
 def build_tokenizer(data_cfg: Dict) -> Dict[str,BasicTokenizer]:
+    """
+    Build tokenizer: a dict.
+    """
     src_language = data_cfg["src"]["language"]
     trg_language = data_cfg["trg"]["language"]
     tokenizer = {
@@ -108,10 +109,9 @@ def build_tokenizer(data_cfg: Dict) -> Dict[str,BasicTokenizer]:
 
 def build_language_tokenizer(cfg: Dict):
     """
-    Build tokenizer.
+    Build language tokenizer.
     """
     tokenizer = None 
-
     if cfg["level"] == "word":
         tokenizer = BasicTokenizer(level=cfg["level"],lowercase=cfg["lowercase"],
                                    normalize=cfg["normalize"], max_length=cfg["max_length"],
