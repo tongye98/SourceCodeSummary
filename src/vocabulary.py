@@ -7,12 +7,10 @@ from pathlib import Path
 import numpy as np
 from typing import Dict, List
 import unicodedata
-import sys
 from collections import Counter
 from src.helps import flatten, read_list_from_file, sort_and_cut
 from src.helps import write_list_to_file
 import time
-
 from src.constants import (
     UNK_TOKEN,
     UNK_ID,
@@ -29,7 +27,7 @@ logger = logging.getLogger(__name__)
 def build_vocab(data_cfg:Dict, datasets:List):
     """
     Build vocabulary for src side and trg side.
-    Note: vocabulary either from file(todo) or dataset.
+    Note: vocabulary either from file or dataset.
     """
     src_vocab = build_language_vocab(data_cfg["src"], datasets, data_cfg["src"]["language"])
     trg_vocab = build_language_vocab(data_cfg["trg"], datasets, data_cfg["trg"]["language"])
@@ -37,10 +35,10 @@ def build_vocab(data_cfg:Dict, datasets:List):
     return src_vocab, trg_vocab
 
 def build_language_vocab(cfg, datasets, language):
-
     min_freq = cfg.get("vocab_min_freq", 1)
-    max_size = cfg.get("vocab_max_size", sys.maxsize)
-    assert max_size > 0
+    max_size = cfg.get("vocab_max_size", -1)
+    assert max_size > 0 and min_freq > 0
+
     vocab_file = cfg.get("vocab_file", None)
     if vocab_file is not None:
         unique_tokens = read_list_from_file(Path(vocab_file))
@@ -48,11 +46,11 @@ def build_language_vocab(cfg, datasets, language):
         sentences = []
         for dataset in datasets:
             sentences.extend(dataset.tokernized_data[language])
-        # flatten(senteces) = list of list of tokens (nested)
         counter = Counter(flatten(sentences))
+        # flatten(senteces) = list of list of tokens (nested)
         unique_tokens = sort_and_cut(counter, max_size, min_freq)
     else:
-        raise Exception("Please provide dataset to build a vocabulary.")
+        raise Exception("Please provide dataset or vocab file to build a vocabulary.")
     
     start = time.time()
     vocab = Vocabulary(unique_tokens)
@@ -67,7 +65,9 @@ def build_language_vocab(cfg, datasets, language):
     return vocab
 
 class Vocabulary(object):
-    """vocabulary class mapping between tokens and indices."""
+    """
+    Vocabulary class mapping between tokens and indices.
+    """
     def __init__(self, tokens: List[str], has_bos_eos: bool=True) -> None:
         "Create  vocabulary from list of tokens. :param tokens: list of tokens"
         if has_bos_eos:
@@ -76,7 +76,7 @@ class Vocabulary(object):
             self.specials = [UNK_TOKEN, PAD_TOKEN]
 
         self._stoi: Dict[str, int] = {} # string to index
-        self._itos: List[str] = [] # index to string
+        self._itos: List[str] = []      # index to string
 
         # construct vocabulary
         self.add_tokens(tokens=self.specials + tokens)
@@ -100,7 +100,7 @@ class Vocabulary(object):
     
     def add_tokens(self, tokens:List[str]) -> None:
         for token in tokens:
-            # token = self.normalize(token)
+            token = self.normalize(token)
             new_index = len(self._itos)
             # add to vocabulary if not already there
             if token not in self._itos:
@@ -121,15 +121,13 @@ class Vocabulary(object):
     
     @staticmethod
     def normalize(token) -> str:
-        return unicodedata.normalize('NFD',token)
+        return unicodedata.normalize('NFD', token)
     
-    def array_to_sentence(self, 
-                          array: np.ndarray, 
-                          cut_at_eos: bool=True,
-                          skip_pad: bool=True) -> List[str]:
+    def array_to_sentence(self, array: np.ndarray, cut_at_eos: bool=True, skip_pad: bool=True) -> List[str]:
         """
-        convert an array of IDs to a sentences(list of strings/tokens).
+        Convert an array of IDs to a sentences (list of tokens).
         array: 1D array containing indices
+        Note: when cut_at_eos=True, sentence final token is </s>.
         """
         sentence = []
         for i in array:
@@ -141,21 +139,17 @@ class Vocabulary(object):
                 break
         return sentence
 
-    def arrays_to_sentences(self,
-                            arrays: np.ndarray,
-                            cut_at_eos: bool=True,
-                            skip_pad: bool=True) -> List[List[str]]:
+    def arrays_to_sentences(self, arrays: np.ndarray, cut_at_eos: bool=True, skip_pad: bool=True) -> List[List[str]]:
         """
-        convert multiple arrays containing sequences of token IDs to their sentences.
-        arrays: 2D array containing indices
-        return: list of list of strings(tokens)
+        Convert multiple arrays containing sequences of token IDs to their sentences.
+        arrays: 2D array containing indices.
+        return: list of list of tokens.
         """
-        return [self.array_to_sentence(array=array, cut_at_eos=cut_at_eos, skip_pad=skip_pad) 
-                for array in arrays]
+        return [self.array_to_sentence(array=array, cut_at_eos=cut_at_eos, skip_pad=skip_pad) for array in arrays]
 
     def sentencens_to_ids(self, sentences:List[List[str]], bos:bool=False, eos:bool=False):
         """
-        return sentences_ids List[List[id]]
+        Return sentences_ids List[List[id]].
         """
         sentences_ids = []
         for sentence in sentences:
@@ -169,7 +163,7 @@ class Vocabulary(object):
         return sentences_ids
 
     def log_vocab(self, number:int) -> str:
-        "First number tokens in Vocabulary"
+        "First how many number of tokens in Vocabulary."
         return " ".join(f"({id}) {token}" for id, token in enumerate(self._itos[:number]))
 
     def __repr__(self) -> str:

@@ -1,6 +1,6 @@
 # coding: utf-8
 """
-Defining global constants
+Global constants
 """
 
 UNK_TOKEN = "<unk>"
