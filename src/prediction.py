@@ -1,7 +1,7 @@
 # coding: utf-8
 """
 This module for generating prediction of a model.
-greedy search and beam search.
+Greedy search and Beam search.
 """
 import logging 
 import torch 

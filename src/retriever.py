@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Tuple, Union 
-from src.database import Database, EnhancedDatabase 
+from src.build_database import Database, EnhancedDatabase 
 
 logger = logging.getLogger(__name__)
 
