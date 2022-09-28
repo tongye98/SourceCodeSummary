@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List
+from typing import Dict, List
 from src.constants import EOS_TOKEN
 from src.helps import ConfigurationError, read_list_from_file
 from torch.utils.data import Dataset
@@ -13,30 +13,26 @@ def build_dataset(dataset_type: str, path:str, split_mode:str,
     dataset = None 
     if dataset_type == "plain":
         dataset = PlaintextDataset(path, split_mode, src_language, trg_language, tokenizer)
-    elif dataset_type == "other":
-        raise NotImplementedError
     else:
         raise ConfigurationError("Invalid dataset_type.")
 
     return dataset
 
-# BaseDataset is child of torch.utils.data.Dataset.
 class BaseDataset(Dataset):
     """
     BaseDataset which loads and looks up data.
+    BaseDataset is child of torch.utils.data.Dataset.
     """
     def __init__(self, path:str, split_mode: str,
                  src_language:str, trg_language:str) -> None:
         super().__init__()
+
         self.path = path
         self.split_mode = split_mode
         self.src_language = src_language
         self.trg_language = trg_language
 
-    def __getitem__(self, index):
-        raise NotImplementedError
-    
-    def get_item(self, idx:int, language:str):
+    def __getitem__(self, index:int):
         raise NotImplementedError
 
     def __len__(self) -> int:
@@ -47,8 +43,8 @@ class BaseDataset(Dataset):
                 f"src_lang={self.src_language}, trg_lang={self.trg_language})")
 
 class PlaintextDataset(BaseDataset):
-    def __init__(self, path: str, split_mode: str, src_language: str, trg_language: str, 
-                 tokenizer: Dict) -> None:
+    def __init__(self, path: str, split_mode: str, src_language: str, 
+                 trg_language: str, tokenizer: Dict) -> None:
         super().__init__(path, split_mode, src_language, trg_language)
 
         self.tokenizer = tokenizer
@@ -57,10 +53,10 @@ class PlaintextDataset(BaseDataset):
         self.src_vocabs, self.src_maps, self.alignments = self.get_src_vocabs_source_maps_alignments()
         self.tokernized_data_ids = None # Place_holder
     
-    def load_data(self,path:str):
+    def load_data(self, path:str):
         """"
         loda data and tokenize data.
-        return data(is a dict)
+        return data (is a dict)
             data["en"] = ["hello world","xxx"]
             data["de"] = ["i am", "xxx"]
         """
@@ -81,12 +77,12 @@ class PlaintextDataset(BaseDataset):
         trg_list = read_list_from_file(trg_file)
         data[self.trg_language] = pre_process(trg_list, self.trg_language)
 
-        assert len(data[self.src_language]) == len(data[self.trg_language]), "src len not equal to trg len!"
+        assert len(data[self.src_language]) == len(data[self.trg_language]), "Src len not equal to Trg len!"
         return data
     
     def tokenize_data(self):
         """
-        Tokenize data
+        Tokenize data.
         tokenize_data["en"] = [["hello", "word"], ["x", "x"]]
         """
         tokenize_data = dict()
@@ -103,7 +99,6 @@ class PlaintextDataset(BaseDataset):
         self.tokernized_data_ids[self.src_language] = src_vocab.sentencens_to_ids(self.tokernized_data[self.src_language], bos=False, eos=True)
         self.tokernized_data_ids[self.trg_language] = trg_vocab.sentencens_to_ids(self.tokernized_data[self.trg_language], bos=True, eos=True)
 
-        
     def get_src_vocabs_source_maps_alignments(self):
         src_vocabs = list()
         src_maps = list()
@@ -124,7 +119,7 @@ class PlaintextDataset(BaseDataset):
         """
         src: [id, id, id, ...]
         trg: [id, id, id, ...]
-        return (src, trg) tuple
+        return (src, trg)
         """
         src = self.tokernized_data_ids[self.src_language][index]
         trg = self.tokernized_data_ids[self.trg_language][index]
