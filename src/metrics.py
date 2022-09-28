@@ -245,7 +245,7 @@ def enc(s):
     return s.encode('utf-8')
 def dec(s):
     return s.decode('utf-8')
-METEOR_JAR  = 'meteor-1.5.jar'
+METEOR_JAR  = 'data/meteor-1.5.jar'
 class Meteor(object):
     def __init__(self):
         # Used to guarantee thread safety

@@ -152,23 +152,3 @@ class PlaintextDataset(BaseDataset):
             sentence = self.original_data[self.trg_language][i]
             sentence_list.append(sentence)
         return sentence_list
-        
-
-
-if __name__ == "__main__":
-    # dataset
-    #       |- train.code
-    #       |- train.summary
-    #       |- dev.code
-    #       |- dev.summary
-    #       |- test.code
-    #       |- test.summary
-    # train_data_path: dataset/train
-    # dev_data_path: dataset/dev
-    # test_data_path: dataset/test
-
-    path = "data/rencos_python/train"
-    train_data = build_dataset(dataset_type="plain", path=path, src_language="code",trg_language="summary")
-    print(train_data)
-    print(len(train_data))
-    print(train_data[10])

@@ -175,9 +175,3 @@ class Vocabulary(object):
     def __repr__(self) -> str:
         return (f"{self.__class__.__name__}(len={self.__len__()}, "
                 f"specials={self.specials})")
-
-if __name__ == "__main__":
-    vocab = Vocabulary(tokens=['hello','world'])
-    print(vocab)
-    array = np.array([4,5])
-    print(vocab.array_to_sentence(array))
