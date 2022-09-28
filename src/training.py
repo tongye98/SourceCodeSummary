@@ -436,7 +436,6 @@ class TrainManager(object):
         """
         Log the first self.log_valid_sentences from given examples.
         hypotheses: decoded hypotheses (list of strings)
-        hypotheses_raw: raw hypotheses (list of list of tokens)
         references: decoded references (list of strings)
         """
         for id in self.log_valid_sentences:
@@ -445,7 +444,7 @@ class TrainManager(object):
             logger.info("Example #%d", id)
 
             # detokenized text
-            logger.info("\tSource:  %s",data.original_data[data.src_language][id])
+            logger.info("\tSource:  %s", data.original_data[data.src_language][id])
             logger.info("\tReference:  %s", references[id])
             logger.info("\tHypothesis: %s", hypotheses[id])
 

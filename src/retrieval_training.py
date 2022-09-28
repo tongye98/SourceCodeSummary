@@ -1,12 +1,13 @@
 import logging
-import os
-# NOTE os.environ["CUDA_LAUNCH_BLOCKING"] = '1' 
 import numpy as np
 import torch
-from torch.utils.data import Dataset
-from pathlib import Path
+import heapq
+import math
+import time
 import shutil
+from pathlib import Path
 from typing import List
+from torch.utils.data import Dataset
 from src.helps import load_config, make_model_dir, make_logger, log_cfg, check_retrieval_cfg
 from src.helps import set_seed, parse_train_arguments, load_model_checkpoint
 from src.helps import symlink_update, delete_ckpt, write_validation_output_to_file
@@ -15,17 +16,13 @@ from src.datas import load_data, make_data_iter
 from src.model import build_model, Transformer
 from torch.utils.tensorboard import SummaryWriter
 from src.builders import build_gradient_clipper, build_optimizer, build_scheduler
-import heapq
-import math
-import time
-from src.retriever import Retriever, build_retriever
-
+from src.retriever import build_retriever
 
 logger = logging.getLogger(__name__) 
 
-def retrieval_train(cfg_file: str, skip_test: bool=False) -> None:
+def retrieval_train(cfg_file: str) -> None:
     """
-    Training function. After training, also test on test data if given.
+    Retrieval Training function. 
     """
     cfg = load_config(Path(cfg_file))
 
@@ -63,13 +60,12 @@ def retrieval_train(cfg_file: str, skip_test: bool=False) -> None:
 
     # build an transformer(encoder-decoder) model
     model = build_model(model_cfg=cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab)
-    # FIXME train mangager has initialize from checkpoint
     model.load_state_dict(model_checkpoint["model_state"])
 
     for p in model.parameters():
         p.requires_grad = False
 
-    retriever = build_retriever(cfg=cfg["retriever"])
+    retriever = build_retriever(retriever_cfg=cfg["retriever"])
     # load combiner from checkpoint for dynamic combiners
 
     model.retriever = retriever
@@ -80,7 +76,6 @@ def retrieval_train(cfg_file: str, skip_test: bool=False) -> None:
 
     # train the model
     trainer.train_and_validate(train_data=train_data, valid_data=dev_data)
-
 
 class RetrievalTrainManager(object):
     """
@@ -281,7 +276,6 @@ class RetrievalTrainManager(object):
                     self.device.type, self.n_gpu, self.batch_size)
         try:
             self.model.eval()
-
             for epoch_no in range(self.epochs):
                 logger.info("Epoch %d", epoch_no + 1)
                     
@@ -402,11 +396,9 @@ class RetrievalTrainManager(object):
         """
         validate_start_time = time.time()
         # vallid_hypotheses_raw is befor tokenizer post_process
-        (valid_scores, bleu_order, valid_references, valid_hypotheses, 
-         valid_hypotheses_raw, valid_sentences_scores, 
-         valid_attention_scores) = predict(model=self.model, data=valid_data, device=self.device, 
-                                            n_gpu=self.n_gpu, compute_loss=True, normalization=self.normalization, 
-                                            num_workers=self.num_workers, cfg=self.valid_cfg, seed=self.seed)
+        (valid_scores, valid_references, valid_hypotheses, 
+        valid_sentences_scores, valid_attention_scores) = predict(model=self.model, data=valid_data, device=self.device, 
+             compute_loss=True, normalization=self.normalization, num_workers=self.num_workers, test_cfg=self.valid_cfg)
         valid_duration_time = time.time() - validate_start_time
         
         # write eval_metric and corresponding score to tensorboard
@@ -416,9 +408,6 @@ class RetrievalTrainManager(object):
                 self.tb_writer.add_scalar(tag=f"Valid/{eval_metric}", scalar_value=score, global_step=self.stats.steps)
             else:
                 self.tb_writer.add_scalar(tag=f"Valid/{eval_metric}", scalar_value=score*100, global_step=self.stats.steps)
-
-        # write bleu-order to tensorboard
-        # self.tb_writer.add_scalars("Bleu-1/2/3/4", bleu_order, self.stats.steps)
         
         # the most important metric
         ckpt_score = valid_scores[self.early_stopping_metric]
@@ -441,8 +430,7 @@ class RetrievalTrainManager(object):
         
         # append to validation report 
         self.add_validation_report(valid_scores=valid_scores, new_best=new_best)
-        self.log_examples(valid_hypotheses, valid_references,
-                          valid_hypotheses_raw, data=valid_data)
+        self.log_examples(valid_hypotheses, valid_references, data=valid_data)
 
         # store validation set outputs
         validate_output_path = Path(self.model_dir) / f"{self.stats.steps}.hyps"
@@ -466,14 +454,10 @@ class RetrievalTrainManager(object):
             [f"LR: {current_lr:.8f}", "*" if new_best else ""])
             fg.write(f"{score_string}\n") 
 
-        return None
-
-    def log_examples(self, hypotheses:List[str], references:List[str],
-                     hypotheses_raw: List[List[str]], data:Dataset) -> None:
+    def log_examples(self, hypotheses:List[str], references:List[str], data:Dataset) -> None:
         """
         Log the first self.log_valid_sentences from given examples.
         hypotheses: decoded hypotheses (list of strings)
-        hypotheses_raw: raw hypotheses (list of list of tokens)
         references: decoded references (list of strings)
         """
         for id in self.log_valid_sentences:
@@ -481,19 +465,10 @@ class RetrievalTrainManager(object):
                 continue
             logger.info("Example #%d", id)
 
-            # tokenized text
-            tokenized_src = data.tokernized_data[data.src_language][id]
-            tokenized_trg = data.tokernized_data[data.trg_language][id]
-            logger.debug("\tTokenized source:  %s", tokenized_src)
-            logger.debug("\tTokenized reference:  %s", tokenized_trg)
-            logger.debug("\tTokenized hypothesis:  %s", hypotheses_raw[id])
-            # FIXME what is tokenized and what is detokenized.
             # detokenized text
-            logger.info("\tSource:  %s",data.original_data[data.src_language][id])
+            logger.info("\tSource:  %s", data.original_data[data.src_language][id])
             logger.info("\tReference:  %s", references[id])
             logger.info("\tHypothesis: %s", hypotheses[id])
-
-        return None
 
     class TrainStatistics:
         def __init__(self, steps:int=0, is_min_lr:bool=False,

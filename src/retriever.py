@@ -238,8 +238,7 @@ class DynamicRetriever(Retriever):
         return mixed_distribution, model_based_distribution, example_based_distribution, mixing_weight, bandwidth
 
 
-def build_retriever(cfg: dict) -> Retriever:
-    retriever_cfg = cfg
+def build_retriever(retriever_cfg: dict) -> Retriever:
     retriever_type = retriever_cfg["type"]
 
     if retriever_type == "no_retriever":

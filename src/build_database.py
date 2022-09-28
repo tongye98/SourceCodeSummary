@@ -1,6 +1,6 @@
 """
 build_database module.
-FaissIndex, Database, EnhancedDatabase.
+FaissIndex, Database, EnhancedDatabase, build_database.
 """
 import logging
 import torch 
