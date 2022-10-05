@@ -348,8 +348,8 @@ class Meteor(object):
         self.close()
 
 if __name__ == "__main__":
-    predictions_path = "test/predictions"
-    references_path = "test/references"
+    predictions_path = "models/rencos_python/transformer_base8_retrieval/output_static_retriever_mw_0.5_band_20.test"
+    references_path = "data/rencos_python/test.summary"
     with open(predictions_path,"r") as p, open(references_path, "r") as r:
         predictions = p.read().splitlines()  # list of string/sentence
         references = r.read().splitlines()  # list of string/sentence
@@ -366,8 +366,8 @@ if __name__ == "__main__":
         # corpus_bleu : 0.25467977003051817
         # {1: 0.45147210394009457, 2: 0.25286423679476816, 3: 0.20369564445128535, 4: 0.18091631042057468}
 
-        score, _ = Meteor().compute_score(gts=references_dict, res=predictions_dict)
-        print("meteor : ", score)
+        # score, _ = Meteor().compute_score(gts=references_dict, res=predictions_dict)
+        # print("meteor : ", score)
         # meteor :  0.20701547506449144
 
         rouge_l_score, _ = Rouge().compute_score(gts=references_dict, res=predictions_dict)

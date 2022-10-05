@@ -79,6 +79,8 @@ testing:
     return_attention: False
     return_prob: "hypotheses" # hypotheses, references, none
     generate_unk: True
+    repetition_penalty: 2 # >1, -1 means no repetition penalty. # no implemented
+    no_repeat_ngram_size: -1 # no implemented
 
 
 model:
@@ -125,9 +127,8 @@ model:
         use_negative_distance: False # for relative position
 
 
-
 retrieval_training:
-    model_dir: "models/rencos_python/transformer_base8_retrieval_topk"
+    model_dir: "models/rencos_python/transformer_base8_dynamic_retriever1"
     overwrite: True
     random_seed: 3407
     use_cuda: True
@@ -143,7 +144,7 @@ retrieval_training:
     patience: 5 # for scheduling = 'ReduceLROnPlatea'
     step_size: 1 # for scheduling = "StepLR" 
     gamma: 0.99 # for scheduling = "StepLR" or "ExponentialLR"
-    learning_rate: 0.00001
+    learning_rate: 0.000001
     weight_decay: 0
     learning_rate_min: 0.0000001
     keep_best_ckpts: 3
@@ -154,7 +155,7 @@ retrieval_training:
     shuffle: True
     epochs: 200
     max_updates: 800000 #  "np.inf"
-    batch_size: 32
+    batch_size: 1
     batch_type: "sentence"
     # load_model: None
     reset_best_ckpt: False
@@ -166,7 +167,7 @@ retrieval_training:
     pre_trained_model_path: "models/rencos_python/transformer_base8/best.ckpt"
 
 retriever:
-    type: "static_retriever" # [no_retriever, static_retriever, dynamic_retriever]
+    type: "dynamic_retriever" # [no_retriever, static_retriever, dynamic_retriever]
     kernel: "Gaussian"  # [Gaussian, Laplacian] for static_retriever, dynamic_retriever
     top_k: 8 # for static_retriever, dynamic_retriever
     index_path: "test/index" # for static_retriever, dynamic_retriever

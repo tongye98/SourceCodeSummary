@@ -113,7 +113,7 @@ class DynamicRetriever(Retriever):
         self.top_k = top_k 
         self.kernel = kernel
         dimension = database.index.index.d
-        self.bandwidth_estimator = nn.Linear(2*dimension, 1)
+        self.bandwidth_estimator = nn.Linear(2 * dimension, 1)
         if isinstance(kernel, GaussianKernel):
             self.bandwidth_estimator.bias.data[0] = math.log(100)
         else:

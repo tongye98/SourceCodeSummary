@@ -56,29 +56,33 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
         model.to(device)
 
     # grid search 
-    for mixing_weight in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
-        for bandwidth in [1, 10, 20, 50, 100, 200]:
-            logger.info("mixing_weight = {} | bandwidth = {}".format(mixing_weight, bandwidth))
+    for mixing_weight in [0.4, 0.5, 0.6, 0.7]:
+        for bandwidth in [10, 15, 20, 25, 30]:
+            for top_k in [1, 2, 4, 8, 16, 32]:
+                logger.info("mixing_weight = {} | bandwidth = {} | top_k = {}".format(mixing_weight, bandwidth, top_k))
 
-            model.retriever.mixing_weight = mixing_weight
-            model.retriever.bandwidth = float(bandwidth)
+                model.retriever.mixing_weight = mixing_weight
+                model.retriever.bandwidth = float(bandwidth)
+                model.retriever.top_k = top_k
 
-            # Test
-            for dataset_name, dataset in data_to_predict.items():
-                if dataset is not None:
-                    logger.info("Testing on %s set...", dataset_name)
-                    (valid_scores, valid_references, valid_hypotheses, valid_sentences_scores, 
-                    valid_attention_scores) = predict(model=model, data=dataset, device=device, compute_loss=True, 
-                    normalization=normalization, num_workers=num_workers, test_cfg=cfg["testing"])
-                    for eval_metric, score in valid_scores.items():
-                        if eval_metric in ["loss", "ppl"]:
-                            logger.info("eval metric {} = {}".format(eval_metric, score))
-                        else:
-                            logger.info("eval metric {} = {}".format(eval_metric, score*100))
-                    if valid_hypotheses is not None:
-                        # save final model outputs.
-                        test_output_path = Path(model_dir) / "output_{}_mw_{}_band_{}.{}".format(retriever_type, mixing_weight, bandwidth, dataset_name)
-                        write_list_to_file(file_path=test_output_path, array=valid_hypotheses)
-                        logger.info("Results saved to: %s.", test_output_path)
-                else:
-                    logger.info(f"{dataset_name} is not exist!" )
+                # Test
+                for dataset_name, dataset in data_to_predict.items():
+                    if dataset_name == "dev":
+                        continue
+                    if dataset is not None:
+                        logger.info("Testing on %s set...", dataset_name)
+                        (valid_scores, valid_references, valid_hypotheses, valid_sentences_scores, 
+                        valid_attention_scores) = predict(model=model, data=dataset, device=device, compute_loss=True, 
+                        normalization=normalization, num_workers=num_workers, test_cfg=cfg["testing"])
+                        for eval_metric, score in valid_scores.items():
+                            if eval_metric in ["loss", "ppl"]:
+                                logger.info("eval metric {} = {}".format(eval_metric, score))
+                            else:
+                                logger.info("eval metric {} = {}".format(eval_metric, score*100))
+                        if valid_hypotheses is not None:
+                            # save final model outputs.
+                            test_output_path = Path(model_dir) / "output_{}_mw_{}_band_{}_topk_{}.{}".format(retriever_type, mixing_weight, bandwidth, top_k, dataset_name)
+                            write_list_to_file(file_path=test_output_path, array=valid_hypotheses)
+                            logger.info("Results saved to: %s.", test_output_path)
+                    else:
+                        logger.info(f"{dataset_name} is not exist!" )
