@@ -259,8 +259,6 @@ class Transformer(nn.Module):
         trg_mask [batch_size, trg_len, trg_len]
         encoder_output [batch_size, src_len, model_dim]
         """
-        if return_type is None:
-            raise ValueError("Please specify return_type: {'loss','encode','decode'}")
         if return_type == "loss":
             assert self.loss_function is not None
             assert trg_input is not None and trg_mask is not None
@@ -309,7 +307,7 @@ class Transformer(nn.Module):
             batch_loss = self.loss_function(log_probs, target=trg_truth)
             return batch_loss
         else:
-            raise ValueError("return_type must be one of {'loss','encode','decode'}")
+            raise ValueError("return_type must be one of {'loss','encode','decode','retrieval_loss'}")
     
     def encode(self, src_input: Tensor, src_mask:Tensor):
         """
@@ -428,7 +426,7 @@ def build_model(model_cfg: dict=None, src_vocab: Vocabulary=None,
             raise ConfigurationError("For tied softmax, decoder embedding_dim == model dim.")
     
     # Custom Initialization of model parameters.
-    # FIXME initialize or scale problem?
+    # FIXME initialize and scale problem
     # Initialize_model(model, model_cfg, src_pad_index, trg_pad_index)
 
     # Initializate embeddings from pre-trained embedding file.
