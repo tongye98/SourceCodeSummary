@@ -17,6 +17,7 @@ data:
         max_length: 400
         min_length: 1
         filter_or_truncate: "truncate"
+        vocab_file: "models/rencos_python/transformer_base8/src_vocab.txt"
     trg: 
         language: "summary"
         level: "word"
@@ -28,6 +29,7 @@ data:
         max_length: 30
         min_length: 1
         filter_or_truncate: "truncate"
+        vocab_file: "models/rencos_python/transformer_base8/trg_vocab.txt"
 
 training:
     model_dir: "models/rencos_python/transformer_base8"
@@ -127,7 +129,7 @@ model:
 
 
 retrieval_training:
-    model_dir: "models/rencos_python/transformer_base8_retrieval_topk"
+    model_dir: "models/rencos_python/transformer_base8_static_retrieval"
     overwrite: True
     random_seed: 3407
     use_cuda: True
@@ -147,7 +149,7 @@ retrieval_training:
     weight_decay: 0
     learning_rate_min: 0.0000001
     keep_best_ckpts: 3
-    logging_freq: 10
+    logging_freq: 100
     validation_freq: 1 # unit:epochs
     log_valid_sentences: [0,1,2,3,4]
     early_stopping_metric: "bleu"

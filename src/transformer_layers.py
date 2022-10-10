@@ -405,7 +405,7 @@ class TransformerDecoderLayer(nn.Module):
         
         cross_residual = cross_attention_input
         if self.layer_norm_position == 'pre':
-            cross_attention_input = self.layer_norm(cross_attention_input)
+            cross_attention_input = self.layer_norm2(cross_attention_input)
         cross_attention_output, cross_attention_weight = self.src_trg_attention(encoder_output, encoder_output, cross_attention_input, src_mask)
         feedforward_input = self.dropout(cross_attention_output) + cross_residual
 

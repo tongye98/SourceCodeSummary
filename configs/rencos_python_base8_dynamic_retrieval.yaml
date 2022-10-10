@@ -17,6 +17,7 @@ data:
         max_length: 400
         min_length: 1
         filter_or_truncate: "truncate"
+        vocab_file: "models/rencos_python/transformer_base8/src_vocab.txt"
     trg: 
         language: "summary"
         level: "word"
@@ -28,6 +29,7 @@ data:
         max_length: 30
         min_length: 1
         filter_or_truncate: "truncate"
+        vocab_file: "models/rencos_python/transformer_base8/trg_vocab.txt"
 
 training:
     model_dir: "models/rencos_python/transformer_base8"
@@ -155,7 +157,7 @@ retrieval_training:
     shuffle: True
     epochs: 200
     max_updates: 800000 #  "np.inf"
-    batch_size: 1
+    batch_size: 32
     batch_type: "sentence"
     # load_model: None
     reset_best_ckpt: False
@@ -172,7 +174,7 @@ retriever:
     top_k: 8 # for static_retriever, dynamic_retriever
     index_path: "test/index" # for static_retriever, dynamic_retriever
     token_map_path: "test/token_map"  # for static_retriever, dynamic_retriever
-    mixing_weight: 0.1  # for static_retriever
-    bandwidth: 10  # for static_retriever
+    mixing_weight: 0.5  # for static_retriever
+    bandwidth: 20  # for static_retriever
     embedding_path: "test/embedding"  # for dynamic_retriever
     in_memory: True # for dynamic_retriever

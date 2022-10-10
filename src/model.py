@@ -197,6 +197,7 @@ class TransformerDecoder(nn.Module):
         trg_mask = trg_mask & subsequent_mask(embed_trg.size(1)).type_as(trg_mask)
         # trg_mask [batch_size, 1, trg_len] -> [batch_size, trg_len, trg_len] (include mask the token unseen)
 
+        penultimate = None
         for layer in self.layers:
             penultimate = input
             input, cross_attention_weight = layer(input, memory=encoder_output, src_mask=src_mask, trg_mask=trg_mask)
