@@ -409,5 +409,8 @@ class TransformerDecoderLayer(nn.Module):
         cross_attention_output, cross_attention_weight = self.src_trg_attention(encoder_output, encoder_output, cross_attention_input, src_mask)
         feedforward_input = self.dropout(cross_attention_output) + cross_residual
 
+        if self.layer_norm_position == "post":
+            feedforward_input = self.layer_norm2(feedforward_input)
+            
         representation = self.feed_forward.layer_norm(feedforward_input)
         return representation
