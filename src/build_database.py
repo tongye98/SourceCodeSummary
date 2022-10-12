@@ -73,6 +73,7 @@ class FaissIndex(object):
         if self.index_type == "L2":
             index = faiss.index_factory(dimension, template, faiss.METRIC_L2)
         else:
+            # index_type == "inner"
             index = faiss.index_factory(dimension, template, faiss.METRIC_INNER_PRODUCT)
         
         if self.use_gpu:
@@ -294,7 +295,7 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
                        shuffle=shuffle, num_workers=num_workers, device=device)
 
         logger.info("train index...")
-        index = FaissIndex(index_type="L2")
+        index = FaissIndex(index_type="INNER")
         index.train(hidden_representation_path)
         index.add(hidden_representation_path)
         index.export(index_path)

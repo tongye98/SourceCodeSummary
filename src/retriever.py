@@ -93,6 +93,9 @@ class StaticRetriever(Retriever):
         model_based_distribution = F.softmax(logits, dim=-1)
         # model_based_distribution [batch_size*trg_len, trg_vocab_size]
         distances, token_indices = self.database.search(hidden.cpu().numpy(), top_k=self.top_k)
+        logger.info('distance = {}'.format(distances))
+        logger.info('token indices = {}'.format(token_indices))
+        assert False
         # distances [batch_size*trg_len, top_k] distance
         # token_indices [batch_size*trg_len, top_k] id
         distances = torch.FloatTensor(distances).to(hidden.device)

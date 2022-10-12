@@ -292,7 +292,9 @@ class RetrievalTrainManager(object):
                     normalized_batch_loss = self.train_step(batch_data)
                     
                     normalized_batch_loss.backward()
-
+                    for p in self.model.retriever.parameters():
+                        logger.info(p.grad)
+                        
                     # clip gradients (in-place)
                     if self.clip_grad_fun is not None:
                         self.clip_grad_fun(parameters=self.model.retriever.parameters())

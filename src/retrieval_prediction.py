@@ -70,6 +70,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
                 src_mask = batch_data.src_mask
                 trg_mask = batch_data.trg_mask
                 trg_truth = batch_data.trg_truth
+                logger.info("trg_truth = {}".format(trg_truth))
                 copy_param = dict()
                 copy_param["source_maps"] = batch_data.src_maps
                 copy_param["alignments"] = batch_data.alignments
