@@ -281,7 +281,7 @@ class RetrievalTrainManager(object):
                     
                 self.model.retriever.train()
                 self.model.retriever.zero_grad()
-                
+
                 # Statistic for each epoch.
                 start_time = time.time()
                 start_tokens = self.stats.total_tokens
@@ -292,8 +292,10 @@ class RetrievalTrainManager(object):
                     normalized_batch_loss = self.train_step(batch_data)
                     
                     normalized_batch_loss.backward()
-                    for p in self.model.retriever.parameters():
-                        logger.info(p.grad)
+                    for (name,param) in self.model.retriever.named_parameters():
+                        if "bandwidth" in name:
+                            logger.info("name={} => param={}".format(name, param))
+                            logger.info("name={} => grad={}".format(name, param.grad))
                         
                     # clip gradients (in-place)
                     if self.clip_grad_fun is not None:
@@ -301,9 +303,14 @@ class RetrievalTrainManager(object):
                     
                     # make gradient step
                     self.optimizer.step()
-
+                    logger.info("lr = {}".format(self.optimizer.param_groups[0]["lr"]))
                     # reset gradients
                     self.model.retriever.zero_grad()
+
+                    for (name,param) in self.model.retriever.named_parameters():
+                        if "bandwidth" in name:
+                            logger.info("name={} => param={}".format(name, param))
+                    logger.info("*"*80)
 
                     # accumulate loss
                     epoch_loss += normalized_batch_loss.item()

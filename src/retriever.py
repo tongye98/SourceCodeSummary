@@ -93,9 +93,6 @@ class StaticRetriever(Retriever):
         model_based_distribution = F.softmax(logits, dim=-1)
         # model_based_distribution [batch_size*trg_len, trg_vocab_size]
         distances, token_indices = self.database.search(hidden.cpu().numpy(), top_k=self.top_k)
-        logger.info('distance = {}'.format(distances))
-        logger.info('token indices = {}'.format(token_indices))
-        assert False
         # distances [batch_size*trg_len, top_k] distance
         # token_indices [batch_size*trg_len, top_k] id
         distances = torch.FloatTensor(distances).to(hidden.device)
@@ -146,10 +143,27 @@ class DynamicRetriever(Retriever):
         
         distances = torch.FloatTensor(distances).to(logits.device)
         # distances [batch_size*trg_len, top_k]
+        logger.info("distances = {}".format(distances))
         token_indices = torch.LongTensor(token_indices).to(logits.device)
         # token_indices [batch_size*trg_len, top_k]
         searched_hidden = torch.FloatTensor(searched_hidden).to(logits.device)
         # searched_hidden [batch_size*trg_len, top_k, model_dim]
+
+        # compute inner product
+        # inner = torch.matmul(searched_hidden, hidden.unsqueeze(-1)).squeeze(-1)
+        # logger.info("inner = {}".format(inner))
+
+        # compute l2 distance for double check
+        pdist = nn.PairwiseDistance(p=2)
+        l2 = pdist(hidden.unsqueeze(1), searched_hidden)
+        logger.info("l2 = {}".format(l2))
+        logger.info("l2^2 = {}".format(torch.mul(l2, l2)))
+
+        div = hidden.unsqueeze(1) - searched_hidden
+        a = torch.mul(div, div)
+        b = a.sum(dim=-1)
+        logger.info("b = {}".format(b))
+        assert False
     
         # compute dynamic database bandwidth 
         bandwidth = self.compute_bandwidth(hidden, searched_hidden)
@@ -178,7 +192,7 @@ class DynamicRetriever(Retriever):
         """
         mean_hidden = searched_hidden.mean(dim=1)
         # mean_hidden [batch_size*trg_len, model_dim]
-        bandwidth = torch.exp(self.bandwidth_estimator(torch.cat([hidden, mean_hidden], dim=-1)))
+        bandwidth = self.bandwidth_estimator(torch.cat([hidden, mean_hidden], dim=-1))
         # bandwidth [batch_size*trg_len, 1]
         return bandwidth
 

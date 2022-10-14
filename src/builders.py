@@ -35,6 +35,8 @@ def build_optimizer(train_cfg:dict, parameters: Generator)  -> Optimizer:
     if optimizer_name == "adam":
         kwargs["betas"] = train_cfg.get("adam_betas", (0.9, 0.999))
         optimizer = torch.optim.Adam(parameters, **kwargs)
+    elif optimizer_name == "sgd":
+        optimizer = torch.optim.SGD(parameters, **kwargs)
     else:
         raise ConfigurationError("Invalid optimizer.")
         
