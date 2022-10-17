@@ -17,7 +17,7 @@ def build_dataset(dataset_type: str, path:str, split_mode:str,
     if dataset_type == "plain":
         dataset = PlaintextDataset(path, split_mode, src_language, trg_language, tokenizer)
     elif dataset_type == "rencos_retrieval":
-        logger.warning("We are use rencos test dataset...")
+        logger.warning("We use rencos test dataset...")
         dataset = RencosDataset(path, split_mode, src_language, trg_language, tokenizer)
     else:
         raise ConfigurationError("Invalid dataset_type.")
@@ -135,6 +135,7 @@ class PlaintextDataset(BaseDataset):
         # copy_param["src_vocab"] = self.src_vocabs[index]
         # copy_param["src_map"] = self.src_maps[index]
         # copy_param["alignment"] = self.alignments[index]
+
         return (src, trg)
     
     def __len__(self) -> int:
@@ -164,7 +165,6 @@ class RencosDataset(BaseDataset):
         self.tokenizer = tokenizer
         self.original_data = self.load_data(path)
         self.tokernized_data = self.tokenize_data()
-        # self.src_vocabs, self.src_maps, self.alignments = self.get_src_vocabs_source_maps_alignments()
         self.tokernized_data_ids = None # Place_holder
     
     def load_data(self, path:str):

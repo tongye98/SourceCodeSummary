@@ -132,7 +132,7 @@ def collate_fn(batch: List[Tuple]):
     :param batch [(src,trg), (src,trg), ...]
     """
     src_list, trg_list= zip(*batch)  
-    # src_list: Tuple[List[id]] trg_list: Tuple[List[id]]
+    # src_list: Tuple[List[id]] || trg_list: Tuple[List[id]]
     assert len(src_list) == len(trg_list)
 
     return Batch(src_list, trg_list)
@@ -228,6 +228,7 @@ class Batch(object):
 
 class RencosBatch(object):
     """
+    Only used in Rencos Testing.
     Object for holding a batch of data with mask during training.
     Input is yield from 'collate_fn()' called by torch.data.utils.DataLoader.
     """
@@ -332,3 +333,4 @@ class RencosBatch(object):
     
     def __repr__(self) -> str:
         return (f"{self.__class__.__name__}(nseqs={self.nseqs}, ntokens={self.ntokens}.)")
+        

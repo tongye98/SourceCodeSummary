@@ -384,14 +384,10 @@ class RetrievalTrainManager(object):
         src_mask = batch_data.src_mask
         trg_mask = batch_data.trg_mask
         trg_truth = batch_data.trg_truth
-        copy_param = dict()
-        copy_param["source_maps"] = batch_data.src_maps
-        copy_param["alignments"] = batch_data.alignments
 
         # get loss (run as during training with teacher forcing)
         batch_loss = self.model(return_type="retrieval_loss", src_input=src_input, trg_input=trg_input,
-                   src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth,
-                   copy_param=copy_param)
+                   src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth)
 
         # normalization = 'batch' means final loss is average-sentence level loss in batch
         # normalization = 'tokens' means final loss is average-token level loss in batch

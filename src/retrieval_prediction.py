@@ -71,16 +71,9 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
                 trg_mask = batch_data.trg_mask
                 trg_truth = batch_data.trg_truth
                 logger.info("trg_truth = {}".format(trg_truth))
-                copy_param = dict()
-                copy_param["source_maps"] = batch_data.src_maps
-                copy_param["alignments"] = batch_data.alignments
-                copy_param["src_vocabs"] = batch_data.src_vocabs
-                blank_arr, fill_arr = collapse_copy_scores(model.trg_vocab, batch_data.src_vocabs)
-                copy_param["blank_arr"] = blank_arr
-                copy_param["fill_arr"] = fill_arr
 
                 batch_loss = model(return_type="retrieval_loss", src_input=src_input, trg_input=trg_input,
-                src_mask=src_mask, trg_mask=trg_mask, encoder_output=None, trg_truth=trg_truth, copy_param=copy_param)
+                src_mask=src_mask, trg_mask=trg_mask, encoder_output=None, trg_truth=trg_truth)
                 
                 batch_loss = batch_data.normalize(batch_loss, "sum")
 
@@ -88,15 +81,14 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
             total_ntokens += batch_data.ntokens
 
         # run search as during inference to produce translations (summary).
-        output, hyp_scores, attention_scores, batch_words = search(model=model, batch_data=batch_data,
+        output, hyp_scores, attention_scores = search(model=model, batch_data=batch_data,
                 beam_size=beam_size, beam_alpha=beam_alpha, max_output_length=max_output_length, 
                 min_output_length=min_output_length, n_best=n_best, return_attention=return_attention,
-                return_prob=return_prob, generate_unk=generate_unk, copy_param=copy_param)
+                return_prob=return_prob, generate_unk=generate_unk)
 
         all_outputs.extend(output)
         valid_sentences_scores.extend(hyp_scores if hyp_scores is not None else [])
         valid_attention_scores.extend(attention_scores if attention_scores is not None else [])
-        all_batch_words.extend(batch_words if batch_words is not None else [])
 
     assert total_nseqs == len(data)
     # NOTE all_outputs is a list of np.ndarray
@@ -112,10 +104,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
         valid_scores["loss"] = total_loss / normalizer
         valid_scores["ppl"] = math.exp(total_loss / total_ntokens)
     
-    if model.copy is False:
-        decoded_valid = model.trg_vocab.arrays_to_sentences(arrays=all_outputs, cut_at_eos=True)
-    else: # copy mode
-        decoded_valid = cut_off(all_batch_words, cut_at_eos=True, skip_pad=True)
+    decoded_valid = model.trg_vocab.arrays_to_sentences(arrays=all_outputs, cut_at_eos=True)
 
     # retrieve detokenized hypotheses and references
     valid_hypotheses = [data.tokenizer[data.trg_language].post_process(sentence, generate_unk=generate_unk) for sentence in decoded_valid]
@@ -152,7 +141,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
 
 def search(model, batch_data: Batch, beam_size: int, beam_alpha: float, 
            max_output_length: int, min_output_length: int, n_best: int,
-           return_attention: bool, return_prob: str, generate_unk: bool, copy_param=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+           return_attention: bool, return_prob: str, generate_unk: bool) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Get outputs and attention scores for a given batch.
     return:
@@ -172,16 +161,16 @@ def search(model, batch_data: Batch, beam_size: int, beam_alpha: float,
         src_mask = batch_data.src_mask
         encoder_output = model(return_type="encode", src_input=src_input, src_mask=src_mask)
         if beam_size < 2: # Greedy Strategy
-            stacked_output, stacked_scores, stacked_attention_scores, batch_words = greedy_search(model, encoder_output, src_mask, 
-                                    max_output_length, min_output_length, generate_unk, return_attention, return_prob, copy_param)
+            stacked_output, stacked_scores, stacked_attention_scores= greedy_search(model, encoder_output, src_mask, 
+                                    max_output_length, min_output_length, generate_unk, return_attention, return_prob)
         else:   # Beam Search
-            stacked_output, stacked_scores, stacked_attention_scores, batch_words = beam_search(model, encoder_output, src_mask, 
-            max_output_length, min_output_length, beam_size, beam_alpha, n_best, generate_unk, return_attention, return_prob, copy_param)
+            stacked_output, stacked_scores, stacked_attention_scores = beam_search(model, encoder_output, src_mask, 
+            max_output_length, min_output_length, beam_size, beam_alpha, n_best, generate_unk, return_attention, return_prob)
         
-        return stacked_output, stacked_scores, stacked_attention_scores, batch_words
+        return stacked_output, stacked_scores, stacked_attention_scores
 
 def greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
-                  generate_unk, return_attention, return_prob, copy_param):
+                  generate_unk, return_attention, return_prob):
     """
     Transformer Greedy function.
     :param: model: Transformer Model
@@ -202,13 +191,6 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
     # start with BOS-symbol for each sentence in the batch
     generated_tokens = encoder_output.new_full((batch_size,1), bos_index, dtype=torch.long, requires_grad=False)
     # generated_tokens [batch_size, 1] generated_tokens id
-    if model.copy:
-        generated_tokens_copy = encoder_output.new_full((batch_size,1), bos_index, dtype=torch.long, requires_grad=False)
-        # generated_tokens_copy [batch_size, 1] generated_tokens id
-        source_maps = copy_param["source_maps"]
-        src_vocabs = copy_param["src_vocabs"]
-        blank_arr = copy_param["blank_arr"]
-        fill_arr = copy_param["fill_arr"]
 
     # Placeholder for scores
     generated_scores = generated_tokens.new_zeros((batch_size,1), dtype=torch.float) if return_prob == "hypotheses" else None
@@ -230,57 +212,26 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
             # output  [batch_size, step+1, model_dim]
             # penultimate_representation [batch_size, step+1, model_dim]
             # cross_attention_weight [batch_size, step+1, src_len]
-            if model.copy is False:
-                output = model.output_layer(output)
-                # output [batch_size, step+1, trg_vocab_size]
-                output = output[:, -1].unsqueeze(1)
-                # output [batch_size, 1, trg_vocab_size]
-                penultimate_representation = penultimate_representation[:, -1].unsqueeze(1)
-                # penultimate_representation [batch_size, 1, model_dim]
-                log_probs = model.retriever(penultimate_representation, output)
-                # log_probs [batch_size, 1, vocab_size]
-                log_probs = log_probs.squeeze(1)
-                if not generate_unk:
-                    log_probs[:, unk_index] = float("-inf")
-                if step < min_output_length:
-                    log_probs[:, eos_index] = float("-inf")
-            else:
-                fuse_score, attention_score = model.copy_attention_score(output, encoder_output, src_mask)
-                # attention_score [batch_size, trg_len, src_len]
-                prob = model.copy_generator(output, attention_score, source_maps)
-                # prob [batch_size, step+1, trg_vocab_size + extra_words]
-                output = prob[:, -1]
-                # output [batch_size, trg_vocab_size + extra_words]
-                if not generate_unk:
-                    offset = model.trg_vocab_size
-                    output[:, unk_index] = float("-inf")
-                    output[:, unk_index + offset] = float("-inf")
-                if step < min_output_length:
-                    output[:, eos_index] = float("-inf")
-                    output[:, eos_index + offset] = float("-inf")
-                output = F.softmax(output, dim=-1)
-                
-                for sentence_id in range(output.size(0)):
-                    blank = torch.LongTensor(blank_arr[sentence_id]).cuda(non_blocking=True)
-                    fill = torch.LongTensor(fill_arr[sentence_id]).cuda(non_blocking=True)
-                    output[sentence_id].index_add_(0, fill, output[sentence_id].index_select(0, blank))
-                    output[sentence_id].index_fill_(0, blank, float("-inf"))
+            output = model.output_layer(output)
+            # output [batch_size, step+1, trg_vocab_size]
+            output = output[:, -1].unsqueeze(1)
+            # output [batch_size, 1, trg_vocab_size]
+            penultimate_representation = penultimate_representation[:, -1].unsqueeze(1)
+            # penultimate_representation [batch_size, 1, model_dim]
+            log_probs = model.retriever(penultimate_representation, output)
+            # log_probs [batch_size, 1, vocab_size]
+            log_probs = log_probs.squeeze(1)
+            if not generate_unk:
+                log_probs[:, unk_index] = float("-inf")
+            if step < min_output_length:
+                log_probs[:, eos_index] = float("-inf")
 
         # take the most likely token
         prob, next_words = torch.max(log_probs, dim=-1)
         # prob [batch_size]
         # next_words [batch_size]
 
-        if model.copy is False:
-            generated_tokens = torch.cat([generated_tokens, next_words.unsqueeze(-1)], dim=-1) # [batch_size, step+2]
-        else:   
-            # FIXME if next word id > trg_vocab_size? 
-            generated_tokens_copy = torch.cat([generated_tokens_copy, next_words.unsqueeze(-1)], dim=-1) # [batch_size, step+2]
-            for id in range(next_words.size(0)):
-                if next_words[id].item() > len(model.trg_vocab):
-                    next_words[id] = 0   # for those generated src vocab tokens(not in trg vocab), set to unk 
-            generated_tokens = torch.cat([generated_tokens, next_words.unsqueeze(-1)], dim=-1) # [batch_size, step+2]
-
+        generated_tokens = torch.cat([generated_tokens, next_words.unsqueeze(-1)], dim=-1) # [batch_size, step+2]
         generated_scores = torch.cat([generated_scores, prob.unsqueeze(-1)], dim=-1) # [batch_size, step+2]
 
         if return_attention is True:
@@ -292,19 +243,13 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
         finished += is_eos
         if (finished >= 1).sum() == batch_size:
             break
-    
-    if model.copy:
-        generated_tokens_copy = generated_tokens_copy[:, 1:]
-        batch_words = tensor2sentence_copy(generated_tokens_copy, model.trg_vocab, src_vocabs)
-    else:
-        batch_words = None 
 
     # Remove bos-symbol
     stacked_output = generated_tokens[:, 1:].detach().cpu().numpy()
     stacked_scores = generated_scores[:, 1:].detach().cpu().numpy() if return_prob == "hypotheses" else None
     stacked_attention = generated_attention_weight[:, 1:, :].detach().cpu().numpy() if return_attention else None
 
-    return stacked_output, stacked_scores, stacked_attention, batch_words
+    return stacked_output, stacked_scores, stacked_attention
 
 def beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, beam_size, beam_alpha,
                 n_best, generate_unk, return_attention, return_prob):
@@ -495,4 +440,4 @@ def beam_search(model, encoder_output, src_mask, max_output_length, min_output_l
     final_outputs = pad_and_stack_hyps(predictions_list)
     scores = (np.array([[u.item()] for r in results['scores'] for u in r]) if return_prob else None)
 
-    return final_outputs, scores, None, None
+    return final_outputs, scores, None

@@ -67,7 +67,7 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
 
                 # Test
                 for dataset_name, dataset in data_to_predict.items():
-                    if dataset_name == "dev":
+                    if dataset_name != "test":
                         continue
                     if dataset is not None:
                         logger.info("Testing on %s set...", dataset_name)

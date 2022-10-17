@@ -9,7 +9,7 @@ from src.rencos_test import rencos_test
 def main():
     parser = argparse.ArgumentParser("Transformer")
 
-    parser.add_argument("mode", choices=["train","test","build_database","retrieval_train","retrieval_test","rencos"], help="Train a model or Test.")
+    parser.add_argument("mode", choices=["train","test","build_database","retrieval_train","retrieval_test","rencos"])
     parser.add_argument("config_path", type=str, help="path to a config yaml file.")
     parser.add_argument("-c","--ckpt", type=str, help="model checkpoint for prediction.")
     parser.add_argument("-o","--output_path", type=str, help="path for saving test result.")

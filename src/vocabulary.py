@@ -68,13 +68,10 @@ class Vocabulary(object):
     """
     Vocabulary class mapping between tokens and indices.
     """
-    def __init__(self, tokens: List[str], has_bos_eos: bool=True) -> None:
+    def __init__(self, tokens: List[str]) -> None:
         "Create  vocabulary from list of tokens. :param tokens: list of tokens"
-        if has_bos_eos:
-            self.specials = [UNK_TOKEN, PAD_TOKEN, BOS_TOKEN, EOS_TOKEN]
-        else:
-            self.specials = [UNK_TOKEN, PAD_TOKEN]
 
+        self.specials = [UNK_TOKEN, PAD_TOKEN, BOS_TOKEN, EOS_TOKEN]
         self._stoi: Dict[str, int] = {} # string to index
         self._itos: List[str] = []      # index to string
 
@@ -85,13 +82,12 @@ class Vocabulary(object):
         # assign special after stoi and itos are built
         self.pad_index = self.lookup(PAD_TOKEN)
         self.unk_index = self.lookup(UNK_TOKEN)
+        self.bos_index = self.lookup(BOS_TOKEN)
+        self.eos_index = self.lookup(EOS_TOKEN)
         assert self.pad_index == PAD_ID
         assert self.unk_index == UNK_ID
-        if has_bos_eos:
-            self.bos_index = self.lookup(BOS_TOKEN)
-            self.eos_index = self.lookup(EOS_TOKEN)
-            assert self.bos_index == BOS_ID
-            assert self.eos_index == EOS_ID
+        assert self.bos_index == BOS_ID
+        assert self.eos_index == EOS_ID
         assert self._itos[UNK_ID] == UNK_TOKEN
     
     def lookup(self, token: str) -> int:

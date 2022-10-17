@@ -12,8 +12,8 @@ import numpy as np
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 from typing import Dict, List, Tuple
-from src.helps import collapse_copy_scores, parse_test_arguments, cut_off
-from src.helps import collapse_copy_scores, tile, tensor2sentence_copy
+from src.helps import parse_test_arguments, tile
+from src.helps import collapse_copy_scores, tensor2sentence_copy, cut_off
 from src.datas import Batch, make_data_iter
 from src.metrics import Bleu, Meteor, Rouge
 
@@ -54,7 +54,6 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
     all_outputs = []
     valid_sentences_scores = []
     valid_attention_scores = [] 
-    all_batch_words = []
     hyp_scores = None
     attention_scores = None
 

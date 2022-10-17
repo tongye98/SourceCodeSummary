@@ -413,3 +413,4 @@ class TransformerDecoderLayer(nn.Module):
             
         representation = self.feed_forward.layer_norm(feedforward_input)
         return representation
+        

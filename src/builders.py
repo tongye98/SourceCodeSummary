@@ -34,8 +34,10 @@ def build_optimizer(train_cfg:dict, parameters: Generator)  -> Optimizer:
     kwargs = {"lr": train_cfg.get("learning_rate", 3e-4), "weight_decay":train_cfg.get("weight_decay",0)}
     if optimizer_name == "adam":
         kwargs["betas"] = train_cfg.get("adam_betas", (0.9, 0.999))
+        # kwargs: lr; weight_decay; betas
         optimizer = torch.optim.Adam(parameters, **kwargs)
     elif optimizer_name == "sgd":
+        # kwargs: lr; momentum; dampening; weight_decay; nestrov
         optimizer = torch.optim.SGD(parameters, **kwargs)
     else:
         raise ConfigurationError("Invalid optimizer.")
@@ -54,6 +56,7 @@ def build_scheduler(train_cfg:dict, optimizer:Optimizer):
     scheduler, scheduler_step_at = None, None
     scheduler_name = train_cfg.get("scheduling", None)
     assert scheduler_name in ["StepLR", "ExponentialLR", "ReduceLROnPlateau"], "Invalid scheduling."
+    
     if scheduler_name == "ReduceLROnPlateau":
         mode = train_cfg.get("mode", "max")
         factor = train_cfg.get("factor", 0.5)
@@ -72,5 +75,6 @@ def build_scheduler(train_cfg:dict, optimizer:Optimizer):
         scheduler_step_at = "epoch"
     else:
         raise ConfigurationError("Invalid scheduling setting.")
-        
+    
+    logger.info("Scheduler = %s", scheduler.__class__.__name__)
     return scheduler, scheduler_step_at
