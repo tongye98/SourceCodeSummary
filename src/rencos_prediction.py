@@ -70,9 +70,13 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
                 src_mask = batch_data.src_mask
                 trg_mask = batch_data.trg_mask
                 trg_truth = batch_data.trg_truth
-
-                batch_loss = model(return_type="loss", src_input=src_input, trg_input=trg_input,
-                src_mask=src_mask, trg_mask=trg_mask, encoder_output=None, trg_truth=trg_truth)
+                retrieval = dict()
+                retrieval["src_syntax_input"] = batch_data.src_syntax
+                retrieval["src_syntax_mask"] = batch_data.src_syntax_mask
+                retrieval["src_semantic_input"] = batch_data.src_semantic
+                retrieval["src_semantic_mask"] = batch_data.src_semantic_mask
+                batch_loss = model(return_type="rencos_loss", src_input=src_input, trg_input=trg_input,
+                src_mask=src_mask, trg_mask=trg_mask, encoder_output=None, trg_truth=trg_truth, copy_param=None, retrieval=retrieval)
                 
                 batch_loss = batch_data.normalize(batch_loss, "sum")
 
@@ -80,7 +84,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
             total_ntokens += batch_data.ntokens
 
         # run search as during inference to produce translations (summary).
-        output, hyp_scores, attention_scores = search(model=model, batch_data=batch_data,
+        output, hyp_scores, attention_scores= search(model=model, batch_data=batch_data,
                 beam_size=beam_size, beam_alpha=beam_alpha, max_output_length=max_output_length, 
                 min_output_length=min_output_length, n_best=n_best, return_attention=return_attention,
                 return_prob=return_prob, generate_unk=generate_unk)
@@ -134,7 +138,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
 
     logger.info("Evaluation result({}) {}, evaluation time: {:.2f}[sec]".format("Beam Search" if beam_size > 1 else "Greedy Search",
                     eval_metrics_string, eval_duration))
-    logger.info("Bleu1-4 order = {}".format(bleu_order))
+    logger.info("Bleu order = {}".format(bleu_order))
 
     return (valid_scores, valid_references, valid_hypotheses, valid_sentences_scores, valid_attention_scores)
 
@@ -159,16 +163,38 @@ def search(model, batch_data: Batch, beam_size: int, beam_alpha: float,
         src_input = batch_data.src
         src_mask = batch_data.src_mask
         encoder_output = model(return_type="encode", src_input=src_input, src_mask=src_mask)
+
+        src_syntax_input = batch_data.src_syntax
+        src_syntax_mask = batch_data.src_syntax_mask
+        src_syntax_similarity_score = batch_data.src_syntax_score
+        encoder_syntax_output = model(return_type="encode", src_input=src_syntax_input, src_mask=src_syntax_mask)
+
+        src_semantic_input = batch_data.src_semantic
+        src_semantic_mask = batch_data.src_semantic_mask
+        src_semantic_similarity_score = batch_data.src_semantic_score
+        encoder_semantic_ouput = model(return_type="encode", src_input=src_semantic_input, src_mask=src_semantic_mask)
+
+        output = dict()
+        output["encoder_output"] = encoder_output
+        output["encoder_syntax_output"] = encoder_syntax_output
+        output["encoder_semantic_output"] = encoder_semantic_ouput
+
+        mask = dict()
+        mask["src_mask"] = src_mask
+        mask["src_syntax_mask"] = src_syntax_mask
+        mask["src_semantic_mask"] = src_semantic_mask
+
+        similarity_score = dict()
+        similarity_score["syntax_similarity_score"] = src_syntax_similarity_score
+        similarity_score["semantic_similarity_score"] = src_semantic_similarity_score
+
         if beam_size < 2: # Greedy Strategy
-            stacked_output, stacked_scores, stacked_attention_scores = greedy_search(model, encoder_output, src_mask, 
+            stacked_output, stacked_scores, stacked_attention_scores = greedy_search(model, output, mask, similarity_score,
                                     max_output_length, min_output_length, generate_unk, return_attention, return_prob)
-        else:   # Beam Search
-            stacked_output, stacked_scores, stacked_attention_scores = beam_search(model, encoder_output, src_mask, 
-            max_output_length, min_output_length, beam_size, beam_alpha, n_best, generate_unk, return_attention, return_prob)
         
         return stacked_output, stacked_scores, stacked_attention_scores
 
-def greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
+def greedy_search(model, output, mask, similarity_score, max_output_length, min_output_length, 
                   generate_unk, return_attention, return_prob):
     """
     Transformer Greedy function.
@@ -185,11 +211,24 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
     bos_index = model.bos_index
     eos_index = model.eos_index 
 
+    encoder_output = output["encoder_output"] 
+    encoder_syntax_output = output["encoder_syntax_output"] 
+    encoder_semantic_output = output["encoder_semantic_output"] 
+
+    src_mask = mask["src_mask"] 
+    src_syntax_mask = mask["src_syntax_mask"]
+    src_semantic_mask = mask["src_semantic_mask"]
+
+    src_syntax_similarity_score = similarity_score["syntax_similarity_score"].unsqueeze(1)
+    src_semantic_similarity_score = similarity_score["semantic_similarity_score"].unsqueeze(1)
+
     batch_size, _, src_length = src_mask.size()
 
     # start with BOS-symbol for each sentence in the batch
     generated_tokens = encoder_output.new_full((batch_size,1), bos_index, dtype=torch.long, requires_grad=False)
     # generated_tokens [batch_size, 1] generated_tokens id
+    generated_syntax_tokens = encoder_output.new_full((batch_size,1), bos_index, dtype=torch.long, requires_grad=False)
+    generated_semantic_tokens = encoder_output.new_full((batch_size,1), bos_index, dtype=torch.long, requires_grad=False)
 
     # Placeholder for scores
     generated_scores = generated_tokens.new_zeros((batch_size,1), dtype=torch.float) if return_prob == "hypotheses" else None
@@ -208,25 +247,50 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
         with torch.no_grad():
             output, penultimate_representation, cross_attention_weight = model(return_type="decode", trg_input=generated_tokens, 
                                                             encoder_output=encoder_output, src_mask=src_mask, trg_mask=trg_mask)
+            output_syntax, penultimate_representation, cross_attention_weight_syntax = model(return_type="decode", trg_input=generated_syntax_tokens, 
+                                                            encoder_output=encoder_syntax_output, src_mask=src_syntax_mask, trg_mask=trg_mask)
+            output_semantic, penultimate_representation, cross_attention_weight_semantic = model(return_type="decode", trg_input=generated_semantic_tokens, 
+                                                            encoder_output=encoder_semantic_output, src_mask=src_semantic_mask, trg_mask=trg_mask)                                                                        
             # output  [batch_size, step+1, model_dim]
             # penultimate_representation [batch_size, step+1, model_dim]
-            # cross_attention_weight [batch_size, step+1, src_len]
             output = model.output_layer(output)
             # output [batch_size, step+1, trg_vocab_size]
+            output_syntax = model.output_layer(output_syntax)
+            output_semantic = model.output_layer(output_semantic)
+
             output = output[:, -1] 
             # output [batch_size, trg_vocab_size]
+            output_syntax = output_syntax[:,-1]
+            output_semantic = output_semantic[:,-1]
             if not generate_unk:
                 output[:, unk_index] = float("-inf")
+                output_syntax[:, unk_index] = float("-inf")
+                output_semantic[:, unk_index] = float("-inf")
+
             if step < min_output_length:
                 output[:, eos_index] = float("-inf")
+                output_syntax[:, eos_index] = float("-inf")
+                output_semantic[:, eos_index] = float("-inf")
+
             output = F.softmax(output, dim=-1)
+            output_syntax = F.softmax(output_syntax, dim=-1)
+            output_semantic = F.softmax(output_semantic, dim=-1)
+            
+            # NOTE
+            # src_syntax_similarity_score (batch_size, 1)
+            output = output + 3*src_syntax_similarity_score*output_syntax + 3*src_semantic_similarity_score*output_semantic
 
         # take the most likely token
         prob, next_words = torch.max(output, dim=-1)
-        # prob [batch_size]
-        # next_words [batch_size]
+        # prob [batch_size]  next_words [batch_size]
+        
+        prob_syntax, syntax_next_words = torch.max(output_syntax, dim=-1)
+        prob_semantic, semantic_next_words = torch.max(output_semantic, dim=-1)
 
         generated_tokens = torch.cat([generated_tokens, next_words.unsqueeze(-1)], dim=-1) # [batch_size, step+2]
+        generated_syntax_tokens = torch.cat([generated_syntax_tokens, syntax_next_words.unsqueeze(-1)],dim=-1)
+        generated_semantic_tokens = torch.cat([generated_semantic_tokens, semantic_next_words.unsqueeze(-1)],dim=-1)
+
         generated_scores = torch.cat([generated_scores, prob.unsqueeze(-1)], dim=-1) # [batch_size, step+2]
 
         if return_attention is True:
@@ -435,4 +499,4 @@ def beam_search(model, encoder_output, src_mask, max_output_length, min_output_l
     final_outputs = pad_and_stack_hyps(predictions_list)
     scores = (np.array([[u.item()] for r in results['scores'] for u in r]) if return_prob else None)
 
-    return final_outputs, scores, None
+    return final_outputs, scores, None, None

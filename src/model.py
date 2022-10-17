@@ -221,8 +221,7 @@ class Transformer(nn.Module):
     """
     def __init__(self, encoder: TransformerEncoder, decoder:TransformerDecoder,
                  src_embed: Embeddings, trg_embed: Embeddings,
-                 src_vocab: Vocabulary, trg_vocab: Vocabulary, 
-                 copy: bool=False) -> None:
+                 src_vocab: Vocabulary, trg_vocab: Vocabulary) -> None:
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
@@ -238,20 +237,12 @@ class Transformer(nn.Module):
         self.model_dim = self.decoder.model_dim
         self.output_layer = nn.Linear(self.model_dim, self.trg_vocab_size, bias=False)
 
-        self.loss_function = None
-        self.copy = copy
-        if self.copy:
-            self.copy_attention_score = GlobalAttention(self.model_dim)
-            self.copy_generator = CopyGenerator(self.model_dim, self.trg_vocab, self.output_layer)
-            self.loss_function = CopyGeneratorLoss(self.trg_vocab_size, force_copy=False)
-        else:
-            self.loss_function = XentLoss(pad_index=self.pad_index, smoothing=0)
+        self.loss_function = XentLoss(pad_index=self.pad_index, smoothing=0)
 
     def forward(self, return_type: str=None,
                 src_input:Tensor=None, trg_input:Tensor=None,
                 src_mask:Tensor=None, trg_mask:Tensor=None,
-                encoder_output: Tensor=None, trg_truth:Tensor=None,
-                copy_param=None):
+                encoder_output: Tensor=None, trg_truth:Tensor=None):
         """
         return_type: one of {"loss", "encode", "decode"}
         src_input [batch_size, src_len]
@@ -261,54 +252,43 @@ class Transformer(nn.Module):
         encoder_output [batch_size, src_len, model_dim]
         """
         if return_type == "loss":
-            assert self.loss_function is not None
             assert trg_input is not None and trg_mask is not None
             encode_output = self.encode(src_input, src_mask)
             decode_output, _, cross_attention_weight = self.decode(trg_input, encode_output, src_mask, trg_mask)
             # decode_output [batch_size, trg_len, model_dim]
-            if self.copy is False:
-                logits = self.output_layer(decode_output)
-                # logits [batch_size, trg_len, trg_vocab_size]
-                log_probs = F.log_softmax(logits, dim=-1)
-                batch_loss = self.loss_function(log_probs, target=trg_truth)
-                # return batch loss = sum over all sentences of all tokens in the batch that are not pad
-            else:
-                # use copy mechanism
-                assert copy_param is not None
-                fuse_score, attention_score = self.copy_attention_score(decode_output, encode_output, src_mask)
-                # attention_score [batch_size, trg_len, src_len]
-                source_maps = copy_param["source_maps"]
-                prob = self.copy_generator(decode_output, attention_score, source_maps)
-                # prob [batch_size, trg_len, trg_vocab_size + extra_words]
-                alignments = copy_param["alignments"]
-                # FIXME
-                assert False
-                batch_loss = self.loss_function(prob, alignments, trg_truth)
+            logits = self.output_layer(decode_output)
+            # logits [batch_size, trg_len, trg_vocab_size]
+            log_probs = F.log_softmax(logits, dim=-1)
+            batch_loss = self.loss_function(log_probs, target=trg_truth)
+            # return batch loss = sum over all sentences of all tokens in the batch that are not pad
             return batch_loss
+
         elif return_type == "encode":
             assert src_input is not None and src_mask is not None
             return self.encode(src_input, src_mask)
+
         elif return_type == "decode":
             assert trg_input is not None and trg_mask is not None
             return self.decode(trg_input, encoder_output, src_mask, trg_mask)
+
         elif return_type == "encode_decode":
             assert src_input is not None and src_mask is not None
             assert trg_input is not None and trg_mask is not None 
             encode_output = self.encode(src_input, src_mask)
             decode_output, penultimate_representation, cross_attention_weight = self.decode(trg_input, encode_output, src_mask, trg_mask)
             return decode_output, penultimate_representation, cross_attention_weight
+
         elif return_type == "retrieval_loss":
-            assert self.loss_function is not None 
             assert self.retriever is not None 
             encode_output = self.encode(src_input, src_mask)
             decode_output, penultimate_representation, cross_attention_weight = self.decode(trg_input, encode_output, src_mask, trg_mask)
             logits = self.output_layer(decode_output)
             log_probs = self.retriever(hidden=penultimate_representation, logits=logits)
-            # log_probs [batch_size, trg_len, vocab_size]
             batch_loss = self.loss_function(log_probs, target=trg_truth)
             return batch_loss
+
         else:
-            raise ValueError("return_type must be one of {'loss','encode','decode','retrieval_loss'}")
+            raise ValueError("return_type must be one of {'loss', 'encode', 'decode', 'encode_decode', 'retrieval_loss'}")
     
     def encode(self, src_input: Tensor, src_mask:Tensor):
         """
@@ -415,8 +395,7 @@ def build_model(model_cfg: dict=None, src_vocab: Vocabulary=None,
     
     model = Transformer(encoder=encoder, decoder=decoder,
                         src_embed=src_embed, trg_embed=trg_embed,
-                        src_vocab=src_vocab, trg_vocab=trg_vocab,
-                        copy=model_cfg["copy"])
+                        src_vocab=src_vocab, trg_vocab=trg_vocab)
     
     # tie softmax layer with trg embeddings
     if model_cfg.get("tied_softmax", False):

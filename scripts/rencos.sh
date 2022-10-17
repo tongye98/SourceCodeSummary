@@ -1,0 +1,1 @@
+python -m src rencos configs/rencos_python_base8_rencos.yaml
