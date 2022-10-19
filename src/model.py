@@ -100,6 +100,7 @@ class TransformerEncoder(nn.Module):
         elif self.src_pos_emb == "learnable":
             self.lpe = LearnablePositionalEncoding(model_dim, max_src_len + 1) # add 1 for <eos>
         else:
+            logger.info("src_pos_emb = {}".format(src_pos_emb))
             logger.warning("self.src_pos_emb value need double check")
 
         self.emb_dropout = nn.Dropout(emb_dropout)
@@ -325,8 +326,7 @@ class Transformer(nn.Module):
                 f"\tdecoder={self.decoder},\n"
                 f"\tsrc_embed={self.src_embed},\n"
                 f"\ttrg_embed={self.trg_embed},\n"
-                f"\tloss_function={self.loss_function},\n"
-                f"\tcopy={self.copy})")
+                f"\tloss_function={self.loss_function})")
     
     def log_parameters_list(self) -> None:
         """

@@ -2,6 +2,7 @@
 """
 Transformer layers
 """
+from email.errors import HeaderMissingRequiredValue
 import math
 import torch
 import torch.nn as nn
@@ -18,7 +19,7 @@ class MultiHeadedAttention(nn.Module):
     consider relative position.
     """
     def __init__(self, head_count: int, model_dim:int, dropout: float=0.1,
-                 max_relative_position=0, use_negative_distance=True, coverage=False) -> None:
+                 max_relative_position=0, use_negative_distance=False) -> None:
         super().__init__()
         assert model_dim % head_count == 0, 'model dim must be divisible by head count'
 
@@ -36,7 +37,6 @@ class MultiHeadedAttention(nn.Module):
 
         self.max_relative_position = max_relative_position
         self.use_negative_distance = use_negative_distance
-        self._coverage = coverage
 
         if self.max_relative_position > 0:
             relative_position_size = self.max_relative_position*2+1 if self.use_negative_distance is True else self.max_relative_position+1
@@ -80,10 +80,12 @@ class MultiHeadedAttention(nn.Module):
             relative_position_matrix = relative_position_matrix.to(key.device)
             relative_key = self.relative_position_embedding_key(relative_position_matrix)
             # relative_key [key_len, key_len, head_size]
-            r_query = query.permute(2,0,1,3).contiguous().view(query_len, batch_size*self.head_count, self.head_size)
+            relative_vaule = self.relative_position_embedding_value(relative_position_matrix)
+            # relative_value [value_len, value_len, head_size]
+            r_query = query.permute(2,0,1,3).reshape(query_len, batch_size*self.head_count, self.head_size)
             assert query_len == key_len, "For relative position."
-            scores_relative = torch.matmul(r_query, relative_key.transpose(1,2)).transpose(0,1)
-            scores_relative = scores_relative.contiguous().view(batch_size, self.head_count, query_len, key_len)
+            scores_relative = torch.matmul(r_query, relative_key.transpose(1,2)).reshape(query_len, batch_size, self.head_count, key_len)
+            scores_relative = scores_relative.permute(1, 2, 0, 3)
             scores = scores + scores_relative
 
         # apply mask Note: add a dimension to mask, -> [batch_size, 1, 1, key_len]
@@ -100,13 +102,9 @@ class MultiHeadedAttention(nn.Module):
         # context [batch_size, query_len, hidden_size]
 
         if self.max_relative_position > 0:
-            relative_position_matrix = generate_relative_position_matrix(value_len, self.max_relative_position, self.use_negative_distance)
-            relative_position_matrix = relative_position_matrix.to(value.device)
-            relative_vaule = self.relative_position_embedding_value(relative_position_matrix)
-            # relative_value [value_len, value_len, head_size]
-            r_attention_probs = attention_probs.permute(2,0,1,3).contiguous().view(query_len, batch_size*self.head_count, key_len)
+            r_attention_probs = attention_probs.permute(2,0,1,3).reshape(query_len, batch_size*self.head_count, key_len)
             context_relative = torch.matmul(r_attention_probs, relative_vaule) # context_relative [query_len, batch_size*self.head_count, head_size]
-            context_relative = context_relative.transpose(0, 1).contiguous().view(batch_size, self.head_count, query_len, self.head_size)
+            context_relative = context_relative.reshape(query_len, batch_size, self.head_count, self.head_size).permute(1, 2, 0, 3)
             context_relative = context_relative.transpose(1, 2).contiguous().view(batch_size, -1, self.head_count*self.head_size)
             # context_relative [batch_size, query_len, hidden_size]
             context = context + context_relative

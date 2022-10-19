@@ -133,7 +133,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
 
     logger.info("Evaluation result({}) {}, evaluation time: {:.2f}[sec]".format("Beam Search" if beam_size > 1 else "Greedy Search",
                     eval_metrics_string, eval_duration))
-    logger.info("Bleu1-4 order = {}".format(bleu_order))
+    logger.info("Bleu 1-4 order = {}".format(bleu_order))
 
     return (valid_scores, valid_references, valid_hypotheses, valid_sentences_scores, valid_attention_scores)
 
