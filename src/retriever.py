@@ -104,7 +104,7 @@ class StaticRetriever(Retriever):
         log_probs = torch.log(mixed_distribution)
         log_probs = log_probs.view(batch_size, trg_len, vocab_size).contiguous()
         # log_probs [batch_size, trg_len, vocab_size]
-        return log_probs
+        return log_probs, token_indices
 
 class DynamicRetriever(Retriever):
     def __init__(self, database:Database, top_k:int, kernel:Kernel) -> None:

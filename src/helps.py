@@ -1,5 +1,8 @@
+import enum
 import functools
+from lib2to3.pgen2 import token
 from os import cpu_count
+from tokenize import TokenInfo
 import torch.nn as nn
 from torch import Tensor 
 import torch
@@ -475,3 +478,24 @@ def check_retrieval_cfg(retrieval_cfg: dict) -> None:
             assert retrieval_cfg["embedding_path"] is not None, "{} is needed in {}".format("embedding_path", retrieval_cfg["type"])
             path = retrieval_cfg["embedding_path"] 
             assert os.path.exists(path), "{} does not exist.".format(path)
+
+def retrieval_accuracy(token_indices, trg_truth):
+    """
+    token_indices [batch_size*trg_len, top_k] id
+    trg_truth: [batch_size, trg_len]
+    """
+    hits = 0.
+    first_hits = 0.
+    all = 0
+    trg_truth = trg_truth.view(-1, 1) 
+    # trg_truth [batch_size*trg_len, 1]
+    for id, trg_id in enumerate(trg_truth):
+        if trg_id.item() == 1 or trg_id.item() == 3: # pad id and eos id
+            continue 
+        all += 1
+        if trg_id in token_indices[id]:
+            hits += 1
+        if trg_id == token_indices[id][0]:
+            first_hits += 1
+    # logger.info("hit accuracy = {}".format(hits/all))
+    return hits, first_hits, all

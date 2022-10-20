@@ -211,7 +211,7 @@ class TrainManager(object):
         self.model.load_state_dict(model_checkpoint["model_state"])
 
         if not reset_optimizer:
-            self.optimizer.load_state_dict(model_checkpoint["model_state"])
+            self.optimizer.load_state_dict(model_checkpoint["optimizer_state"])
         else:
             logger.info("Reset Optimizer.")
         

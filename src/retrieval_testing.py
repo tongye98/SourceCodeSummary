@@ -56,9 +56,9 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
         model.to(device)
 
     # grid search 
-    for mixing_weight in [0.5, 0.6, 0.7]:
-        for bandwidth in [20, 25, 30]:
-            for top_k in [8, 16, 32]:
+    for mixing_weight in [0.6]:
+        for bandwidth in [20]:
+            for top_k in [8]:
                 logger.info("mixing_weight = {} | bandwidth = {} | top_k = {}".format(mixing_weight, bandwidth, top_k))
 
                 model.retriever.mixing_weight = mixing_weight

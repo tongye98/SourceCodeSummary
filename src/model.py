@@ -10,7 +10,7 @@ from src.transformer_layers import TransformerEncoderLayer, PositionalEncoding
 from src.transformer_layers import TransformerDecoderLayer, LearnablePositionalEncoding
 from src.transformer_layers import CopyGenerator, GlobalAttention
 from src.vocabulary import Vocabulary
-from src.helps import ConfigurationError, freeze_params, subsequent_mask
+from src.helps import ConfigurationError, freeze_params, subsequent_mask, retrieval_accuracy
 from src.loss import XentLoss, CopyGeneratorLoss
 
 logger = logging.getLogger(__name__)
@@ -284,9 +284,10 @@ class Transformer(nn.Module):
             encode_output = self.encode(src_input, src_mask)
             decode_output, penultimate_representation, cross_attention_weight = self.decode(trg_input, encode_output, src_mask, trg_mask)
             logits = self.output_layer(decode_output)
-            log_probs = self.retriever(hidden=penultimate_representation, logits=logits)
+            log_probs, token_indices = self.retriever(hidden=penultimate_representation, logits=logits)
             batch_loss = self.loss_function(log_probs, target=trg_truth)
-            return batch_loss
+            hits, first_hits, token_numbers = retrieval_accuracy(token_indices, trg_truth)
+            return batch_loss, hits, first_hits, token_numbers
 
         else:
             raise ValueError("return_type must be one of {'loss', 'encode', 'decode', 'encode_decode', 'retrieval_loss'}")
