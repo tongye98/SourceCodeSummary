@@ -144,7 +144,6 @@ def rencos_collate_fn(batch: List[Tuple]):
 
     return RencosBatch(src, src_syntax, src_semantic, trg, src_syntax_score, src_semantic_score)
 
-
 class Batch(object):
     """
     Object for holding a batch of data with mask during training.
@@ -180,22 +179,6 @@ class Batch(object):
         self.trg_lengths = torch.tensor(trg_lengths).long() - 1 # original trg length + 1
         self.trg_mask = (self.trg_truth != PAD_ID).unsqueeze(1) # Shape: [batch_size, 1, trg_length]
         self.ntokens = (self.trg_truth != PAD_ID).data.sum().item()
-        
-        # # for copy mechanism
-        # self.src_vocabs = list()
-        # src_maps = list()
-        # alignments = list()
-        # # copy_param_list [dict(), dict(), dict()]
-        # self.copy_param_list = copy_param_list
-        # for copy_param in self.copy_param_list:
-        #     self.src_vocabs.append(copy_param["src_vocab"])
-        #     src_maps.append(torch.tensor(copy_param["src_map"]))
-        #     alignments.append(torch.tensor(copy_param["alignment"]))
-
-        # self.src_maps = make_src_map(src_maps)
-        # # self.src_maps: tensor; Shape: [batch_size, src_len, extra_words]  # no bos, no eos
-        # self.alignments = align(alignments)
-        # # self.alignments:tensor; Shape: [batch_size, trg_len] # no bos, but has eos
 
     def move2cuda(self, device:torch.device):
         """Move batch data to GPU"""
@@ -210,9 +193,6 @@ class Batch(object):
         self.trg_truth = self.trg_truth.to(device, non_blocking=True)
         self.trg_lengths = self.trg_lengths.to(device, non_blocking=True)
         self.trg_mask = self.trg_mask.to(device, non_blocking=True)
-
-        # self.src_maps = self.src_maps.to(device, non_blocking=True)
-        # self.alignments = self.alignments.to(device, non_blocking=True)
 
     def normalize(self, tensor, normalization):
         """

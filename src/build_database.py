@@ -224,7 +224,7 @@ def store_examples(model: Transformer, hidden_representation_path:str, token_map
             for i in range(batch_data.nseqs):
                 # for each sentence
                 total_original_tokens += trg_lengths[i]
-                trg_tokens_id = trg_truth[i][0:trg_lengths[i]]   # FIXME include final <eos> token id(3)
+                trg_tokens_id = trg_truth[i][0:trg_lengths[i]]   #include final <eos> token id(3)
                 hidden_states = penultimate_representation[i][0:trg_lengths[i]]
                 sequence = src_input[i].cpu().numpy().tolist() + [BOS_ID] # token id list
 
@@ -254,8 +254,6 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
     token_map_path: where to store corresponding token_map
     index_path: where to store FAISS Index.
     """
-    # make logger
-    # FIXME this is just for test
     model_dir = Path("saved/transformer_base12/")
     make_logger(model_dir, mode="build_database")
 
