@@ -37,7 +37,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
 
     decoding_description = ("(Greedy decoding with " if beam_size < 2 else f"(Beam search with "
                             f"beam_size={beam_size}, beam_alpha={beam_alpha}, n_best={n_best}")
-    decoding_description += (f"min_output_length={min_output_length}, "
+    decoding_description += (f", min_output_length={min_output_length}, "
                                 f"max_output_length={max_output_length}, return_prob={return_prob}, "
                                 f"genereate_unk={generate_unk}, batch_size={batch_size})")
     logger.info("Predicting %d examples...%s", len(data), decoding_description)
@@ -268,7 +268,7 @@ def beam_search(model, encoder_output, src_mask, max_output_length, min_output_l
     eos_index = model.eos_index
     batch_size = src_mask.size(0)
 
-    trg_vocab_size = model.decoder.output_size
+    trg_vocab_size = model.trg_vocab_size
     trg_mask = None 
     device = encoder_output.device
 

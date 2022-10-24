@@ -62,6 +62,7 @@ def load_data(data_cfg: dict):
                              src_language=src_language, trg_language=trg_language, tokenizer=tokenizer)
     # test data
     logger.info("Loading test dataset...")
+    # dataset_type = "rencos_retrieval"
     test_data = build_dataset(dataset_type=dataset_type, path=test_data_path, split_mode="test",
                               src_language=src_language, trg_language=trg_language, tokenizer=tokenizer)
     
@@ -136,6 +137,13 @@ def collate_fn(batch: List[Tuple]):
     assert len(src_list) == len(trg_list)
 
     return Batch(src_list, trg_list)
+
+def rencos_collate_fn(batch: List[Tuple]):
+    src, src_syntax, src_semantic, trg, src_syntax_score, src_semantic_score = zip(*batch)
+    assert len(src) == len(trg) == len(src_syntax) == len(src_semantic) == len(src_syntax_score) == len(src_semantic_score)
+
+    return RencosBatch(src, src_syntax, src_semantic, trg, src_syntax_score, src_semantic_score)
+
 
 class Batch(object):
     """

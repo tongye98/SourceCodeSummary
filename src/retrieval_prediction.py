@@ -12,7 +12,7 @@ import numpy as np
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 from typing import Dict, List, Tuple
-from src.helps import collapse_copy_scores, parse_test_arguments, cut_off
+from src.helps import collapse_copy_scores, parse_test_arguments, cut_off, retrieval_accuracy
 from src.helps import collapse_copy_scores, tile, tensor2sentence_copy
 from src.datas import Batch, make_data_iter
 from src.metrics import Bleu, Meteor, Rouge
@@ -57,10 +57,16 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
     all_batch_words = []
     hyp_scores = None
     attention_scores = None
-
+    # for retrieval analysis
     all_hits = 0.
     all_first_hits = 0.
     all_token_numbers = 0.
+    help_token_num = 0.
+    model_true_mix_true_num = 0.
+    model_true_mix_false_num = 0.
+    model_false_mix_true_num = 0.
+    model_false_mix_false_num = 0.
+
     for batch_data in tqdm.tqdm(data_iter, desc="Validating"):
         batch_data.move2cuda(device)
         total_nseqs += batch_data.nseqs 
@@ -74,7 +80,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
                 trg_mask = batch_data.trg_mask
                 trg_truth = batch_data.trg_truth
 
-                batch_loss, hits, first_hits, token_numbers = model(return_type="retrieval_loss", src_input=src_input, trg_input=trg_input,
+                batch_loss, retrieval_analysis, help_analysis = model(return_type="retrieval_loss", src_input=src_input, trg_input=trg_input,
                 src_mask=src_mask, trg_mask=trg_mask, encoder_output=None, trg_truth=trg_truth)
                 
                 batch_loss = batch_data.normalize(batch_loss, "sum")
@@ -82,12 +88,16 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
             total_loss += batch_loss.item()
             total_ntokens += batch_data.ntokens
 
-        all_hits += hits
-        all_first_hits += first_hits
-        all_token_numbers += token_numbers
-        # logger.info("hit_accuracy = {}".format(all_hits/all_token_numbers))
-        # assert False
-        continue
+        all_hits += retrieval_analysis["hits"]
+        all_first_hits += retrieval_analysis["hits_first_place"]
+        all_token_numbers += retrieval_analysis["token_numbers"]
+
+        help_token_num +=help_analysis["token_num"]
+        model_true_mix_true_num += help_analysis["model_true_mix_true_num"]
+        model_true_mix_false_num += help_analysis["model_true_mix_false_num"]
+        model_false_mix_true_num += help_analysis["model_false_mix_true_num"]
+        model_false_mix_false_num += help_analysis["model_false_mix_false_num"]
+
         # run search as during inference to produce translations (summary).
         output, hyp_scores, attention_scores = search(model=model, batch_data=batch_data,
                 beam_size=beam_size, beam_alpha=beam_alpha, max_output_length=max_output_length, 
@@ -98,9 +108,14 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
         valid_sentences_scores.extend(hyp_scores if hyp_scores is not None else [])
         valid_attention_scores.extend(attention_scores if attention_scores is not None else [])
     
-    logger.info("hit_accuracy = {}".format(all_hits/all_token_numbers))
-    logger.info("first hit_accuracy = {}".format(all_first_hits/all_token_numbers))
-    assert False
+    logger.info("all_hits = {}, all_token_numbers = {}, hit_accuracy = {}".format(all_hits, all_token_numbers, all_hits/all_token_numbers))
+    logger.info("first_hits={}, all_token_numbers = {}, first hit_accuracy = {}".format(all_first_hits, all_token_numbers,all_first_hits/all_token_numbers))
+    logger.info("model_true_mix_true_num = {} help_token_num = {}, ratio = {}".format(model_true_mix_true_num, help_token_num, model_true_mix_true_num/help_token_num))
+    logger.info("model_true_mix_false_num = {} help_token_num = {}, ratio = {}".format(model_true_mix_false_num, help_token_num, model_true_mix_false_num/help_token_num))
+    logger.info("model_false_mix_true_num = {} help_token_num = {}, ratio = {}".format(model_false_mix_true_num, help_token_num, model_false_mix_true_num/help_token_num))
+    logger.info("model_false_mix_false_num = {} help_token_num = {}, ratio = {}".format(model_false_mix_false_num, help_token_num, model_false_mix_false_num/help_token_num))
+
+
     assert total_nseqs == len(data)
     # NOTE all_outputs is a list of np.ndarray
     assert len(all_outputs) == len(data) * n_best
@@ -229,7 +244,7 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
             # output [batch_size, 1, trg_vocab_size]
             penultimate_representation = penultimate_representation[:, -1].unsqueeze(1)
             # penultimate_representation [batch_size, 1, model_dim]
-            log_probs = model.retriever(penultimate_representation, output)
+            log_probs, _ = model.retriever(penultimate_representation, output)
             # log_probs [batch_size, 1, vocab_size]
             log_probs = log_probs.squeeze(1)
             if not generate_unk:

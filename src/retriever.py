@@ -99,12 +99,24 @@ class StaticRetriever(Retriever):
         token_indices = torch.LongTensor(token_indices).to(hidden.device)
         example_based_distribution, _ = self.kernel.compute_example_based_distribution(distances, self.bandwidth, token_indices, vocab_size)
         # example_based_distribution [batch_size*trg_len, trg_vocab_size]
-        mixed_distribution = (1 - self.mixing_weight)*model_based_distribution + self.mixing_weight*example_based_distribution
+
+        # mixed_distribution = (1 - self.mixing_weight)*model_based_distribution + self.mixing_weight*example_based_distribution
+        
+        # only uss example_based distribution 
+        mixed_distribution = example_based_distribution
+
+        # only use model based distribution
+        # mixed_distribution = model_based_distribution
 
         log_probs = torch.log(mixed_distribution)
         log_probs = log_probs.view(batch_size, trg_len, vocab_size).contiguous()
         # log_probs [batch_size, trg_len, vocab_size]
-        return log_probs, token_indices
+        analysis = dict()
+        analysis["token_indices"] = token_indices
+        analysis["model_based_distribution"] = model_based_distribution
+        analysis["example_based_distribution"] = example_based_distribution 
+        analysis["mixed_distribution"] = mixed_distribution
+        return log_probs, analysis
 
 class DynamicRetriever(Retriever):
     def __init__(self, database:Database, top_k:int, kernel:Kernel) -> None:

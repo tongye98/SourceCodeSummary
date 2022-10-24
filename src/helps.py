@@ -499,3 +499,65 @@ def retrieval_accuracy(token_indices, trg_truth):
             first_hits += 1
     # logger.info("hit accuracy = {}".format(hits/all))
     return hits, first_hits, all
+
+def actually_help_analysis(analysis, trg_truth):
+    """
+    analysis: dict
+    trg_truth: [batch_size, trg_len]
+    """
+    token_indices = analysis["token_indices"]
+    model_based_distribution = analysis["model_based_distribution"]
+    example_based_distribution = analysis["example_based_distribution"]
+    mixed_distribution = analysis["mixed_distribution"]
+    # distribution [batch_size*trg_len, vocab_size]
+
+    batch_size, trg_len = trg_truth.size()
+    vocab_size = model_based_distribution.size(-1)
+    trg_truth = trg_truth.view(-1)
+    # trg_truth [batch_size*trg_len]
+
+    model_probs, model_words = torch.max(model_based_distribution, dim=-1)
+    # probs [batch_size*trg_len]
+    # words [batch_size*trg_len]
+
+    example_probs, example_words = torch.max(example_based_distribution,dim=-1)
+
+    mixed_probs, mixed_words = torch.max(mixed_distribution, dim=-1)
+
+
+    # step1 本来是对的， 引入检索之后 还是对
+    # step2 本来是对的， 引入检索之后 变为错
+    # step3 本来是错的， 引入检索之后 变为对
+    # step4 本来是错的， 引入检索之后 还是错
+    token_num = 0
+    model_true_mix_true_num = 0
+    model_true_mix_false_num = 0
+    model_false_mix_true_num = 0
+    model_false_mix_false_num = 0
+
+    for id in range(batch_size*trg_len):
+        if trg_truth[id] == 1 or trg_truth[id] == 3: # pad id eos id
+            continue 
+
+        token_num += 1
+
+        if model_words[id] == trg_truth[id] and mixed_words[id] == trg_truth[id]:
+            model_true_mix_true_num += 1
+
+        if model_words[id] == trg_truth[id] and mixed_words[id] != trg_truth[id]:
+            model_true_mix_false_num += 1
+        
+        if model_words[id] != trg_truth[id] and mixed_words[id] == trg_truth[id]:
+            model_false_mix_true_num += 1
+        
+        if model_words[id] != trg_truth[id] and mixed_words[id] != trg_truth[id]:
+            model_false_mix_false_num += 1
+    
+    help_analysis = dict()
+    help_analysis["token_num"] = token_num
+    help_analysis["model_true_mix_true_num"] = model_true_mix_true_num
+    help_analysis["model_true_mix_false_num"] = model_true_mix_false_num
+    help_analysis["model_false_mix_true_num"] = model_false_mix_true_num
+    help_analysis["model_false_mix_false_num"] = model_false_mix_false_num
+
+    return help_analysis

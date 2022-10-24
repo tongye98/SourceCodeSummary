@@ -247,8 +247,9 @@ def greedy_search(model, output, mask, similarity_score, max_output_length, min_
             
             # NOTE
             # src_syntax_similarity_score (batch_size, 1)
-            output = output + 3*src_syntax_similarity_score*output_syntax + 3*src_semantic_similarity_score*output_semantic
-
+            # output = output + src_syntax_similarity_score*output_syntax + src_semantic_similarity_score*output_semantic
+            # output = output + src_semantic_similarity_score*output_semantic
+            output = output + src_syntax_similarity_score*output_syntax
         # take the most likely token
         prob, next_words = torch.max(output, dim=-1)
         # prob [batch_size]  next_words [batch_size]

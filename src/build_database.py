@@ -256,7 +256,7 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
     """
     # make logger
     # FIXME this is just for test
-    model_dir = Path("test/")
+    model_dir = Path("saved/transformer_base12/")
     make_logger(model_dir, mode="build_database")
 
     logger.info("Load config...")
@@ -295,7 +295,7 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
                        shuffle=shuffle, num_workers=num_workers, device=device)
 
         logger.info("train index...")
-        index = FaissIndex(index_type="INNER")
+        index = FaissIndex(index_type="L2")
         index.train(hidden_representation_path)
         index.add(hidden_representation_path)
         index.export(index_path)
