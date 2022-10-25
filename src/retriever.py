@@ -186,8 +186,10 @@ class DynamicRetriever(Retriever):
         # mixed_distribution [batch_size*trg_len, trg_vocab_size]
 
         log_probs = torch.log(mixed_distribution)
+        
         log_probs = log_probs.view(batch_size, trg_len, vocab_size).contiguous()
         # log_probs [batch_size, trg_len, vocab_size]
+
         return log_probs
     
     def compute_bandwidth(self, hidden:torch.Tensor, searched_hidden:torch.Tensor) -> torch.Tensor:

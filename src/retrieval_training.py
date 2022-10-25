@@ -75,7 +75,7 @@ def retrieval_train(cfg_file: str) -> None:
     trainer = RetrievalTrainManager(model=model, cfg=cfg)
 
     # train the model
-    trainer.train_and_validate(train_data=train_data, valid_data=dev_data)
+    trainer.train_and_validate(train_data=dev_data, valid_data=test_data)
 
 class RetrievalTrainManager(object):
     """
@@ -292,10 +292,6 @@ class RetrievalTrainManager(object):
                     normalized_batch_loss = self.train_step(batch_data)
                     
                     normalized_batch_loss.backward()
-                    for (name,param) in self.model.retriever.named_parameters():
-                        if "bandwidth" in name:
-                            logger.info("name={} => param={}".format(name, param))
-                            logger.info("name={} => grad={}".format(name, param.grad))
                         
                     # clip gradients (in-place)
                     if self.clip_grad_fun is not None:
@@ -303,14 +299,9 @@ class RetrievalTrainManager(object):
                     
                     # make gradient step
                     self.optimizer.step()
-                    logger.info("lr = {}".format(self.optimizer.param_groups[0]["lr"]))
+
                     # reset gradients
                     self.model.retriever.zero_grad()
-
-                    for (name,param) in self.model.retriever.named_parameters():
-                        if "bandwidth" in name:
-                            logger.info("name={} => param={}".format(name, param))
-                    logger.info("*"*80)
 
                     # accumulate loss
                     epoch_loss += normalized_batch_loss.item()
@@ -386,7 +377,7 @@ class RetrievalTrainManager(object):
         trg_truth = batch_data.trg_truth
 
         # get loss (run as during training with teacher forcing)
-        batch_loss = self.model(return_type="retrieval_loss", src_input=src_input, trg_input=trg_input,
+        batch_loss, _, _ = self.model(return_type="retrieval_loss", src_input=src_input, trg_input=trg_input,
                    src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth)
 
         # normalization = 'batch' means final loss is average-sentence level loss in batch
