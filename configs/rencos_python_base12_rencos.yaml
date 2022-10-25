@@ -30,7 +30,7 @@ data:
         filter_or_truncate: "truncate"
 
 training:
-    model_dir: "models/rencos_python/transformer_base12"
+    model_dir: "models/rencos_python/transformer_base12_rencos"
     overwrite: True
     random_seed: 3407
     use_cuda: True
@@ -66,6 +66,7 @@ training:
     reset_iter_state: False
     # clip_grad_val: 1
     clip_grad_norm: 5.0
+    pre_trained_model_path: "saved/transformer_base12/401683.ckpt"
 
 testing:
     batch_size: 64
@@ -74,7 +75,7 @@ testing:
     min_output_length: 1
     eval_metrics: ['bleu','rouge-l']
     n_best: 1
-    beam_size: 4
+    beam_size: 1
     beam_alpha: -1
     return_attention: False
     return_prob: "hypotheses" # hypotheses, references, none

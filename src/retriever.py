@@ -1,6 +1,7 @@
 import logging 
 import math
 import torch 
+import faiss
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
@@ -87,23 +88,29 @@ class StaticRetriever(Retriever):
         """
         batch_size, trg_len, model_dim = hidden.size()
         vocab_size = logits.size(-1)
+        device = hidden.device
         hidden = hidden.view(batch_size*trg_len, model_dim)
         logits = logits.view(batch_size*trg_len, vocab_size)
 
         model_based_distribution = F.softmax(logits, dim=-1)
         # model_based_distribution [batch_size*trg_len, trg_vocab_size]
-        distances, token_indices = self.database.search(hidden.cpu().numpy(), top_k=self.top_k)
+        hidden = hidden.cpu().numpy().astype(np.float32)
+        faiss.normalize_L2(hidden)
+        distances, token_indices = self.database.search(hidden, top_k=self.top_k)
         # distances [batch_size*trg_len, top_k] distance
         # token_indices [batch_size*trg_len, top_k] id
-        distances = torch.FloatTensor(distances).to(hidden.device)
-        token_indices = torch.LongTensor(token_indices).to(hidden.device)
+        distances = torch.FloatTensor(distances).to(device)
+        token_indices = torch.LongTensor(token_indices).to(device)
+        logger.info("distances = {}".format(distances))
+        logger.info("token_indices={}".format(token_indices))
+        assert False
         example_based_distribution, _ = self.kernel.compute_example_based_distribution(distances, self.bandwidth, token_indices, vocab_size)
         # example_based_distribution [batch_size*trg_len, trg_vocab_size]
 
-        # mixed_distribution = (1 - self.mixing_weight)*model_based_distribution + self.mixing_weight*example_based_distribution
+        mixed_distribution = (1 - self.mixing_weight)*model_based_distribution + self.mixing_weight*example_based_distribution
         
         # only uss example_based distribution 
-        mixed_distribution = example_based_distribution
+        # mixed_distribution = example_based_distribution
 
         # only use model based distribution
         # mixed_distribution = model_based_distribution

@@ -72,9 +72,10 @@ class FaissIndex(object):
         template = re.compile(r"IVF\d*").sub(f"IVF{centroids}", self.factory_template)
         if self.index_type == "L2":
             index = faiss.index_factory(dimension, template, faiss.METRIC_L2)
-        else:
-            # index_type == "inner"
+        elif self.index_type == "INNER":
             index = faiss.index_factory(dimension, template, faiss.METRIC_INNER_PRODUCT)
+        else:
+            assert False, "Double check index_type!"
         
         if self.use_gpu:
             index = faiss.index_cpu_to_all_gpus(index)
@@ -219,13 +220,14 @@ def store_examples(model: Transformer, hidden_representation_path:str, token_map
             total_sequence += batch_data.nseqs
             _, penultimate_representation, _ = model(return_type='encode_decode', src_input=src_input, 
                                         trg_input=trg_input, src_mask=src_mask, trg_mask=trg_mask)
-            penultimate_representation = penultimate_representation.cpu().numpy().astype(np.float16)
+            penultimate_representation = penultimate_representation.cpu().numpy().astype(np.float32)
             
             for i in range(batch_data.nseqs):
                 # for each sentence
                 total_original_tokens += trg_lengths[i]
                 trg_tokens_id = trg_truth[i][0:trg_lengths[i]]   #include final <eos> token id(3)
                 hidden_states = penultimate_representation[i][0:trg_lengths[i]]
+                faiss.normalize_L2(hidden_states)
                 sequence = src_input[i].cpu().numpy().tolist() + [BOS_ID] # token id list
 
                 for token_id, hidden_state in zip(trg_tokens_id, hidden_states):
@@ -254,7 +256,7 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
     token_map_path: where to store corresponding token_map
     index_path: where to store FAISS Index.
     """
-    model_dir = Path("saved/transformer_base12/")
+    model_dir = Path("saved/transformer_base12/datastore_401683/inner")
     make_logger(model_dir, mode="build_database")
 
     logger.info("Load config...")
@@ -293,7 +295,7 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
                        shuffle=shuffle, num_workers=num_workers, device=device)
 
         logger.info("train index...")
-        index = FaissIndex(index_type="L2")
+        index = FaissIndex(index_type="INNER")
         index.train(hidden_representation_path)
         index.add(hidden_representation_path)
         index.export(index_path)

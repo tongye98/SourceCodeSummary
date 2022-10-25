@@ -300,7 +300,7 @@ def beam_search(model, encoder_output, src_mask, max_output_length, min_output_l
     eos_index = model.eos_index
     batch_size = src_mask.size(0)
 
-    trg_vocab_size = model.decoder.output_size
+    trg_vocab_size = model.trg_vocab_size
     trg_mask = None 
     device = encoder_output.device
 
@@ -344,10 +344,14 @@ def beam_search(model, encoder_output, src_mask, max_output_length, min_output_l
             # cross_attention_weight  [batch_size*beam_size, step+1, src_len]
 
             # for the transformer we made predictions for all time steps up to this point, so we only want to know about the last time step.
-            output = output[:, -1] # output [batch_size*beam_size, vocab_size]
+            # output = output[:, -1] # output [batch_size*beam_size, vocab_size]
+            output = output[:, -1].unsqueeze(1) # [batch_size*beam_size, 1, vocab_size]
+            penultimate_representation = penultimate_representation[:, -1].unsqueeze(1) # [batch_size*beam_size, 1, model_dim]
+            log_probs, _ = model.retriever(penultimate_representation, output)
+            log_probs = log_probs.squeeze(1)
 
         # compute log probability distribution over trg vocab
-        log_probs = F.log_softmax(output, dim=-1)
+        # log_probs = F.log_softmax(output, dim=-1)
         # log_probs [batch_size*beam_size, vocab_size]
 
         if not generate_unk:
