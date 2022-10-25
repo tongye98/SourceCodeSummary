@@ -57,7 +57,7 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
 
     # grid search 
     for mixing_weight in [0.4, 0.5, 0.6]:
-        for bandwidth in [10, 20, 30, 40]:
+        for bandwidth in [100, 20, 30, 40]:
             for top_k in [8, 16, 32]:
                 logger.info("mixing_weight = {} | bandwidth = {} | top_k = {}".format(mixing_weight, bandwidth, top_k))
 

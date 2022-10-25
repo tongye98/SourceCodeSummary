@@ -101,9 +101,7 @@ class StaticRetriever(Retriever):
         # token_indices [batch_size*trg_len, top_k] id
         distances = torch.FloatTensor(distances).to(device)
         token_indices = torch.LongTensor(token_indices).to(device)
-        logger.info("distances = {}".format(distances))
-        logger.info("token_indices={}".format(token_indices))
-        assert False
+
         example_based_distribution, _ = self.kernel.compute_example_based_distribution(distances, self.bandwidth, token_indices, vocab_size)
         # example_based_distribution [batch_size*trg_len, trg_vocab_size]
 
@@ -134,9 +132,9 @@ class DynamicRetriever(Retriever):
         dimension = database.index.index.d
         self.bandwidth_estimator = nn.Linear(2 * dimension, 1)
         if isinstance(kernel, GaussianKernel):
-            self.bandwidth_estimator.bias.data[0] = math.log(100)
+            self.bandwidth_estimator.bias.data[0] = 20
         else:
-            self.bandwidth_estimator.bias.data[0] = math.log(10)
+            self.bandwidth_estimator.bias.data[0] = 10
         self.mixing_weight_estimator = nn.Sequential(
                 nn.Linear(2*dimension, dimension),
                 nn.ReLU(),
@@ -162,27 +160,12 @@ class DynamicRetriever(Retriever):
         
         distances = torch.FloatTensor(distances).to(logits.device)
         # distances [batch_size*trg_len, top_k]
-        logger.info("distances = {}".format(distances))
+
         token_indices = torch.LongTensor(token_indices).to(logits.device)
         # token_indices [batch_size*trg_len, top_k]
+
         searched_hidden = torch.FloatTensor(searched_hidden).to(logits.device)
         # searched_hidden [batch_size*trg_len, top_k, model_dim]
-
-        # compute inner product
-        # inner = torch.matmul(searched_hidden, hidden.unsqueeze(-1)).squeeze(-1)
-        # logger.info("inner = {}".format(inner))
-
-        # compute l2 distance for double check
-        pdist = nn.PairwiseDistance(p=2)
-        l2 = pdist(hidden.unsqueeze(1), searched_hidden)
-        logger.info("l2 = {}".format(l2))
-        logger.info("l2^2 = {}".format(torch.mul(l2, l2)))
-
-        div = hidden.unsqueeze(1) - searched_hidden
-        a = torch.mul(div, div)
-        b = a.sum(dim=-1)
-        logger.info("b = {}".format(b))
-        assert False
     
         # compute dynamic database bandwidth 
         bandwidth = self.compute_bandwidth(hidden, searched_hidden)
@@ -190,12 +173,15 @@ class DynamicRetriever(Retriever):
 
         model_based_distribution = F.softmax(logits, dim=-1)
         # model_based_distribution [batch_size*trg_len, trg_vocab_size]
+
         example_based_distribution, sparse_example_based_distribution = self.kernel.compute_example_based_distribution(distances, bandwidth, token_indices, vocab_size)
         # example_based_distribution [batch_size*trg_len, trg_vocab_size]
         # sparse_example_based_distribution [batch_size*trg_len, top_k] 
+
         mixing_weight = self.compute_mixing_weight(hidden, searched_hidden, sparse_example_based_distribution)
         # mixing_weight [batch_size*trg_len, 1]
         # compute prediciton distribution by interpolating between model distribution and database distribution
+        
         mixed_distribution = (1 - mixing_weight) * model_based_distribution + mixing_weight * example_based_distribution
         # mixed_distribution [batch_size*trg_len, trg_vocab_size]
 
@@ -209,7 +195,7 @@ class DynamicRetriever(Retriever):
         hidden [batch_size*trg_len, model_dim]
         searched_hidden [batch_size*trg_len, top_k, model_dim]
         """
-        mean_hidden = searched_hidden.mean(dim=1)
+        mean_hidden = searched_hidden.mean(dim=-1)
         # mean_hidden [batch_size*trg_len, model_dim]
         bandwidth = self.bandwidth_estimator(torch.cat([hidden, mean_hidden], dim=-1))
         # bandwidth [batch_size*trg_len, 1]

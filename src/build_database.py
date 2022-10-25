@@ -17,6 +17,7 @@ from src.helps import load_config, load_model_checkpoint, make_logger
 from src.datas import load_data, make_data_iter
 from src.model import Transformer, build_model
 from npy_append_array import NpyAppendArray
+import torch.nn.functional as F
 
 logger = logging.getLogger(__name__)
 
@@ -218,7 +219,7 @@ def store_examples(model: Transformer, hidden_representation_path:str, token_map
             trg_truth = batch_data.trg_truth
             trg_lengths = batch_data.trg_lengths
             total_sequence += batch_data.nseqs
-            _, penultimate_representation, _ = model(return_type='encode_decode', src_input=src_input, 
+            decode_output, penultimate_representation, _ = model(return_type='encode_decode', src_input=src_input, 
                                         trg_input=trg_input, src_mask=src_mask, trg_mask=trg_mask)
             penultimate_representation = penultimate_representation.cpu().numpy().astype(np.float32)
             
@@ -256,7 +257,7 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
     token_map_path: where to store corresponding token_map
     index_path: where to store FAISS Index.
     """
-    model_dir = Path("saved/transformer_base12/datastore_401683/inner")
+    model_dir = Path("saved/transformer_base12/datastore_401683/inner2")
     make_logger(model_dir, mode="build_database")
 
     logger.info("Load config...")
