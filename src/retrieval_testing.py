@@ -23,7 +23,7 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
     assert model_dir is not None 
 
     # make logger
-    make_logger(Path(model_dir), mode="retrieval_test_static_retrieval_25_inner")
+    make_logger(Path(model_dir), mode="retrieval_test_static_retrieval_26")
 
     load_model = cfg["retrieval_training"].get("load_model", None)
     use_cuda = cfg["retrieval_training"].get("use_cuda", False) and torch.cuda.is_available()
@@ -56,9 +56,9 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
         model.to(device)
 
     # grid search 
-    for mixing_weight in [0.4, 0.5, 0.6]:
-        for bandwidth in [100, 20, 30, 40]:
-            for top_k in [8, 16, 32]:
+    for mixing_weight in [0.4]:
+        for bandwidth in [20]:
+            for top_k in [16]:
                 logger.info("mixing_weight = {} | bandwidth = {} | top_k = {}".format(mixing_weight, bandwidth, top_k))
 
                 model.retriever.mixing_weight = mixing_weight
@@ -81,7 +81,7 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
                                 logger.info("eval metric {} = {}".format(eval_metric, score*100))
                         if valid_hypotheses is not None:
                             # save final model outputs.
-                            test_output_path = Path(model_dir) / "output_static_retrieval_inner".format(mixing_weight, bandwidth, top_k, dataset_name)
+                            test_output_path = Path(model_dir) / "output_static_retrieval_l2".format(mixing_weight, bandwidth, top_k, dataset_name)
                             write_list_to_file(file_path=test_output_path, array=valid_hypotheses)
                             logger.info("Results saved to: %s.", test_output_path)
                     else:

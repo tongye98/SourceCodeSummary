@@ -33,7 +33,7 @@ class GaussianKernel(Kernel):
         super().__init__()
     
     def similarity(self, distances: torch.Tensor, bandwidth: Union[float, torch.Tensor]) -> torch.Tensor:
-        return distances / bandwidth
+        return - distances / bandwidth
 
 class LaplacianKernel(Kernel):
     def __init__(self) -> None:
@@ -88,20 +88,19 @@ class StaticRetriever(Retriever):
         """
         batch_size, trg_len, model_dim = hidden.size()
         vocab_size = logits.size(-1)
-        device = hidden.device
         hidden = hidden.view(batch_size*trg_len, model_dim)
         logits = logits.view(batch_size*trg_len, vocab_size)
 
         model_based_distribution = F.softmax(logits, dim=-1)
         # model_based_distribution [batch_size*trg_len, trg_vocab_size]
-        hidden = hidden.cpu().numpy().astype(np.float32)
-        faiss.normalize_L2(hidden)
-        distances, token_indices = self.database.search(hidden, top_k=self.top_k)
+        logger.info(hidden.dtype)
+        logger.info(hidden.cpu().numpy().dtype)
+        assert False
+        distances, token_indices = self.database.search(hidden.cpu().numpy(), top_k=self.top_k)
         # distances [batch_size*trg_len, top_k] distance
         # token_indices [batch_size*trg_len, top_k] id
-        distances = torch.FloatTensor(distances).to(device)
-        token_indices = torch.LongTensor(token_indices).to(device)
-
+        distances = torch.FloatTensor(distances).to(hidden.device)
+        token_indices = torch.LongTensor(token_indices).to(hidden.device)
         example_based_distribution, _ = self.kernel.compute_example_based_distribution(distances, self.bandwidth, token_indices, vocab_size)
         # example_based_distribution [batch_size*trg_len, trg_vocab_size]
 

@@ -228,15 +228,16 @@ def store_examples(model: Transformer, hidden_representation_path:str, token_map
                 total_original_tokens += trg_lengths[i]
                 trg_tokens_id = trg_truth[i][0:trg_lengths[i]]   #include final <eos> token id(3)
                 hidden_states = penultimate_representation[i][0:trg_lengths[i]]
-                faiss.normalize_L2(hidden_states)
+                # faiss.normalize_L2(hidden_states)
                 sequence = src_input[i].cpu().numpy().tolist() + [BOS_ID] # token id list
 
                 for token_id, hidden_state in zip(trg_tokens_id, hidden_states):
-                    meet_log = getmd5(sequence)
-                    if meet_log in already_meet_log:
-                        continue
-                    else:
-                        already_meet_log.add(meet_log)
+                    # meet_log = getmd5(sequence)
+                    # if meet_log in already_meet_log:
+                    #     logger.info(sequence)
+                    #     continue
+                    # else:
+                    #     already_meet_log.add(meet_log)
                     npaa.append(hidden_state[np.newaxis,:])
                     token_map_file.write(f"{token_id}\n")
                     sequence += [token_id]
@@ -257,7 +258,7 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
     token_map_path: where to store corresponding token_map
     index_path: where to store FAISS Index.
     """
-    model_dir = Path("saved/transformer_base12/datastore_401683/inner2")
+    model_dir = Path("saved/transformer_base12/datastore_401683/l2_float32_full")
     make_logger(model_dir, mode="build_database")
 
     logger.info("Load config...")
@@ -296,7 +297,7 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
                        shuffle=shuffle, num_workers=num_workers, device=device)
 
         logger.info("train index...")
-        index = FaissIndex(index_type="INNER")
+        index = FaissIndex(index_type="L2")
         index.train(hidden_representation_path)
         index.add(hidden_representation_path)
         index.export(index_path)

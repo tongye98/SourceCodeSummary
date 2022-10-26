@@ -1,5 +1,5 @@
 # Classical Transformer  base8
-# keep all same with NeuralCodeSum rencos_python4
+# use relative position information
 # no initialize model
 data:
     train_data_path: "data/rencos_python/train"
@@ -41,22 +41,22 @@ training:
     loss: "CrossEntropy"
     label_smoothing: 0.0
     scheduling: "StepLR" # "ReduceLROnPlateau", "StepLR", "ExponentialLR"
-    mode: "max"  # for schedule="ReduceLROnPlateau"
-    factor: 0.5 # for schedule="ReduceLROnPlateau"
-    patience: 5 # for scheduling = 'ReduceLROnPlatea'
-    step_size: 1 # for scheduling = "StepLR" 
-    gamma: 0.99 # for scheduling = "StepLR" or "ExponentialLR"
+    mode: "max"          # for schedule="ReduceLROnPlateau"
+    factor: 0.5          # for schedule="ReduceLROnPlateau"
+    patience: 5          # for scheduling = 'ReduceLROnPlatea'
+    step_size: 1         # for scheduling = "StepLR" 
+    gamma: 0.99          # for scheduling = "StepLR" or "ExponentialLR"
     learning_rate: 0.0001
     weight_decay: 0
     learning_rate_min: 0.0000001
     keep_best_ckpts: 3
     logging_freq: 100
-    validation_freq: 1  # after how many epochs
+    validation_freq: 1    # after how many epochs
     log_valid_sentences: [0,1,2,3,4]
     early_stopping_metric: "bleu"
     shuffle: True
     epochs: 200
-    max_updates: 800000 #  "np.inf" 800k
+    max_updates: 800000   
     batch_size: 32
     batch_type: "sentence"
     # load_model: None
@@ -79,8 +79,8 @@ testing:
     return_attention: False
     return_prob: "hypotheses" # hypotheses, references, none
     generate_unk: True
-    repetition_penalty: 2 # >1, -1 means no repetition penalty. # no implemented
-    no_repeat_ngram_size: -1 # no implemented
+    repetition_penalty: 2     # >1, -1 means no repetition penalty. # no implemented
+    no_repeat_ngram_size: -1  # no implemented
 
 
 model:
@@ -88,7 +88,6 @@ model:
     embed_initializer: "xavier_uniform"
     tied_softmax: False
     tied_embeddings: False
-    copy: False # for copy mechanism
     encoder:
         model_dim: 512
         ff_dim: 2048
@@ -103,10 +102,10 @@ model:
             freeze: False
             dropout: 0.2
             # load_pretrained
-        src_pos_emb: "learnable" # use positional embeddings in encoder "absolute", "learnable", "relative"
-        max_src_len: 400 # for learnable. Keep same with data segment
-        max_relative_position: 0 # only for relative position, else must be set to 0
-        use_negative_distance: False # for relative position
+        src_pos_emb: "learnable"        # encoder "absolute", "learnable", "relative"
+        max_src_len: 400                # for learnable. Keep same with data segment
+        max_relative_position: 0        # only for relative position, else must be set to 0
+        use_negative_distance: False    # for relative position
     decoder:
         model_dim: 512
         ff_dim: 2048
@@ -121,7 +120,7 @@ model:
             freeze: False
             dropout: 0.2
             # load_pretrained
-        trg_pos_emb: "learnable" # use positional embeddings in encoder "absolute", "learnable","relative"
-        max_trg_len: 30 # for learnable. keep same with data segment
-        max_relative_position: 0  # only for relative position, else must be set to 0
-        use_negative_distance: False # for relative position
+        trg_pos_emb: "learnable"        # decoder "absolute", "learnable","relative"
+        max_trg_len: 30                 # for learnable. keep same with data segment
+        max_relative_position: 0        # only for relative position, else must be set to 0
+        use_negative_distance: False    # for relative position
