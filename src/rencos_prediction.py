@@ -11,8 +11,8 @@ import tqdm
 import numpy as np
 import torch.nn.functional as F
 from torch.utils.data import Dataset
-from typing import Dict, List, Tuple
-from src.helps import parse_test_arguments, collapse_copy_scores
+from typing import Dict, Tuple
+from src.helps import parse_test_arguments
 from src.datas import Batch, make_data_iter
 from src.metrics import Bleu, Meteor, Rouge
 
@@ -48,8 +48,6 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
 
     valid_scores = {"loss":float("nan"), "ppl":float("nan"), "bleu":float(0), "meteor":float(0), "rouge-l":float(0)}
     total_nseqs = 0
-    total_ntokens = 0
-    total_loss = 0
     all_outputs = []
     valid_sentences_scores = []
     valid_attention_scores = [] 
@@ -71,14 +69,11 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
         valid_attention_scores.extend(attention_scores if attention_scores is not None else [])
 
     assert total_nseqs == len(data)
-    # NOTE all_outputs is a list of np.ndarray
     assert len(all_outputs) == len(data) * n_best
     
     decoded_valid = model.trg_vocab.arrays_to_sentences(arrays=all_outputs, cut_at_eos=True)
 
-    # retrieve detokenized hypotheses and references
     valid_hypotheses = [data.tokenizer[data.trg_language].post_process(sentence, generate_unk=generate_unk) for sentence in decoded_valid]
-    # valid_hypotheses -> list of strings
     valid_references = data.trg
 
     valid_hyp_1best = (valid_hypotheses if n_best == 1 else [valid_hypotheses[i] for i in range(0, len(valid_hypotheses), n_best)])
@@ -86,9 +81,9 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
 
     predictions_dict = {k: [v.strip()] for k,v in enumerate(valid_hyp_1best)}
     references_dict = {k: [v.strip()] for k,v in enumerate(valid_references)}
-    # 0: ['partitions a list of suite from a interval .']
 
     eval_metric_start_time = time.time()
+
     for eval_metric in eval_metrics:
         if eval_metric == "bleu":  # geometric mean of bleu scores
             valid_scores[eval_metric], bleu_order = Bleu().corpus_bleu(hypotheses=predictions_dict, references=references_dict)
@@ -99,6 +94,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
                 logger.warning("meteor compute has something wrong!")
         elif eval_metric == "rouge-l":
             valid_scores[eval_metric] = Rouge().compute_score(gts=references_dict, res=predictions_dict)[0]
+    
     eval_duration = time.time() - eval_metric_start_time
     eval_metrics_string = ", ".join([f"{eval_metric}:{valid_scores[eval_metric]:6.3f}" for eval_metric in 
                                         eval_metrics+["loss","ppl"]])
@@ -155,11 +151,12 @@ def search(model, batch_data: Batch, beam_size: int, beam_alpha: float,
         similarity_score["syntax_similarity_score"] = src_syntax_similarity_score
         similarity_score["semantic_similarity_score"] = src_semantic_similarity_score
 
-        if beam_size < 2: # Greedy Strategy
-            stacked_output, stacked_scores, stacked_attention_scores = greedy_search(model, output, mask, similarity_score,
-                                    max_output_length, min_output_length, generate_unk, return_attention, return_prob)
-        else:
-            logger.error("beam size must = 1 in rencos prediction.")
+        if beam_size > 1:
+            logger.warning("Rencos test, beam_size should be 1.")
+            beam_size = 1
+
+        stacked_output, stacked_scores, stacked_attention_scores = greedy_search(model, output, mask, similarity_score,
+                                max_output_length, min_output_length, generate_unk, return_attention, return_prob)
         
         return stacked_output, stacked_scores, stacked_attention_scores
 

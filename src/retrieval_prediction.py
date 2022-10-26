@@ -12,8 +12,7 @@ import numpy as np
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 from typing import Dict, List, Tuple
-from src.helps import collapse_copy_scores, parse_test_arguments, cut_off, retrieval_accuracy
-from src.helps import collapse_copy_scores, tile, tensor2sentence_copy
+from src.helps import  tile, parse_test_arguments
 from src.datas import Batch, make_data_iter
 from src.metrics import Bleu, Meteor, Rouge
 
