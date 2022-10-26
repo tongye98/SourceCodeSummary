@@ -2,7 +2,6 @@
 """
 Transformer layers
 """
-from email.errors import HeaderMissingRequiredValue
 import math
 import torch
 import torch.nn as nn
