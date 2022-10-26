@@ -76,6 +76,8 @@ def make_logger(log_dir: Path=None, mode:str="train") -> None:
         if log_dir is not None:
             if log_dir.is_dir():
                 log_file = log_dir / f"{mode}.log"
+                if log_file.exists():
+                    assert False, "log file exists."
                 fh = logging.FileHandler(log_file.as_posix())
                 fh.setLevel(level=logging.DEBUG)
                 fh.setFormatter(formatter)

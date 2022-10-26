@@ -33,10 +33,12 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
     (batch_size, batch_type, max_output_length, min_output_length,
      eval_metrics, beam_size, beam_alpha, n_best, return_attention, 
      return_prob, generate_unk) = parse_test_arguments(test_cfg)
+    
+    if beam_size > 1:
+        logger.warning("Rencos test, beam_size should be 1.")
+        beam_size = 1
 
-    decoding_description = ("(Greedy decoding with " if beam_size < 2 else f"(Beam search with "
-                            f"beam_size={beam_size}, beam_alpha={beam_alpha}, n_best={n_best}")
-    decoding_description += (f"min_output_length={min_output_length}, "
+    decoding_description = (f"Decoding with min_output_length={min_output_length}, "
                                 f"max_output_length={max_output_length}, return_prob={return_prob}, "
                                 f"genereate_unk={generate_unk}, batch_size={batch_size})")
     logger.info("Predicting %d examples...%s", len(data), decoding_description)
@@ -150,10 +152,6 @@ def search(model, batch_data: Batch, beam_size: int, beam_alpha: float,
         similarity_score = dict()
         similarity_score["syntax_similarity_score"] = src_syntax_similarity_score
         similarity_score["semantic_similarity_score"] = src_semantic_similarity_score
-
-        if beam_size > 1:
-            logger.warning("Rencos test, beam_size should be 1.")
-            beam_size = 1
 
         stacked_output, stacked_scores, stacked_attention_scores = greedy_search(model, output, mask, similarity_score,
                                 max_output_length, min_output_length, generate_unk, return_attention, return_prob)

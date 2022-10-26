@@ -101,7 +101,6 @@ class TransformerEncoder(nn.Module):
             self.lpe = LearnablePositionalEncoding(model_dim, max_src_len + 1) # add 1 for <eos>
         else:
             logger.info("src_pos_emb = {}".format(src_pos_emb))
-            logger.warning("self.src_pos_emb value need double check")
 
         self.emb_dropout = nn.Dropout(emb_dropout)
         # self.emb_layer_norm = nn.LayerNorm(model_dim) if self.src_pos_emb == "learnable" else None

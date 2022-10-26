@@ -200,7 +200,6 @@ def store_examples(model: Transformer, hidden_representation_path:str, token_map
 
     # Create Numpy NPY files by appending on the zero axis.
     npaa = NpyAppendArray(hidden_representation_path)
-    # token_map file FIXME 
     token_map_file = open(token_map_path, "w", encoding="utf-8")
     already_meet_log = set()
     total_tokens = 0
@@ -258,7 +257,9 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
     token_map_path: where to store corresponding token_map
     index_path: where to store FAISS Index.
     """
-    model_dir = Path("saved/transformer_base12/datastore_401683/l2_float32_full")
+    cfg = load_config(Path(cfg_file))
+    model_dir = cfg["training"].get("model_dir", None)
+
     make_logger(model_dir, mode="build_database")
 
     logger.info("Load config...")
@@ -302,5 +303,3 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
         index.add(hidden_representation_path)
         index.export(index_path)
         del index
-
-    return None
