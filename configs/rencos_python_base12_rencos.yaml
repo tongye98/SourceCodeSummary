@@ -1,6 +1,7 @@
-# Classical Transformer  base8
-# keep all same with NeuralCodeSum rencos_python4
-# no initialize model, relative position.
+# Classical Transformer  base12
+# use relative position information
+# no initialize model.
+# only use for rencos method.
 data:
     train_data_path: "data/rencos_python/train"
     dev_data_path: "data/rencos_python/valid"

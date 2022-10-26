@@ -42,7 +42,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
     logger.info("Predicting %d examples...%s", len(data), decoding_description)
 
     data_iter = make_data_iter(dataset=data, sampler_seed=None, shuffle=False, batch_type=batch_type,
-                               batch_size=batch_size, num_workers=num_workers)
+                               batch_size=batch_size, num_workers=num_workers, use_rencos=True)
 
     model.eval()
 

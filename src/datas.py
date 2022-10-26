@@ -17,7 +17,7 @@ from typing import List, Union, Tuple, Iterator, Iterable
 
 logger = logging.getLogger(__name__)
 
-def load_data(data_cfg: dict):
+def load_data(data_cfg: dict, use_rencos=False):
     """
     Load train, dev and test data as specified in configuration.
     Vocabularies are created from the training dataset with a limit of 'vocab_limit' tokens
@@ -62,7 +62,8 @@ def load_data(data_cfg: dict):
                              src_language=src_language, trg_language=trg_language, tokenizer=tokenizer)
     # test data
     logger.info("Loading test dataset...")
-    # dataset_type = "rencos_retrieval"
+    if use_rencos:
+        dataset_type = "rencos_retrieval"
     test_data = build_dataset(dataset_type=dataset_type, path=test_data_path, split_mode="test",
                               src_language=src_language, trg_language=trg_language, tokenizer=tokenizer)
     
@@ -81,7 +82,7 @@ def load_data(data_cfg: dict):
     return train_data, dev_data, test_data, src_vocab, trg_vocab
 
 def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,
-                   batch_size, num_workers) -> DataLoader:
+                   batch_size, num_workers, use_rencos=False) -> DataLoader:
     """
     Return a torch DataLoader.
     """
@@ -100,9 +101,12 @@ def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,
         raise NotImplementedError("This batch_type Not Implementation.")
     else:
         raise ConfigurationError("Invalid batch_type.")
-    
-    return DataLoader(dataset, batch_sampler=batch_sampler, num_workers=num_workers,
-                      pin_memory=True, collate_fn=collate_fn)
+    if use_rencos:
+        return DataLoader(dataset, batch_sampler=batch_sampler, num_workers=num_workers,
+                          pin_memory=True, collate_fn=rencos_collate_fn)
+    else:
+        return DataLoader(dataset, batch_sampler=batch_sampler, num_workers=num_workers,
+                          pin_memory=True, collate_fn=collate_fn)
 
 
 class SentenceBatchSampler(BatchSampler):

@@ -25,22 +25,19 @@ def rencos_test(cfg_file: str, ckpt_path:str=None) -> None:
     assert model_dir is not None 
 
     # make logger
-    make_logger(Path(model_dir), mode="rencos_test_final")
+    make_logger(Path(model_dir), mode="rencos_test")
 
-    load_model = cfg["training"].get("load_model", None)
     use_cuda = cfg["training"].get("use_cuda", False) and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
     num_workers = cfg["training"].get("num_workers", 0)
     normalization = cfg["training"].get("normalization","batch")
 
-    train_data, dev_data, test_data, src_vocab, trg_vocab = load_data(data_cfg=cfg["data"])
-    data_to_predict = {"dev": dev_data, "test":test_data}
+    train_data, dev_data, test_data, src_vocab, trg_vocab = load_data(data_cfg=cfg["data"], use_rencos=True)
+    data_to_predict = {"test":test_data}
 
     # build an transformer(encoder-decoder) model
     model = build_model(model_cfg=cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab)
 
-    # when checkpoint is not specified, take latest(best) from model dir
-    ckpt_path = cfg["training"].get("pre_trained_model_path", None)
     logger.info("ckpt_path = {}".format(ckpt_path))
 
     # load model checkpoint
@@ -52,11 +49,8 @@ def rencos_test(cfg_file: str, ckpt_path:str=None) -> None:
     if device.type == "cuda":
         model.to(device)
 
-
     # Test
     for dataset_name, dataset in data_to_predict.items():
-        if dataset_name != "test":
-            continue
         if dataset is not None:
             logger.info("Testing on %s set...", dataset_name)
             (valid_scores, valid_references, valid_hypotheses, valid_sentences_scores, 
