@@ -33,7 +33,7 @@ class GaussianKernel(Kernel):
         super().__init__()
     
     def similarity(self, distances: torch.Tensor, bandwidth: Union[float, torch.Tensor]) -> torch.Tensor:
-        return - distances / bandwidth
+        return distances / bandwidth
 
 class LaplacianKernel(Kernel):
     def __init__(self) -> None:
@@ -190,16 +190,23 @@ class DynamicRetriever(Retriever):
         log_probs = log_probs.view(batch_size, trg_len, vocab_size).contiguous()
         # log_probs [batch_size, trg_len, vocab_size]
 
-        return log_probs
+        analysis = dict()
+        analysis["token_indices"] = token_indices
+        analysis["model_based_distribution"] = model_based_distribution
+        analysis["example_based_distribution"] = example_based_distribution 
+        analysis["mixed_distribution"] = mixed_distribution
+
+        return log_probs, analysis
     
     def compute_bandwidth(self, hidden:torch.Tensor, searched_hidden:torch.Tensor) -> torch.Tensor:
         """
         hidden [batch_size*trg_len, model_dim]
         searched_hidden [batch_size*trg_len, top_k, model_dim]
         """
-        mean_hidden = searched_hidden.mean(dim=-1)
+        mean_hidden = searched_hidden.mean(dim=1)
         # mean_hidden [batch_size*trg_len, model_dim]
-        bandwidth = self.bandwidth_estimator(torch.cat([hidden, mean_hidden], dim=-1))
+
+        bandwidth = torch.sigmoid(self.bandwidth_estimator(torch.cat([hidden, mean_hidden], dim=-1)))
         # bandwidth [batch_size*trg_len, 1]
         return bandwidth
 
