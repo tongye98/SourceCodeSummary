@@ -1,3 +1,3 @@
 echo "Let's start retrieval test!"
-
-python -m src retrieval_test saved/transformer_base12/rencos_python_base12_static_retrieval.yaml
+export CUDA_VISIBLE_DEVICES=1
+python -m src retrieval_test configs/transformer_base12.yaml

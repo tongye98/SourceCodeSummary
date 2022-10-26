@@ -19,17 +19,16 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
     """ 
     cfg = load_config(Path(cfg_file))
 
-    model_dir = cfg["retrieval_training"].get("model_dir", None)
+    model_dir = cfg["retriever"].get("retrieval_model_dir", None)
     assert model_dir is not None 
 
     # make logger
-    make_logger(Path(model_dir), mode="retrieval_test_static_retrieval_26")
+    make_logger(Path(model_dir), mode="retrieval_test_static_retrieval")
 
-    load_model = cfg["retrieval_training"].get("load_model", None)
-    use_cuda = cfg["retrieval_training"].get("use_cuda", False) and torch.cuda.is_available()
+    use_cuda = cfg["training"].get("use_cuda", False) and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
-    num_workers = cfg["retrieval_training"].get("num_workers", 0)
-    normalization = cfg["retrieval_training"].get("normalization","batch")
+    num_workers = cfg["training"].get("num_workers", 0)
+    normalization = cfg["training"].get("normalization","batch")
 
     train_data, dev_data, test_data, src_vocab, trg_vocab = load_data(data_cfg=cfg["data"])
     data_to_predict = {"dev": dev_data, "test":test_data}
@@ -37,8 +36,6 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
     # build an transformer(encoder-decoder) model
     model = build_model(model_cfg=cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab)
 
-    # when checkpoint is not specified, take latest(best) from model dir
-    ckpt_path = cfg["retrieval_training"].get("pre_trained_model_path", None)
     logger.info("ckpt_path = {}".format(ckpt_path))
 
     # load model checkpoint
@@ -46,8 +43,6 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
 
     #restore model and optimizer parameters
     model.load_state_dict(model_checkpoint["model_state"])
-
-    retriever_type = cfg["retriever"]["type"]
 
     retriever = build_retriever(retriever_cfg=cfg["retriever"])
     model.retriever =  retriever 
@@ -81,7 +76,7 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
                                 logger.info("eval metric {} = {}".format(eval_metric, score*100))
                         if valid_hypotheses is not None:
                             # save final model outputs.
-                            test_output_path = Path(model_dir) / "output_static_retrieval_l2".format(mixing_weight, bandwidth, top_k, dataset_name)
+                            test_output_path = Path(model_dir) / "output_static_retrieval".format(mixing_weight, bandwidth, top_k, dataset_name)
                             write_list_to_file(file_path=test_output_path, array=valid_hypotheses)
                             logger.info("Results saved to: %s.", test_output_path)
                     else:
