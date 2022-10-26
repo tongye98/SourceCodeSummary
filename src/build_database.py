@@ -50,6 +50,7 @@ class FaissIndex(object):
     def train(self, hidden_representation_path:str) -> None:
         embeddings = np.load(hidden_representation_path, mmap_mode="r")
         total_samples, dimension = embeddings.shape
+        logger.info("total samples = {}, dimension = {}".format(total_samples, dimension))
         del embeddings
         centroids, training_samples = self._get_clustering_parameters(total_samples)
         self.index = self._initialize_index(dimension, centroids)
@@ -191,7 +192,7 @@ def getmd5(sequence: list) -> str:
     return md5(sequence.encode()).hexdigest()
 
 def store_examples(model: Transformer, hidden_representation_path:str, token_map_path:str, data:BaseDataset, batch_size:int,
-                    batch_type:str, seed:int, shuffle:bool, num_workers:int, device:torch.device) -> None:
+                    batch_type:str, seed:int, shuffle:bool, num_workers:int, device:torch.device, data_dtype: str) -> None:
     """
     Extract hidden states generted by trained model
     """
@@ -220,7 +221,7 @@ def store_examples(model: Transformer, hidden_representation_path:str, token_map
             total_sequence += batch_data.nseqs
             decode_output, penultimate_representation, _ = model(return_type='encode_decode', src_input=src_input, 
                                         trg_input=trg_input, src_mask=src_mask, trg_mask=trg_mask)
-            penultimate_representation = penultimate_representation.cpu().numpy().astype(np.float32)
+            penultimate_representation = penultimate_representation.cpu().numpy().astype(data_dtype)
             
             for i in range(batch_data.nseqs):
                 # for each sentence
@@ -247,7 +248,8 @@ def store_examples(model: Transformer, hidden_representation_path:str, token_map
     logger.info("Storing hidden state ended!")
     logger.info("Save {} sentences with {} tokens. | Original has {} tokens.".format(total_sequence, total_tokens, total_original_tokens))
 
-def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation_path:str, token_map_path:str, index_path:str):
+def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation_path:str, 
+                    token_map_path:str, index_path:str, data_dtype:str):
     """
     The function to store hidden states generated from trained transformer model.
     Handles loading a model from checkpoint, generating hidden states by force decoding and storing them.
@@ -260,7 +262,7 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
     cfg = load_config(Path(cfg_file))
     model_dir = cfg["training"].get("model_dir", None)
 
-    make_logger(model_dir, mode="build_database")
+    make_logger(Path(model_dir), mode="build_database")
 
     logger.info("Load config...")
     cfg = load_config(cfg_file)
@@ -295,11 +297,14 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
         logger.info("Store train examples...")
         store_examples(model, hidden_representation_path=hidden_representation_path, token_map_path=token_map_path,
                        data=train_data, batch_size=batch_size, batch_type=batch_type, seed=seed,
-                       shuffle=shuffle, num_workers=num_workers, device=device)
+                       shuffle=shuffle, num_workers=num_workers, device=device, data_dtype=data_dtype)
+        logger.info("Store train examples done!")
 
         logger.info("train index...")
         index = FaissIndex(index_type="L2")
         index.train(hidden_representation_path)
         index.add(hidden_representation_path)
         index.export(index_path)
+        logger.info("train index done!")
+
         del index

@@ -18,6 +18,7 @@ def main():
     parser.add_argument("--hidden_representation_path", type=str, help="where to store the hidden state")
     parser.add_argument("--token_map_path", type=str, help="where to store the corresponding token id")
     parser.add_argument("--index_path", type=str, help="where to store faiss index")
+    parser.add_argument("--data_dtype", type=str, choices=['float16', 'float32'],help="how to store hidden representaion")
 
     args = parser.parse_args()
 
@@ -27,7 +28,8 @@ def main():
         test(cfg_file=args.config_path, ckpt_path=args.ckpt)
     elif args.mode == "build_database":
         build_database(cfg_file=args.config_path, division="train", ckpt=args.ckpt,
-         hidden_representation_path=args.hidden_representation_path, token_map_path=args.token_map_path, index_path=args.index_path)
+         hidden_representation_path=args.hidden_representation_path, 
+         token_map_path=args.token_map_path, index_path=args.index_path, data_dtype=args.data_dtype)
     elif args.mode == "retrieval_train":
         retrieval_train(cfg_file=args.config_path)
     elif args.mode == "retrieval_test":
