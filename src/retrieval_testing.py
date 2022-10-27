@@ -23,7 +23,7 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
     assert model_dir is not None 
 
     # make logger
-    make_logger(Path(model_dir), mode="retrieval_test_static_retrieval")
+    make_logger(Path(model_dir), mode="retrieval_test_static_retrieval_inner")
 
     use_cuda = cfg["training"].get("use_cuda", False) and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
@@ -76,7 +76,7 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
                                 logger.info("eval metric {} = {}".format(eval_metric, score*100))
                         if valid_hypotheses is not None:
                             # save final model outputs.
-                            test_output_path = Path(model_dir) / "output_static_retrieval".format(mixing_weight, bandwidth, top_k, dataset_name)
+                            test_output_path = Path(model_dir) / "output_static_retrieval_inner".format(mixing_weight, bandwidth, top_k, dataset_name)
                             write_list_to_file(file_path=test_output_path, array=valid_hypotheses)
                             logger.info("Results saved to: %s.", test_output_path)
                     else:

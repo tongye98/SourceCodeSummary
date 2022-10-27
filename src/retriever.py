@@ -33,7 +33,7 @@ class GaussianKernel(Kernel):
         super().__init__()
     
     def similarity(self, distances: torch.Tensor, bandwidth: Union[float, torch.Tensor]) -> torch.Tensor:
-        return - distances / bandwidth
+        return distances * bandwidth
 
 class LaplacianKernel(Kernel):
     def __init__(self) -> None:
@@ -271,7 +271,7 @@ def build_retriever(retriever_cfg: dict) -> Retriever:
     if retriever_type == "no_retriever":
         retriever = NoRetriever()
     elif retriever_type == "static_retriever":
-        database = Database(index_path=retriever_cfg["index_path"], token_map_path=retriever_cfg["token_map_path"])
+        database = Database(index_path=retriever_cfg["index_path"], token_map_path=retriever_cfg["token_map_path"], index_type=retriever_cfg["index_type"])
         retriever = StaticRetriever(database=database, top_k=retriever_cfg["top_k"], mixing_weight=retriever_cfg["mixing_weight"],
                                     bandwidth=retriever_cfg["bandwidth"], 
                                     kernel=GaussianKernel() if retriever_cfg["kernel"] == "Gaussian" else LaplacianKernel())

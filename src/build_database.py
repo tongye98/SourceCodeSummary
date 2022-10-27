@@ -3,6 +3,7 @@ build_database module.
 FaissIndex, Database, EnhancedDatabase, build_database.
 """
 import logging
+from operator import index
 import torch 
 import tqdm 
 import faiss 
@@ -33,6 +34,7 @@ class FaissIndex(object):
         self.gpu_num = faiss.get_num_gpus()
         self.use_gpu = use_gpu and (self.gpu_num > 0)
         self.index_type= index_type
+        assert self.index_type in {"L2", "INNER"}
         self._is_trained= False
         if load_index_path != None:
             self.load(index_path=load_index_path)
@@ -52,9 +54,9 @@ class FaissIndex(object):
         total_samples, dimension = embeddings.shape
         logger.info("total samples = {}, dimension = {}".format(total_samples, dimension))
         del embeddings
-        centroids, training_samples = self._get_clustering_parameters(total_samples)
-        self.index = self._initialize_index(dimension, centroids)
-        training_embeddinigs = self._get_training_embeddings(hidden_representation_path, training_samples).astype(np.float32)
+        # centroids, training_samples = self._get_clustering_parameters(total_samples)
+        self.index = self.our_initialize_index(dimension)
+        training_embeddinigs = self._get_training_embeddings(hidden_representation_path, total_samples).astype(np.float32)
         self.index.train(training_embeddinigs)
         self._is_trained = True
 
@@ -70,6 +72,17 @@ class FaissIndex(object):
             training_samples = min(total_samples, 64 * centroids)
         return centroids, training_samples
     
+    def our_initialize_index(self, dimension) -> faiss.Index:
+        if self.index_type == "L2":
+            index = faiss.index_factory(dimension, "Flat", faiss.METRIC_L2)
+        elif self.index_type == "INNER":
+            index = faiss.index_factory(dimension, "Flat", faiss.METRIC_INNER_PRODUCT)
+
+        if self.use_gpu:
+            index = faiss.index_cpu_to_all_gpus(index)
+
+        return index
+
     def _initialize_index(self, dimension:int, centroids:int) -> faiss.Index:
         template = re.compile(r"IVF\d*").sub(f"IVF{centroids}", self.factory_template)
         if self.index_type == "L2":
@@ -90,6 +103,8 @@ class FaissIndex(object):
         sample_indices = np.random.choice(total_samples, training_samples, replace=False)
         sample_indices.sort()
         training_embeddings = embeddings[sample_indices]
+        if self.index_type == "INNER":
+            faiss.normalize_L2(training_embeddings)
         return training_embeddings        
     
     def add(self, hidden_representation_path: str, batch_size: int = 10000) -> None:
@@ -100,6 +115,8 @@ class FaissIndex(object):
             start = i 
             end = min(total_samples, i+batch_size)
             batch_embeddings = embeddings[start: end].astype(np.float32)
+            if self.index_type == "INNER":
+                faiss.normalize_L2(batch_embeddings)
             self.index.add(batch_embeddings)
         del embeddings
     
@@ -130,9 +147,9 @@ class Database(object):
     Initilize with index_path, which is built offline,
     and token path which mapping retrieval indices to token id.
     """
-    def __init__(self, index_path:str, token_map_path: str, nprobe:int=16) -> None:
+    def __init__(self, index_path:str, token_map_path: str, index_type: str, nprobe:int=16) -> None:
         super().__init__()
-        self.index = FaissIndex(load_index_path=index_path, use_gpu=True)
+        self.index = FaissIndex(load_index_path=index_path, use_gpu=True, index_type=index_type)
         self.index.set_prob(nprobe)
         self.token_map = self.load_token_mapping(token_map_path)
     
@@ -152,6 +169,8 @@ class Database(object):
         embeddings: np.ndarray (batch_size, d)
         return token_indices: np.ndarray (batch_size, top_k)
         """
+        if self.index.index_type == "INNER":
+            faiss.normalize_L2(embeddings)
         distances, indices = self.index.search(embeddings, top_k)
         token_indices = self.token_map[indices]
         return distances, token_indices
@@ -262,7 +281,7 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
     cfg = load_config(Path(cfg_file))
     model_dir = cfg["training"].get("model_dir", None)
 
-    make_logger(Path(model_dir), mode="build_database")
+    make_logger(Path(model_dir), mode="build_database_inner")
 
     logger.info("Load config...")
     cfg = load_config(cfg_file)
@@ -301,7 +320,7 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
         logger.info("Store train examples done!")
 
         logger.info("train index...")
-        index = FaissIndex(index_type="L2")
+        index = FaissIndex(index_type="INNER")
         index.train(hidden_representation_path)
         index.add(hidden_representation_path)
         index.export(index_path)
