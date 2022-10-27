@@ -1,5 +1,5 @@
 # Classical Transformer  base1
-# use learnable position information
+# use relative position information
 # no initialize model
 data:
     train_data_path: "data/rencos_java/train"
@@ -30,7 +30,7 @@ data:
         filter_or_truncate: "truncate"
 
 training:
-    model_dir: "models/rencos_java/transformer_base1"
+    model_dir: "models/rencos_java/transformer_base2"
     overwrite: True
     random_seed: 3407
     use_cuda: True
@@ -102,10 +102,10 @@ model:
             freeze: False
             dropout: 0.2
             # load_pretrained
-        src_pos_emb: "learnable"        # encoder "absolute", "learnable", "relative"
-        max_src_len: 200                # for learnable. Keep same with data segment
-        max_relative_position: 0        # only for relative position, else must be set to 0
-        use_negative_distance: False    # for relative position
+        src_pos_emb: "relative"         # encoder "absolute", "learnable", "relative"
+        max_src_len: 0                  # for learnable. Keep same with data segment
+        max_relative_position: 32       # only for relative position, else must be set to 0
+        use_negative_distance: True     # for relative position
     decoder:
         model_dim: 512
         ff_dim: 2048
