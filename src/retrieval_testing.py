@@ -23,7 +23,7 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
     assert model_dir is not None 
 
     # make logger
-    make_logger(Path(model_dir), mode="retrieval_test_static_retrieval_inner_grid")
+    make_logger(Path(model_dir), mode="retrieval_test_static_retrieval_l2_31")
 
     use_cuda = cfg["training"].get("use_cuda", False) and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
@@ -51,8 +51,8 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
         model.to(device)
 
     # grid search 
-    for mixing_weight in [0.3, 0.4, 0.5, 0.6, 0.7]:
-        for bandwidth in [1, 10, 20, 100]:
+    for mixing_weight in [0.4, 0.5]:
+        for bandwidth in [10, 20]:
             for top_k in [8, 16]:
                 logger.info("mixing_weight = {} | bandwidth = {} | top_k = {}".format(mixing_weight, bandwidth, top_k))
 

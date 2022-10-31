@@ -33,7 +33,7 @@ class GaussianKernel(Kernel):
         super().__init__()
     
     def similarity(self, distances: torch.Tensor, bandwidth: Union[float, torch.Tensor]) -> torch.Tensor:
-        return distances * bandwidth
+        return - distances / bandwidth
 
 class LaplacianKernel(Kernel):
     def __init__(self) -> None:
