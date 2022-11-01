@@ -3,4 +3,4 @@
 
 echo "Let's testing the model"
 export CUDA_VISIBLE_DEVICES=1
-python -m src test configs/rencos_python_base12.yaml --ckpt models/rencos_python/transformer_base12/best.ckpt
+python -m src test configs/rencos_java_base4.yaml --ckpt models/rencos_java/transformer_base4/best.ckpt

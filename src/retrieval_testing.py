@@ -51,9 +51,9 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
         model.to(device)
 
     # grid search 
-    for mixing_weight in [0.4, 0.5]:
-        for bandwidth in [10, 20]:
-            for top_k in [8, 16]:
+    for mixing_weight in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
+        for bandwidth in [1, 10, 20, 50, 100]:
+            for top_k in [8, 16, 32]:
                 logger.info("mixing_weight = {} | bandwidth = {} | top_k = {}".format(mixing_weight, bandwidth, top_k))
 
                 model.retriever.mixing_weight = mixing_weight
@@ -76,7 +76,7 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
                                 logger.info("eval metric {} = {}".format(eval_metric, score*100))
                         if valid_hypotheses is not None:
                             # save final model outputs.
-                            test_output_path = Path(model_dir) / "output_static_retrieval_inner_mx={}bandwidth={}topk={}".format(mixing_weight, bandwidth, top_k)
+                            test_output_path = Path(model_dir) / "output_static_retrieval_l2_mx={}bandwidth={}topk={}".format(mixing_weight, bandwidth, top_k)
                             write_list_to_file(file_path=test_output_path, array=valid_hypotheses)
                             logger.info("Results saved to: %s.", test_output_path)
                     else:

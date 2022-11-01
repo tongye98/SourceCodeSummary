@@ -1,10 +1,10 @@
 # Classical Transformer  base1
-# use relative position information
+# use learnable position information
 # no initialize model
 data:
-    train_data_path: "data/rencos_java/train"
-    dev_data_path: "data/rencos_java/valid"
-    test_data_path: "data/rencos_java/test"
+    train_data_path: "data/ahmad_python/train"
+    dev_data_path: "data/ahmad_python/valid"
+    test_data_path: "data/ahmad_python/test"
     dataset_type: "plain"
     src:
         language: "code"
@@ -17,7 +17,6 @@ data:
         max_length: 200
         min_length: 1
         filter_or_truncate: "truncate"
-        vocab_file: "models/rencos_java/transformer_base2/src_vocab.txt"
     trg: 
         language: "summary"
         level: "word"
@@ -29,10 +28,9 @@ data:
         max_length: 30
         min_length: 1
         filter_or_truncate: "truncate"
-        vocab_file: "models/rencos_java/transformer_base2/trg_vocab.txt"
 
 training:
-    model_dir: "models/rencos_java/transformer_base2"
+    model_dir: "models/ahmad_python/transformer_base1"
     overwrite: True
     random_seed: 3407
     use_cuda: True
@@ -76,7 +74,7 @@ testing:
     min_output_length: 1
     eval_metrics: ['bleu','rouge-l']
     n_best: 1
-    beam_size: 4
+    beam_size: 1
     beam_alpha: -1
     return_attention: False
     return_prob: "hypotheses" # hypotheses, references, none
@@ -104,10 +102,10 @@ model:
             freeze: False
             dropout: 0.2
             # load_pretrained
-        src_pos_emb: "relative"         # encoder "absolute", "learnable", "relative"
-        max_src_len: 0                  # for learnable. Keep same with data segment
-        max_relative_position: 32       # only for relative position, else must be set to 0
-        use_negative_distance: True     # for relative position
+        src_pos_emb: "learnable"        # encoder "absolute", "learnable", "relative"
+        max_src_len: 200                # for learnable. Keep same with data segment
+        max_relative_position: 0        # only for relative position, else must be set to 0
+        use_negative_distance: False    # for relative position
     decoder:
         model_dim: 512
         ff_dim: 2048
@@ -126,16 +124,3 @@ model:
         max_trg_len: 30                 # for learnable. keep same with data segment
         max_relative_position: 0        # only for relative position, else must be set to 0
         use_negative_distance: False    # for relative position
-
-retriever:
-    retrieval_model_dir: "models/rencos_java/transformer_base2_static"
-    type: "static_retriever"                                    # [no_retriever, static_retriever, dynamic_retriever]
-    index_type: "L2"                                         # ["L2", "INNER"]
-    kernel: "Gaussian"                                          # [Gaussian, Laplacian] for static_retriever, dynamic_retriever
-    top_k: 8                                                    # for static_retriever, dynamic_retriever
-    index_path: "saved/datastore_java/base2/l2/index"           # for static_retriever, dynamic_retriever
-    token_map_path: "saved/datastore_java/base2/l2/token_map"   # for static_retriever, dynamic_retriever
-    mixing_weight: 0.1                                          # for static_retriever
-    bandwidth: 10                                               # for static_retriever
-    embedding_path: "saved/datastore_java/base2/l2/embedding"   # for dynamic_retriever
-    in_memory: True                                             # for dynamic_retriever
