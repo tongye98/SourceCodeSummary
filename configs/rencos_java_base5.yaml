@@ -1,4 +1,4 @@
-# Classical Transformer  base3
+# Classical Transformer  base1
 # use relative position information
 # no initialize model
 data:
@@ -14,9 +14,10 @@ data:
         vocab_max_size: 50000
         lowercase: True
         normalize: True # tokernizer pre-process sentence.strip()
-        max_length: 200
+        max_length: 150
         min_length: 1
         filter_or_truncate: "truncate"
+        vocab_file: "models/rencos_java/transformer_base2/src_vocab.txt"
     trg: 
         language: "summary"
         level: "word"
@@ -25,12 +26,13 @@ data:
         vocab_max_size: 30000
         lowercase: True
         normalize: True 
-        max_length: 30
+        max_length: 50
         min_length: 1
         filter_or_truncate: "truncate"
+        vocab_file: "models/rencos_java/transformer_base2/trg_vocab.txt"
 
 training:
-    model_dir: "models/rencos_java/transformer_base3"
+    model_dir: "models/rencos_java/transformer_base5"
     overwrite: True
     random_seed: 3407
     use_cuda: True
@@ -46,7 +48,7 @@ training:
     patience: 5          # for scheduling = 'ReduceLROnPlatea'
     step_size: 1         # for scheduling = "StepLR" 
     gamma: 0.99          # for scheduling = "StepLR" or "ExponentialLR"
-    learning_rate: 0.0002
+    learning_rate: 0.0001
     weight_decay: 0
     learning_rate_min: 0.0000001
     keep_best_ckpts: 3
@@ -57,7 +59,7 @@ training:
     shuffle: True
     epochs: 200
     max_updates: 800000   
-    batch_size: 128
+    batch_size: 32
     batch_type: "sentence"
     # load_model: None
     reset_best_ckpt: False
@@ -121,6 +123,6 @@ model:
             dropout: 0.2
             # load_pretrained
         trg_pos_emb: "learnable"        # decoder "absolute", "learnable","relative"
-        max_trg_len: 30                 # for learnable. keep same with data segment
+        max_trg_len: 50                 # for learnable. keep same with data segment
         max_relative_position: 0        # only for relative position, else must be set to 0
         use_negative_distance: False    # for relative position

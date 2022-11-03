@@ -66,36 +66,37 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
     model_false_mix_true_num = 0.
     model_false_mix_false_num = 0.
 
+    start_time = time.time()
     for batch_data in tqdm.tqdm(data_iter, desc="Validating"):
         batch_data.move2cuda(device)
         total_nseqs += batch_data.nseqs 
 
-        if compute_loss: 
-            # don't track gradients during validation 
-            with torch.no_grad():
-                src_input = batch_data.src
-                trg_input = batch_data.trg_input
-                src_mask = batch_data.src_mask
-                trg_mask = batch_data.trg_mask
-                trg_truth = batch_data.trg_truth
+        # if compute_loss: 
+        #     # don't track gradients during validation 
+        #     with torch.no_grad():
+        #         src_input = batch_data.src
+        #         trg_input = batch_data.trg_input
+        #         src_mask = batch_data.src_mask
+        #         trg_mask = batch_data.trg_mask
+        #         trg_truth = batch_data.trg_truth
 
-                batch_loss, retrieval_analysis, help_analysis = model(return_type="retrieval_loss", src_input=src_input, trg_input=trg_input,
-                src_mask=src_mask, trg_mask=trg_mask, encoder_output=None, trg_truth=trg_truth)
+        #         batch_loss, retrieval_analysis, help_analysis = model(return_type="retrieval_loss", src_input=src_input, trg_input=trg_input,
+        #         src_mask=src_mask, trg_mask=trg_mask, encoder_output=None, trg_truth=trg_truth)
                 
-                batch_loss = batch_data.normalize(batch_loss, "sum")
+        #         batch_loss = batch_data.normalize(batch_loss, "sum")
 
-            total_loss += batch_loss.item()
-            total_ntokens += batch_data.ntokens
+        #     total_loss += batch_loss.item()
+        #     total_ntokens += batch_data.ntokens
 
-        all_hits += retrieval_analysis["hits"]
-        all_first_hits += retrieval_analysis["hits_first_place"]
-        all_token_numbers += retrieval_analysis["token_numbers"]
+        # all_hits += retrieval_analysis["hits"]
+        # all_first_hits += retrieval_analysis["hits_first_place"]
+        # all_token_numbers += retrieval_analysis["token_numbers"]
 
-        help_token_num +=help_analysis["token_num"]
-        model_true_mix_true_num += help_analysis["model_true_mix_true_num"]
-        model_true_mix_false_num += help_analysis["model_true_mix_false_num"]
-        model_false_mix_true_num += help_analysis["model_false_mix_true_num"]
-        model_false_mix_false_num += help_analysis["model_false_mix_false_num"]
+        # help_token_num +=help_analysis["token_num"]
+        # model_true_mix_true_num += help_analysis["model_true_mix_true_num"]
+        # model_true_mix_false_num += help_analysis["model_true_mix_false_num"]
+        # model_false_mix_true_num += help_analysis["model_false_mix_true_num"]
+        # model_false_mix_false_num += help_analysis["model_false_mix_false_num"]
 
         # run search as during inference to produce translations (summary).
         output, hyp_scores, attention_scores = search(model=model, batch_data=batch_data,
@@ -106,7 +107,9 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
         all_outputs.extend(output)
         valid_sentences_scores.extend(hyp_scores if hyp_scores is not None else [])
         valid_attention_scores.extend(attention_scores if attention_scores is not None else [])
-    
+    end_time = time.time()
+    logger.info("Prediction time = {}".format(end_time-start_time))
+    assert False
     logger.info("all_hits = {}, all_token_numbers = {}, hit_accuracy = {}".format(all_hits, all_token_numbers, all_hits/all_token_numbers))
     logger.info("first_hits={}, all_token_numbers = {}, first hit_accuracy = {}".format(all_first_hits, all_token_numbers,all_first_hits/all_token_numbers))
     logger.info("model_true_mix_true_num = {} help_token_num = {}, ratio = {}".format(model_true_mix_true_num, help_token_num, model_true_mix_true_num/help_token_num))

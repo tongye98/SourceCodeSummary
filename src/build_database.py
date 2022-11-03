@@ -320,7 +320,7 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
         logger.info("Store train examples done!")
 
         logger.info("train index...")
-        index = FaissIndex(index_type="L2")
+        index = FaissIndex(index_type="INNER")
         index.train(hidden_representation_path)
         index.add(hidden_representation_path)
         index.export(index_path)

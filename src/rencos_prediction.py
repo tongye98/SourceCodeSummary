@@ -56,6 +56,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
     hyp_scores = None
     attention_scores = None
 
+    start_time = time.time()
     for batch_data in tqdm.tqdm(data_iter, desc="Validating"):
         batch_data.move2cuda(device)
         total_nseqs += batch_data.nseqs 
@@ -69,7 +70,9 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
         all_outputs.extend(output)
         valid_sentences_scores.extend(hyp_scores if hyp_scores is not None else [])
         valid_attention_scores.extend(attention_scores if attention_scores is not None else [])
-
+    end_time = time.time()
+    logger.info("Predicte time = {}".format(end_time - start_time))
+    assert False
     assert total_nseqs == len(data)
     assert len(all_outputs) == len(data) * n_best
     

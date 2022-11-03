@@ -25,7 +25,7 @@ def rencos_test(cfg_file: str, ckpt_path:str=None) -> None:
     assert model_dir is not None 
 
     # make logger
-    make_logger(Path(model_dir), mode="rencos_test_inner")
+    make_logger(Path(model_dir), mode="rencos_test_l2_time")
 
     use_cuda = cfg["training"].get("use_cuda", False) and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
@@ -65,7 +65,7 @@ def rencos_test(cfg_file: str, ckpt_path:str=None) -> None:
 
             if valid_hypotheses is not None:
                 # save final model outputs.
-                test_output_path = Path(model_dir) / "ouput_rencos_test_inner.{}".format(dataset_name)
+                test_output_path = Path(model_dir) / "ouput_rencos_test_l2.{}".format(dataset_name)
                 write_list_to_file(file_path=test_output_path, array=valid_hypotheses)
                 logger.info("Results saved to: %s.", test_output_path)
 
