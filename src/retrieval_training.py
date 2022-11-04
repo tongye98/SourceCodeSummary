@@ -27,7 +27,7 @@ def retrieval_train(cfg_file: str) -> None:
     cfg = load_config(Path(cfg_file))
 
     # make model dir
-    model_dir = make_model_dir(Path(cfg["retrieval_training"]["model_dir"]),overwrite=cfg["retrieval_training"].get("overwrite",False))
+    model_dir = make_model_dir(Path(cfg["training"]["model_dir"]),overwrite=cfg["training"].get("overwrite",False))
 
     # make logger
     make_logger(model_dir, mode="retrieval_train")
@@ -38,23 +38,15 @@ def retrieval_train(cfg_file: str) -> None:
     # write all entries of config to the log file.
     log_cfg(cfg)
 
-    # store copy of origianl training config in model dir. 
-    # as_posix change path separator to unix "/"
-    shutil.copy2(cfg_file, (model_dir/"config.yaml").as_posix())
-
     # set the whole random seed
-    set_seed(seed=int(cfg["retrieval_training"].get("random_seed", 980820)))
+    set_seed(seed=int(cfg["training"].get("random_seed", 980820)))
 
     # load the data
     train_data, dev_data, test_data, src_vocab, trg_vocab = load_data(data_cfg=cfg["data"])
 
-    # store the vocabs and tokenizers
-    src_vocab.to_file(model_dir / "src_vocab.txt")
-    trg_vocab.to_file(model_dir / "trg_vocab.txt")
-
     # load model state from trained model
-    pre_trained_model_path = cfg["retrieval_training"].get("pre_trained_model_path", None)
-    use_cuda = cfg["retrieval_training"].get("use_cuda", False)
+    pre_trained_model_path = cfg["retriever"].get("pre_trained_model_path", None)
+    use_cuda = cfg["training"].get("use_cuda", False)
     device = torch.device("cuda" if use_cuda else "cpu")
     model_checkpoint = load_model_checkpoint(path=Path(pre_trained_model_path), device=device)
 
@@ -91,13 +83,13 @@ class RetrievalTrainManager(object):
         batch_size, batch_type, random_seed,
         device, n_gpu, num_workers,load_model,
         reset_best_ckpt, reset_scheduler,
-        reset_optimizer, reset_iter_state) = parse_train_arguments(train_cfg=cfg["retrieval_training"])
+        reset_optimizer, reset_iter_state) = parse_train_arguments(train_cfg=cfg["training"])
 
         self.model_dir = model_dir
         self.logging_freq = logging_freq
         self.validation_freq = validation_freq
         self.log_valid_sentences = log_valid_sentences
-        self.tb_writer = SummaryWriter(log_dir=(model_dir/"tensorboard_log").as_posix())
+        self.tb_writer = SummaryWriter(log_dir=(model_dir/"retrieval_tensorboard_log").as_posix())
 
         # model
         self.model = model
@@ -110,8 +102,8 @@ class RetrievalTrainManager(object):
             self.model.to(self.device)
         
         # optimization
-        self.clip_grad_fun = build_gradient_clipper(train_cfg=cfg["retrieval_training"])
-        self.optimizer = build_optimizer(train_cfg=cfg["retrieval_training"], parameters=self.model.retriever.parameters())
+        self.clip_grad_fun = build_gradient_clipper(train_cfg=cfg["training"])
+        self.optimizer = build_optimizer(train_cfg=cfg["training"], parameters=self.model.retriever.parameters())
 
         # save/delete checkpoints
         self.num_ckpts = keep_best_ckpts
@@ -125,7 +117,7 @@ class RetrievalTrainManager(object):
             self.minimize_metric = False # higher is better
 
         # learning rate scheduling
-        self.scheduler, self.scheduler_step_at = build_scheduler(train_cfg=cfg["retrieval_training"], optimizer=self.optimizer)
+        self.scheduler, self.scheduler_step_at = build_scheduler(train_cfg=cfg["training"], optimizer=self.optimizer)
 
         # data & batch handling
         self.seed = random_seed
@@ -377,7 +369,7 @@ class RetrievalTrainManager(object):
         trg_truth = batch_data.trg_truth
 
         # get loss (run as during training with teacher forcing)
-        batch_loss, _, _ = self.model(return_type="retrieval_loss", src_input=src_input, trg_input=trg_input,
+        batch_loss = self.model(return_type="retrieval_loss", src_input=src_input, trg_input=trg_input,
                    src_mask=src_mask, trg_mask=trg_mask, encoder_output = None, trg_truth=trg_truth)
 
         # normalization = 'batch' means final loss is average-sentence level loss in batch

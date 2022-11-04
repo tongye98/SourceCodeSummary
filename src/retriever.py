@@ -21,10 +21,9 @@ class Kernel(object):
                                             token_indices:torch.Tensor, vocab_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
         # threshold 
         # FIXME
-        threshold = 0.3
-        distances_threshold = torch.where(distances > threshold, distances, -np.inf)
+        # threshold = 0.3
 
-        scores = self.similarity(distances_threshold, bandwidth)
+        scores = self.similarity(distances, bandwidth)
         # distances[batch_size*trg_len, top_k]
         sparse_distribution = torch.softmax(scores, dim=-1)
         # sparse_distribution [batch_size*trg_len, top_k]        
@@ -125,6 +124,63 @@ class StaticRetriever(Retriever):
         analysis["mixed_distribution"] = mixed_distribution
         analysis["distances"] = distances
         return log_probs, analysis
+
+class WeightRetriever(Retriever):
+    def __init__(self, database:Database, top_k:int,  kernel: Kernel, bandwidth:float) -> None:
+        super().__init__()
+        self.database = database
+        self.top_k = top_k
+        self.kernel = kernel
+        self.bandwidth = bandwidth
+        self.weight_network = nn.Sequential(nn.Linear(2*top_k, top_k/2),
+                                            nn.Tanh(),
+                                            nn.Linear(top_k/2, 1))
+    
+    def forward(self, hidden:torch.Tensor, logits:torch.Tensor) -> torch.Tensor:
+        """
+        hidden [batch_size, trg_len, model_dim]
+        logits [batch_size, trg_len, trg_vocab_size]
+        """
+        batch_size, trg_len, model_dim = hidden.size()
+        vocab_size = logits.size(-1)
+        hidden = hidden.view(batch_size*trg_len, model_dim)
+        logits = logits.view(batch_size*trg_len, vocab_size)
+
+        cos_similarity, token_indices = self.database.search(hidden.cpu().numpy(), top_k=self.top_k)
+        cos_similarity = torch.FloatTensor(cos_similarity).to(logits.device)
+        token_indices = torch.LongTensor(token_indices).to(logits.device)
+        # cos_similarity [batch_size*trg_len, top_k]
+        # token_indices  [batch_size*trg_len, top_k]
+
+        model_based_distribution = F.softmax(logits, dim=-1)
+        # model_based_distribution [batch_size*trg_len, trg_vocab_size]
+
+        knn_based_distribution, sparse_distribution = self.kernel.compute_example_based_distribution(distances=cos_similarity, 
+                        bandwidth=self.bandwidth, token_indices=token_indices, vocab_size=vocab_size)
+        
+        mixing_weight = self.compute_mixing_weight(model_based_distribution, token_indices, sparse_distribution)
+
+        fused_distribution = (1- mixing_weight)*model_based_distribution + mixing_weight*knn_based_distribution
+
+        log_probs = torch.log(fused_distribution)
+        log_probs = log_probs.view(batch_size, trg_len, vocab_size).contiguous()
+        # log_probs [batch_size, trg_len, vocab_size]
+
+        return log_probs
+
+    def compute_mixing_weight(self, model_based_distribution, token_indices, sparse_distribution):
+        """
+        model_based_distribution [batch_size*trg_len, trg_vocab_size]
+        token_indices [batch_size*trg_len, top_k]
+        sparse_distribution [batch_size*trg_len, top_k]  probability
+        """
+        model_select_probability = torch.gather(model_based_distribution, dim=-1, index=token_indices)
+        # model_select_probability [batch_size*trg_len, top_k]
+        select_probability = torch.cat(model_select_probability, sparse_distribution)
+        # select_probability [batch_size*trg_len, 2*top_k]
+        mixing_weight = self.weight_network(select_probability)
+        # select_probability [batch_size*trg_len, 1]
+        return mixing_weight
 
 class DynamicRetriever(Retriever):
     def __init__(self, database:Database, top_k:int, kernel:Kernel) -> None:
@@ -276,15 +332,22 @@ def build_retriever(retriever_cfg: dict) -> Retriever:
 
     if retriever_type == "no_retriever":
         retriever = NoRetriever()
+
     elif retriever_type == "static_retriever":
         database = Database(index_path=retriever_cfg["index_path"], token_map_path=retriever_cfg["token_map_path"], index_type=retriever_cfg["index_type"])
         retriever = StaticRetriever(database=database, top_k=retriever_cfg["top_k"], mixing_weight=retriever_cfg["mixing_weight"],
                                     bandwidth=retriever_cfg["bandwidth"], 
                                     kernel=GaussianKernel() if retriever_cfg["kernel"] == "Gaussian" else LaplacianKernel())
+
     elif retriever_type == "dynamic_retriever":
         database = EnhancedDatabase(index_path=retriever_cfg["index_path"], token_map_path=retriever_cfg["token_map_path"],
                                     embedding_path=retriever_cfg["embedding_path"], in_memory=retriever_cfg["in_memory"])
         retriever = DynamicRetriever(database=database, top_k=retriever_cfg["top_k"],
+                                    kernel=GaussianKernel() if retriever_cfg["kernel"] == "Gaussian" else LaplacianKernel())
+
+    elif retriever_type == "weight_retriever":
+        database = Database(index_path=retriever_cfg["index_path"], token_map_path=retriever_cfg["token_map_path"], index_type=retriever_cfg["index_type"])
+        retriever = WeightRetriever(database=database, top_k=retriever_cfg["top_k"], bandwidth=retriever_cfg["bandwidth"],
                                     kernel=GaussianKernel() if retriever_cfg["kernel"] == "Gaussian" else LaplacianKernel())
     else:
         raise ValueError("The {} is not supported currently.".format(retriever_type))

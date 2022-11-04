@@ -283,16 +283,16 @@ class Transformer(nn.Module):
             encode_output = self.encode(src_input, src_mask)
             decode_output, penultimate_representation, cross_attention_weight = self.decode(trg_input, encode_output, src_mask, trg_mask)
             logits = self.output_layer(decode_output)
-            log_probs, analysis = self.retriever(hidden=penultimate_representation, logits=logits)
+            log_probs = self.retriever(hidden=penultimate_representation, logits=logits)
             batch_loss = self.loss_function(log_probs, target=trg_truth)
-            hits, hits_first_place, token_numbers = retrieval_accuracy(analysis["token_indices"], trg_truth)
-            help_analysis = actually_help_analysis(analysis, trg_truth)
-            retrieval_analysis = dict()
-            retrieval_analysis["token_indices"]  = analysis["token_indices"]
-            retrieval_analysis["hits"] = hits
-            retrieval_analysis["hits_first_place"] =  hits_first_place
-            retrieval_analysis["token_numbers"] = token_numbers
-            return batch_loss, retrieval_analysis, help_analysis
+            # hits, hits_first_place, token_numbers = retrieval_accuracy(analysis["token_indices"], trg_truth)
+            # help_analysis = actually_help_analysis(analysis, trg_truth)
+            # retrieval_analysis = dict()
+            # retrieval_analysis["token_indices"]  = analysis["token_indices"]
+            # retrieval_analysis["hits"] = hits
+            # retrieval_analysis["hits_first_place"] =  hits_first_place
+            # retrieval_analysis["token_numbers"] = token_numbers
+            return batch_loss
 
         else:
             raise ValueError("return_type must be one of {'loss', 'encode', 'decode', 'encode_decode', 'retrieval_loss'}")
