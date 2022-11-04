@@ -19,7 +19,12 @@ class Kernel(object):
     
     def compute_example_based_distribution(self, distances:torch.Tensor, bandwidth:Union[float, torch.Tensor], 
                                             token_indices:torch.Tensor, vocab_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        scores = self.similarity(distances, bandwidth)
+        # threshold 
+        # FIXME
+        threshold = 0.3
+        distances_threshold = torch.where(distances > threshold, distances, -np.inf)
+
+        scores = self.similarity(distances_threshold, bandwidth)
         # distances[batch_size*trg_len, top_k]
         sparse_distribution = torch.softmax(scores, dim=-1)
         # sparse_distribution [batch_size*trg_len, top_k]        
@@ -118,6 +123,7 @@ class StaticRetriever(Retriever):
         analysis["model_based_distribution"] = model_based_distribution
         analysis["example_based_distribution"] = example_based_distribution 
         analysis["mixed_distribution"] = mixed_distribution
+        analysis["distances"] = distances
         return log_probs, analysis
 
 class DynamicRetriever(Retriever):

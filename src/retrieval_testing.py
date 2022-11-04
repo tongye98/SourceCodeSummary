@@ -23,7 +23,7 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
     assert model_dir is not None 
 
     # make logger
-    make_logger(Path(model_dir), mode="retrieval_analysis")
+    make_logger(Path(model_dir), mode="retrieval_time_java_04")
 
     use_cuda = cfg["training"].get("use_cuda", False) and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")

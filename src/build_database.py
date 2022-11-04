@@ -168,6 +168,7 @@ class Database(object):
         Search nearest top_k embeddings from the Faiss index.
         embeddings: np.ndarray (batch_size, d)
         return token_indices: np.ndarray (batch_size, top_k)
+        return distances: np.ndarray
         """
         if self.index.index_type == "INNER":
             faiss.normalize_L2(embeddings)
