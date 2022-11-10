@@ -22,7 +22,7 @@ def test(cfg_file: str, ckpt_path:str=None) -> None:
     assert model_dir is not None 
 
     # make logger
-    make_logger(Path(model_dir), mode="test_beam")
+    make_logger(Path(model_dir), mode="test_greedy")
 
     load_model = cfg["training"].get("load_model", None)
     use_cuda = cfg["training"].get("use_cuda", False) and torch.cuda.is_available()
@@ -64,7 +64,7 @@ def test(cfg_file: str, ckpt_path:str=None) -> None:
                     logger.info("eval metric {} = {}".format(eval_metric, score*100))
             if valid_hypotheses is not None:
                 # save final model outputs.
-                test_output_path = Path(model_dir) / "output_beam.{}".format(dataset_name)
+                test_output_path = Path(model_dir) / "transformer_output_greedy.{}".format(dataset_name)
                 write_list_to_file(file_path=test_output_path, array=valid_hypotheses)
                 logger.info("Results saved to: %s.", test_output_path)
         else:

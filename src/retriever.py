@@ -29,6 +29,7 @@ class Kernel(object):
         # sparse_distribution [batch_size*trg_len, top_k]        
         zeros = torch.zeros(size=(sparse_distribution.size(0), vocab_size), device=sparse_distribution.device, dtype=sparse_distribution.dtype)
         distribution = torch.scatter_add(zeros, -1, token_indices, sparse_distribution)
+        # FIXME probability may be > 1
         # distribution [batch_size*trg_len, vocab_size]
         return distribution, sparse_distribution
 
@@ -132,9 +133,11 @@ class WeightRetriever(Retriever):
         self.top_k = top_k
         self.kernel = kernel
         self.bandwidth = bandwidth
-        self.weight_network = nn.Sequential(nn.Linear(2*top_k, top_k/2),
+        logger.warning("top_k = {}".format(self.top_k))
+        self.weight_network = nn.Sequential(nn.Linear(2*top_k, 8),
                                             nn.Tanh(),
-                                            nn.Linear(top_k/2, 1))
+                                            nn.Linear(8, 1))
+        logger.warning("weight_network = {}".format(self.weight_network))
     
     def forward(self, hidden:torch.Tensor, logits:torch.Tensor) -> torch.Tensor:
         """
@@ -176,9 +179,9 @@ class WeightRetriever(Retriever):
         """
         model_select_probability = torch.gather(model_based_distribution, dim=-1, index=token_indices)
         # model_select_probability [batch_size*trg_len, top_k]
-        select_probability = torch.cat(model_select_probability, sparse_distribution)
+        select_probability = torch.cat([model_select_probability, sparse_distribution], dim=-1)
         # select_probability [batch_size*trg_len, 2*top_k]
-        mixing_weight = self.weight_network(select_probability)
+        mixing_weight = torch.sigmoid(self.weight_network(select_probability))
         # select_probability [batch_size*trg_len, 1]
         return mixing_weight
 
@@ -189,11 +192,12 @@ class DynamicRetriever(Retriever):
         self.top_k = top_k 
         self.kernel = kernel
         dimension = database.index.index.d
-        self.bandwidth_estimator = nn.Linear(2 * dimension, 1)
-        if isinstance(kernel, GaussianKernel):
-            self.bandwidth_estimator.bias.data[0] = 20
-        else:
-            self.bandwidth_estimator.bias.data[0] = 10
+        # self.bandwidth_estimator = nn.Linear(2 * dimension, 1)
+        self.bandwidth = 20
+        # if isinstance(kernel, GaussianKernel):
+        #     self.bandwidth_estimator.bias.data[0] = 20
+        # else:
+        #     self.bandwidth_estimator.bias.data[0] = 10
         self.mixing_weight_estimator = nn.Sequential(
                 nn.Linear(2*dimension, dimension),
                 nn.ReLU(),
@@ -227,7 +231,8 @@ class DynamicRetriever(Retriever):
         # searched_hidden [batch_size*trg_len, top_k, model_dim]
     
         # compute dynamic database bandwidth 
-        bandwidth = self.compute_bandwidth(hidden, searched_hidden)
+        # bandwidth = self.compute_bandwidth(hidden, searched_hidden)
+        bandwidth = self.bandwidth
         # bandwidth [batch_size*trg_len, 1]
 
         model_based_distribution = F.softmax(logits, dim=-1)
@@ -277,7 +282,7 @@ class DynamicRetriever(Retriever):
         return
             mixing_weight [batch_size*trg_len, 1]
         """
-        merged_hidden = sparse_probs.unsqueeze(1).matmul(searched_hidden).squeeze(1)
+        merged_hidden = searched_hidden.transpose(1, 2).matmul(sparse_probs.unsqueeze(-1)).squeeze(-1)
         # merged_hidden [batch_size*trg_len, model_dim]
         mixing_weight = torch.sigmoid(self.mixing_weight_estimator(torch.cat([hidden, merged_hidden], dim=-1)))
         return mixing_weight
@@ -341,7 +346,8 @@ def build_retriever(retriever_cfg: dict) -> Retriever:
 
     elif retriever_type == "dynamic_retriever":
         database = EnhancedDatabase(index_path=retriever_cfg["index_path"], token_map_path=retriever_cfg["token_map_path"],
-                                    embedding_path=retriever_cfg["embedding_path"], in_memory=retriever_cfg["in_memory"])
+                                    embedding_path=retriever_cfg["embedding_path"], index_type=retriever_cfg["index_type"],
+                                    in_memory=retriever_cfg["in_memory"])
         retriever = DynamicRetriever(database=database, top_k=retriever_cfg["top_k"],
                                     kernel=GaussianKernel() if retriever_cfg["kernel"] == "Gaussian" else LaplacianKernel())
 

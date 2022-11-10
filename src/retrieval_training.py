@@ -33,7 +33,7 @@ def retrieval_train(cfg_file: str) -> None:
     make_logger(model_dir, mode="retrieval_train")
 
     # check retrieval cfg
-    check_retrieval_cfg(retrieval_cfg=cfg["retriever"])
+    # check_retrieval_cfg(retrieval_cfg=cfg["retriever"])
 
     # write all entries of config to the log file.
     log_cfg(cfg)
@@ -149,7 +149,7 @@ class RetrievalTrainManager(object):
         self.valid_cfg["beam_size"] = 1 # 1 means greedy decoding during train-loop validation
         self.valid_cfg["batch_size"] = self.batch_size * 2
         self.valid_cfg["batch_type"] = self.batch_type
-        self.valid_cfg["n_best"] == 1   # only the best one
+        self.valid_cfg["n_best"] = 1   # only the best one
         self.valid_cfg["generate_unk"] = True
 
     def save_model_checkpoint(self, new_best:bool, score:float) -> None:
@@ -257,8 +257,8 @@ class RetrievalTrainManager(object):
         self.train_iter = make_data_iter(dataset=train_data, sampler_seed=self.seed, shuffle=self.shuffle, batch_type=self.batch_type,
                                          batch_size=self.batch_size, num_workers=self.num_workers)
 
-        if self.train_iter_state is not None:
-            self.train_iter.batch_sampler.sampler.generator.set_state(self.train_iter_state.cpu())
+        # if self.train_iter_state is not None:
+        #     self.train_iter.batch_sampler.sampler.generator.set_state(self.train_iter_state.cpu())
         
         # train and validate main loop
         logger.info("Train stats:\n"
@@ -291,6 +291,12 @@ class RetrievalTrainManager(object):
                     
                     # make gradient step
                     self.optimizer.step()
+
+                    # logging gradient information 
+                    for (name, param) in self.model.retriever.named_parameters():
+                        logger.debug("Name = {}, Param={}".format(name, param))
+                        logger.debug("Gradient {}".format(param.grad))
+
 
                     # reset gradients
                     self.model.retriever.zero_grad()

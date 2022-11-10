@@ -1,5 +1,5 @@
 # Classical Transformer  base1
-# use relative position information
+# use relative position information 16 True
 # no initialize model
 data:
     train_data_path: "data/rencos_java/train"
@@ -14,10 +14,9 @@ data:
         vocab_max_size: 50000
         lowercase: True
         normalize: True # tokernizer pre-process sentence.strip()
-        max_length: 150
+        max_length: 200
         min_length: 1
         filter_or_truncate: "truncate"
-        vocab_file: "models/rencos_java/transformer_base2/src_vocab.txt"
     trg: 
         language: "summary"
         level: "word"
@@ -26,15 +25,14 @@ data:
         vocab_max_size: 30000
         lowercase: True
         normalize: True 
-        max_length: 50
+        max_length: 30
         min_length: 1
         filter_or_truncate: "truncate"
-        vocab_file: "models/rencos_java/transformer_base2/trg_vocab.txt"
 
 training:
     model_dir: "models/rencos_java/transformer_base5"
     overwrite: True
-    random_seed: 3407
+    random_seed: 820
     use_cuda: True
     num_workers: 4
     optimizer: "adam"
@@ -106,7 +104,7 @@ model:
             # load_pretrained
         src_pos_emb: "relative"         # encoder "absolute", "learnable", "relative"
         max_src_len: 0                  # for learnable. Keep same with data segment
-        max_relative_position: 32       # only for relative position, else must be set to 0
+        max_relative_position: 16       # only for relative position, else must be set to 0
         use_negative_distance: True     # for relative position
     decoder:
         model_dim: 512
@@ -123,6 +121,6 @@ model:
             dropout: 0.2
             # load_pretrained
         trg_pos_emb: "learnable"        # decoder "absolute", "learnable","relative"
-        max_trg_len: 50                 # for learnable. keep same with data segment
+        max_trg_len: 30                 # for learnable. keep same with data segment
         max_relative_position: 0        # only for relative position, else must be set to 0
         use_negative_distance: False    # for relative position
