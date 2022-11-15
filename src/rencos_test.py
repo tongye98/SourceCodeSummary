@@ -20,12 +20,11 @@ def rencos_test(cfg_file: str, ckpt_path:str=None) -> None:
     :param datasets: dict, to predict
     """ 
     cfg = load_config(Path(cfg_file))
-
     model_dir = cfg["training"].get("model_dir", None)
     assert model_dir is not None 
 
     # make logger
-    make_logger(Path(model_dir), mode="rencos_test_time_04")
+    make_logger(Path(model_dir), mode="rencos_test")
 
     use_cuda = cfg["training"].get("use_cuda", False) and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
@@ -38,9 +37,8 @@ def rencos_test(cfg_file: str, ckpt_path:str=None) -> None:
     # build an transformer(encoder-decoder) model
     model = build_model(model_cfg=cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab)
 
-    logger.info("ckpt_path = {}".format(ckpt_path))
-
     # load model checkpoint
+    logger.info("ckpt_path = {}".format(ckpt_path))
     model_checkpoint = load_model_checkpoint(path=Path(ckpt_path), device=device)
 
     #restore model and optimizer parameters
@@ -68,7 +66,6 @@ def rencos_test(cfg_file: str, ckpt_path:str=None) -> None:
                 test_output_path = Path(model_dir) / "ouput_rencos_test_l2.{}".format(dataset_name)
                 write_list_to_file(file_path=test_output_path, array=valid_hypotheses)
                 logger.info("Results saved to: %s.", test_output_path)
-
         else:
             logger.info(f"{dataset_name} is not exist!" )
             

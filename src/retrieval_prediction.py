@@ -20,7 +20,7 @@ from src.metrics import Bleu, Meteor, Rouge
 logger = logging.getLogger(__name__)
 
 def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False, 
-            normalization:str="batch", num_workers:int=0, test_cfg:Dict=None):
+            normalization:str="batch", num_workers:int=0, test_cfg:Dict=None, use_code_representation: bool=False):
     """
     Generate outputs(translations/summary) for the given data.
     If 'compute_loss' is True, also computes the loss.
@@ -51,12 +51,14 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
     total_nseqs = 0
     total_ntokens = 0
     total_loss = 0
+
     all_outputs = []
     valid_sentences_scores = []
     valid_attention_scores = [] 
     all_batch_words = []
     hyp_scores = None
     attention_scores = None
+
     # for retrieval analysis
     all_hits = 0.
     all_first_hits = 0.
@@ -68,7 +70,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
     model_false_mix_false_num = 0.
 
     full_distance_list = list()
-    start_time = time.time()
+    inference_start_time = time.time()
     for batch_data in tqdm.tqdm(data_iter, desc="Validating"):
         batch_data.move2cuda(device)
         total_nseqs += batch_data.nseqs 
@@ -104,16 +106,15 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
         output, hyp_scores, attention_scores, batch_distance_list = search(model=model, batch_data=batch_data,
                 beam_size=beam_size, beam_alpha=beam_alpha, max_output_length=max_output_length, 
                 min_output_length=min_output_length, n_best=n_best, return_attention=return_attention,
-                return_prob=return_prob, generate_unk=generate_unk, repetition_penalty=repetition_penalty)
+                return_prob=return_prob, generate_unk=generate_unk, repetition_penalty=repetition_penalty,
+                use_code_representation=use_code_representation)
 
         all_outputs.extend(output)
         valid_sentences_scores.extend(hyp_scores if hyp_scores is not None else [])
         valid_attention_scores.extend(attention_scores if attention_scores is not None else [])
         full_distance_list.extend(batch_distance_list)
-    # logger.info("full_distance_lsit = {}".format(full_distance_list))
-    end_time = time.time()
-    logger.info("time cost = {}".format(end_time - start_time))
-
+    inference_end_time = time.time()
+    logger.info("Inference Time Cost = {}".format(inference_end_time - inference_start_time))
 
     # logger.info("all_hits = {}, all_token_numbers = {}, hit_accuracy = {}".format(all_hits, all_token_numbers, all_hits/all_token_numbers))
     # logger.info("first_hits={}, all_token_numbers = {}, first hit_accuracy = {}".format(all_first_hits, all_token_numbers,all_first_hits/all_token_numbers))
@@ -122,10 +123,8 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
     # logger.info("model_false_mix_true_num = {} help_token_num = {}, ratio = {}".format(model_false_mix_true_num, help_token_num, model_false_mix_true_num/help_token_num))
     # logger.info("model_false_mix_false_num = {} help_token_num = {}, ratio = {}".format(model_false_mix_false_num, help_token_num, model_false_mix_false_num/help_token_num))
 
-
     assert total_nseqs == len(data)
-    # NOTE all_outputs is a list of np.ndarray
-    assert len(all_outputs) == len(data) * n_best
+    assert len(all_outputs) == len(data) * n_best # NOTE all_outputs is a list of np.ndarray
 
     if compute_loss:
         if normalization == "batch":
@@ -135,8 +134,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
         elif normalization == "none":
             normalizer = 1
         valid_scores["loss"] = total_loss / normalizer
-        # valid_scores["ppl"] = math.exp(total_loss / total_ntokens)
-        valid_scores["ppl"] = 0
+        valid_scores["ppl"] = math.exp(total_loss / total_ntokens)
     
     decoded_valid = model.trg_vocab.arrays_to_sentences(arrays=all_outputs, cut_at_eos=True)
 
@@ -157,10 +155,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
         if eval_metric == "bleu":  # geometric mean of bleu scores
             valid_scores[eval_metric], bleu_order = Bleu().corpus_bleu(hypotheses=predictions_dict, references=references_dict)
         elif eval_metric == "meteor":
-            try:
-                valid_scores[eval_metric] = Meteor().compute_score(gts=references_dict, res=predictions_dict)[0]
-            except:
-                logger.warning("meteor compute has something wrong!")
+            valid_scores[eval_metric] = 0
         elif eval_metric == "rouge-l":
             valid_scores[eval_metric] = Rouge().compute_score(gts=references_dict, res=predictions_dict)[0]
     eval_duration = time.time() - eval_metric_start_time
@@ -173,38 +168,25 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
 
     return (valid_scores, valid_references, valid_hypotheses, valid_sentences_scores, valid_attention_scores)
 
-def search(model, batch_data: Batch, beam_size: int, beam_alpha: float, 
-           max_output_length: int, min_output_length: int, n_best: int,
-           return_attention: bool, return_prob: str, generate_unk: bool, repetition_penalty) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Get outputs and attention scores for a given batch.
-    return:
-        - output 
-            greedy search: [batch_size, hyp_len/max_output_length] np.ndarray
-            beam search: [batch_size*beam_size, hyp_len/max_output_length] np.ndarray
-        - hyp_scores log probability for batch
-            greedy search: [batch_size, hyp_len/max_output_length] np.ndarray
-            beam search: [batch_size*n_best, hyp_len/max_output_length] np.ndarray
-        - attention_scores 
-            greedy search: [batch_size, steps/max_output_length, src_len] np.ndarray
-            beam search: None
-        - batch_words
-    """
+def search(model, batch_data: Batch, beam_size: int, beam_alpha: float, max_output_length: int, 
+           min_output_length: int, n_best: int, return_attention: bool, return_prob: str, 
+           generate_unk: bool, repetition_penalty: float, use_code_representation: bool) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     with torch.no_grad():
         src_input = batch_data.src
         src_mask = batch_data.src_mask
         encoder_output = model(return_type="encode", src_input=src_input, src_mask=src_mask)
-        if beam_size < 2: # Greedy Strategy
+        if beam_size < 2:   # Greedy Search
             stacked_output, stacked_scores, stacked_attention_scores, batch_distance_list= greedy_search(model, encoder_output, src_mask, 
-                                    max_output_length, min_output_length, generate_unk, return_attention, return_prob)
-        else:   # Beam Search
+            max_output_length, min_output_length, generate_unk, return_attention, return_prob, use_code_representation)
+        else:               # Beam Search
             stacked_output, stacked_scores, stacked_attention_scores = beam_search(model, encoder_output, src_mask, 
-            max_output_length, min_output_length, beam_size, beam_alpha, n_best, generate_unk, return_attention, return_prob, repetition_penalty)
+            max_output_length, min_output_length, beam_size, beam_alpha, n_best, generate_unk, 
+            return_attention, return_prob, repetition_penalty, use_code_representation)
         
         return stacked_output, stacked_scores, stacked_attention_scores, [0,1]
 
 def greedy_search(model, encoder_output, src_mask, max_output_length, min_output_length, 
-                  generate_unk, return_attention, return_prob):
+                  generate_unk, return_attention, return_prob, use_code_representation):
     """
     Transformer Greedy function.
     :param: model: Transformer Model
@@ -239,26 +221,17 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
 
     finished = src_mask.new_zeros(batch_size).byte() # [batch_size], uint8
     
-    # encode_concat = torch.mean(encoder_output, dim=1, keepdim=True)
-    # encoder_output = [batch_size, src_len, model_dim]
-    # encode_concat = [batch_size, 1, model_dim]
-    # logger.warning("src_mask = {}".format(src_mask))
-    # src_mask [batch, 1, src_len]
-    batch_list = []
+    batch_encoder_output_list = []
     for sentence_encoder_output, sentence_src_mask in zip(encoder_output, src_mask):
         # sentence_encoder_output [src_len, model_dim]
         # sentence_src_mask [1, src_len]
-        # logger.warning("sentence encoder output shape = {}".format(sentence_encoder_output.shape))
-        # logger.warning("sentence src mask shape = {}".format(sentence_src_mask.shape))
         sentence_encoder_output_select = sentence_encoder_output[sentence_src_mask.squeeze(0)]
         # sentnce encoder output select [src_len_selected, model_dim]
         sentence_encode_concat = torch.mean(sentence_encoder_output_select, dim=0, keepdim=True)
         # sentence encode concat [1, model_dim]
-        batch_list.append(sentence_encode_concat.unsqueeze(0))
-    encode_concat = torch.cat(batch_list, dim=0)
+        batch_encoder_output_list.append(sentence_encode_concat.unsqueeze(0))
+    encode_concat = torch.cat(batch_encoder_output_list, dim=0)
     # encode_concat [batch_size, 1, model_dim]
-    # logger.warning("encode concat shape = {}".format(encode_concat.shape))
-
 
     batch_distances_list = []
     for step in range(max_output_length):
@@ -274,9 +247,12 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
             # output [batch_size, 1, trg_vocab_size]
             penultimate_representation = penultimate_representation[:, -1].unsqueeze(1)
             # penultimate_representation [batch_size, 1, model_dim]
-            hidden = torch.cat((encode_concat, penultimate_representation), dim=-1)
-            # hidden = torch.sub(penultimate_representation, encode_concat)
-            # log_probs, analysis = model.retriever(penultimate_representation, output)
+
+            if use_code_representation:
+                hidden = torch.cat((encode_concat, penultimate_representation), dim=-1)
+            else:
+                hidden = penultimate_representation
+
             log_probs, analysis = model.retriever(hidden, output)
             # log_probs [batch_size, 1, vocab_size]
             log_probs = log_probs.squeeze(1)
@@ -308,9 +284,6 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
             break
 
     # batch_distance = torch.cat(distances_list)
-    # logger.info("batch_distance = {}".format(batch_distance))
-    # logger.info("batch distance shape = {}".format(batch_distance.shape))
-    # assert False 
 
     # Remove bos-symbol
     stacked_output = generated_tokens[:, 1:].detach().cpu().numpy()
@@ -320,7 +293,7 @@ def greedy_search(model, encoder_output, src_mask, max_output_length, min_output
     return stacked_output, stacked_scores, stacked_attention, batch_distances_list
 
 def beam_search(model, encoder_output, src_mask, max_output_length, min_output_length, beam_size, beam_alpha,
-                n_best, generate_unk, return_attention, return_prob, repetition_penalty):
+                n_best, generate_unk, return_attention, return_prob, repetition_penalty,use_code_representation):
     """
     Transformer Beam Search function.
     In each decoding step, find the k most likely partial hypotheses.
@@ -374,10 +347,6 @@ def beam_search(model, encoder_output, src_mask, max_output_length, min_output_l
     # Indicator if the generation is finished.
     is_finished = torch.full((batch_size, beam_size), False, dtype=torch.bool, device=device)
 
-    # encode_concat = torch.mean(encoder_output, dim=1, keepdim=True)
-    # encoder_output = [batch_size*beam_size, src_len, model_dim]
-    # encode_concat = [batch_size*beam_sizse, 1, model_dim]
-
     for step in range(max_output_length):
         # feed the complete predicted sentences so far.
         decoder_input = alive_sentences
@@ -393,11 +362,6 @@ def beam_search(model, encoder_output, src_mask, max_output_length, min_output_l
             # output = output[:, -1] # output [batch_size*beam_size, vocab_size]
             output = output[:, -1].unsqueeze(1) # [batch_size*beam_size, 1, vocab_size]
             penultimate_representation = penultimate_representation[:, -1].unsqueeze(1) # [batch_size*beam_size, 1, model_dim]
-            # logger.warning('encode concat shape = {}'.format(encode_concat.shape))
-            # logger.warning("encoder_output shape = {}".format(encoder_output.shape))
-            # logger.warning("penultimate shape = {}".format(penultimate_representation.shape))
-            # encode_concat = torch.mean(encoder_output, dim=1, keepdim=True)
-            # encode_concat (selected, 1, model_dim)
 
             # encode_output (selected, src_len, model_dim)
             # src_mask (seleced, 1, src_len)
@@ -412,11 +376,12 @@ def beam_search(model, encoder_output, src_mask, max_output_length, min_output_l
             encode_concat = torch.cat(concat_list, dim=0)
             # encode_concat [selected, 1, model_dim]
             
+            if use_code_representation:
+                hidden = torch.cat((encode_concat, penultimate_representation), dim=-1)
+            else:
+                hidden = penultimate_representation
 
-            hidden = torch.cat((encode_concat, penultimate_representation), dim=-1)
-            # hidden = torch.sub(encode_concat, penultimate_representation)
-            # assert False
-            log_probs, _ = model.retriever(penultimate_representation, output)
+            log_probs, _ = model.retriever(hidden, output)
             # log_probs, _ = model.retriever(hidden, output)
             log_probs = log_probs.squeeze(1)
 
@@ -560,7 +525,6 @@ def penalize_repetition(tokens: Tensor,
     :param penalty: penalty value, bigger value implies less probability
     :param exclude_tokens: list of token ids to exclude from penalizing
     """
-    assert False
     scores_before = scores if exclude_tokens else None
     score = torch.gather(scores, 1, tokens)
 

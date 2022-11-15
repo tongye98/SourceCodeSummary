@@ -1,17 +1,16 @@
 import logging 
-import math
 import torch 
-import faiss
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
 from typing import Tuple, Union 
-from src.build_database import Database, EnhancedDatabase 
+from src.build_database import Database, EnhancedDatabase
+from src.helps import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
 class Kernel(object):
-    def __init__(self) -> None:
+    def __init__(self, index_type:str) -> None:
+        self.index_type = index_type
         super().__init__()
     
     def similarity(self, distances:torch.Tensor, bandwidth:Union[float, torch.Tensor]) -> torch.Tensor:
@@ -19,9 +18,6 @@ class Kernel(object):
     
     def compute_example_based_distribution(self, distances:torch.Tensor, bandwidth:Union[float, torch.Tensor], 
                                             token_indices:torch.Tensor, vocab_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        # threshold 
-        # FIXME
-        # threshold = 0.3
 
         scores = self.similarity(distances, bandwidth)
         # distances[batch_size*trg_len, top_k]
@@ -29,25 +25,31 @@ class Kernel(object):
         # sparse_distribution [batch_size*trg_len, top_k]        
         zeros = torch.zeros(size=(sparse_distribution.size(0), vocab_size), device=sparse_distribution.device, dtype=sparse_distribution.dtype)
         distribution = torch.scatter_add(zeros, -1, token_indices, sparse_distribution)
-        # FIXME probability may be > 1, No
-        # distribution [batch_size*trg_len, vocab_size]
-        # threshold = 0.7
-        # distribution = torch.where(distribution > threshold, distribution, 0)
         return distribution, sparse_distribution
 
 class GaussianKernel(Kernel):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, index_type: str) -> None:
+        super().__init__(index_type)
     
     def similarity(self, distances: torch.Tensor, bandwidth: Union[float, torch.Tensor]) -> torch.Tensor:
-        return distances * bandwidth
+        if self.index_type == "INNER":
+            return distances * bandwidth
+        elif self.index_type == "L2":
+            return - distances / bandwidth
+        else:
+            raise ConfigurationError
 
 class LaplacianKernel(Kernel):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, index_type:str) -> None:
+        super().__init__(index_type)
     
     def similarity(self, distances: torch.Tensor, bandwidth: Union[float, torch.Tensor]) -> torch.Tensor:
-        return - torch.sqrt(distances) / bandwidth
+        if self.index_type == "INNER":
+            return torch.sqrt(distances) * bandwidth
+        elif self.index_type == "L2":
+            return - torch.sqrt(distances) / bandwidth
+        else:
+            raise ConfigurationError
 
 
 class Retriever(nn.Module):
@@ -110,82 +112,19 @@ class StaticRetriever(Retriever):
         # example_based_distribution [batch_size*trg_len, trg_vocab_size]
 
         mixed_distribution = (1 - self.mixing_weight) * model_based_distribution + self.mixing_weight * example_based_distribution
-        
-        # only uss example_based distribution 
-        # mixed_distribution = example_based_distribution
-
-        # only use model based distribution
-        # mixed_distribution = model_based_distribution
 
         log_probs = torch.log(mixed_distribution)
         log_probs = log_probs.view(batch_size, trg_len, vocab_size).contiguous()
         # log_probs [batch_size, trg_len, vocab_size]
+
         analysis = dict()
         analysis["token_indices"] = token_indices
         analysis["model_based_distribution"] = model_based_distribution
         analysis["example_based_distribution"] = example_based_distribution 
         analysis["mixed_distribution"] = mixed_distribution
         analysis["distances"] = distances
-        return log_probs, analysis
-
-class WeightRetriever(Retriever):
-    def __init__(self, database:Database, top_k:int,  kernel: Kernel, bandwidth:float) -> None:
-        super().__init__()
-        self.database = database
-        self.top_k = top_k
-        self.kernel = kernel
-        self.bandwidth = bandwidth
-        logger.warning("top_k = {}".format(self.top_k))
-        self.weight_network = nn.Sequential(nn.Linear(2*top_k, 8),
-                                            nn.Tanh(),
-                                            nn.Linear(8, 1))
-        logger.warning("weight_network = {}".format(self.weight_network))
-    
-    def forward(self, hidden:torch.Tensor, logits:torch.Tensor) -> torch.Tensor:
-        """
-        hidden [batch_size, trg_len, model_dim]
-        logits [batch_size, trg_len, trg_vocab_size]
-        """
-        batch_size, trg_len, model_dim = hidden.size()
-        vocab_size = logits.size(-1)
-        hidden = hidden.view(batch_size*trg_len, model_dim)
-        logits = logits.view(batch_size*trg_len, vocab_size)
-
-        cos_similarity, token_indices = self.database.search(hidden.cpu().numpy(), top_k=self.top_k)
-        cos_similarity = torch.FloatTensor(cos_similarity).to(logits.device)
-        token_indices = torch.LongTensor(token_indices).to(logits.device)
-        # cos_similarity [batch_size*trg_len, top_k]
-        # token_indices  [batch_size*trg_len, top_k]
-
-        model_based_distribution = F.softmax(logits, dim=-1)
-        # model_based_distribution [batch_size*trg_len, trg_vocab_size]
-
-        knn_based_distribution, sparse_distribution = self.kernel.compute_example_based_distribution(distances=cos_similarity, 
-                        bandwidth=self.bandwidth, token_indices=token_indices, vocab_size=vocab_size)
         
-        mixing_weight = self.compute_mixing_weight(model_based_distribution, token_indices, sparse_distribution)
-
-        fused_distribution = (1- mixing_weight)*model_based_distribution + mixing_weight*knn_based_distribution
-
-        log_probs = torch.log(fused_distribution)
-        log_probs = log_probs.view(batch_size, trg_len, vocab_size).contiguous()
-        # log_probs [batch_size, trg_len, vocab_size]
-
-        return log_probs
-
-    def compute_mixing_weight(self, model_based_distribution, token_indices, sparse_distribution):
-        """
-        model_based_distribution [batch_size*trg_len, trg_vocab_size]
-        token_indices [batch_size*trg_len, top_k]
-        sparse_distribution [batch_size*trg_len, top_k]  probability
-        """
-        model_select_probability = torch.gather(model_based_distribution, dim=-1, index=token_indices)
-        # model_select_probability [batch_size*trg_len, top_k]
-        select_probability = torch.cat([model_select_probability, sparse_distribution], dim=-1)
-        # select_probability [batch_size*trg_len, 2*top_k]
-        mixing_weight = torch.sigmoid(self.weight_network(select_probability))
-        # select_probability [batch_size*trg_len, 1]
-        return mixing_weight
+        return log_probs, analysis
 
 class DynamicRetriever(Retriever):
     def __init__(self, database:Database, top_k:int, kernel:Kernel) -> None:
@@ -194,12 +133,11 @@ class DynamicRetriever(Retriever):
         self.top_k = top_k 
         self.kernel = kernel
         dimension = database.index.index.d
-        # self.bandwidth_estimator = nn.Linear(2 * dimension, 1)
-        self.bandwidth = 20
-        # if isinstance(kernel, GaussianKernel):
-        #     self.bandwidth_estimator.bias.data[0] = 20
-        # else:
-        #     self.bandwidth_estimator.bias.data[0] = 10
+        self.bandwidth_estimator = nn.Linear(2 * dimension, 1)
+        if isinstance(kernel, GaussianKernel):
+            self.bandwidth_estimator.bias.data[0] = 20
+        else:
+            self.bandwidth_estimator.bias.data[0] = 10
         self.mixing_weight_estimator = nn.Sequential(
                 nn.Linear(2*dimension, dimension),
                 nn.ReLU(),
@@ -342,21 +280,16 @@ def build_retriever(retriever_cfg: dict) -> Retriever:
 
     elif retriever_type == "static_retriever":
         database = Database(index_path=retriever_cfg["index_path"], token_map_path=retriever_cfg["token_map_path"], index_type=retriever_cfg["index_type"])
-        retriever = StaticRetriever(database=database, top_k=retriever_cfg["top_k"], mixing_weight=retriever_cfg["mixing_weight"],
-                                    bandwidth=retriever_cfg["bandwidth"], 
-                                    kernel=GaussianKernel() if retriever_cfg["kernel"] == "Gaussian" else LaplacianKernel())
+        retriever = StaticRetriever(database=database, top_k=retriever_cfg["top_k"], mixing_weight=retriever_cfg["mixing_weight"], bandwidth=retriever_cfg["bandwidth"], 
+        kernel=GaussianKernel(index_type=retriever_cfg["index_type"]) if retriever_cfg["kernel"] == "Gaussian" else LaplacianKernel(index_type=retriever_cfg["index_type"]))
 
     elif retriever_type == "dynamic_retriever":
         database = EnhancedDatabase(index_path=retriever_cfg["index_path"], token_map_path=retriever_cfg["token_map_path"],
                                     embedding_path=retriever_cfg["embedding_path"], index_type=retriever_cfg["index_type"],
                                     in_memory=retriever_cfg["in_memory"])
         retriever = DynamicRetriever(database=database, top_k=retriever_cfg["top_k"],
-                                    kernel=GaussianKernel() if retriever_cfg["kernel"] == "Gaussian" else LaplacianKernel())
+        kernel=GaussianKernel(index_type=retriever_cfg["index_type"]) if retriever_cfg["kernel"] == "Gaussian" else LaplacianKernel(index_type=retriever_cfg["index_type"]))
 
-    elif retriever_type == "weight_retriever":
-        database = Database(index_path=retriever_cfg["index_path"], token_map_path=retriever_cfg["token_map_path"], index_type=retriever_cfg["index_type"])
-        retriever = WeightRetriever(database=database, top_k=retriever_cfg["top_k"], bandwidth=retriever_cfg["bandwidth"],
-                                    kernel=GaussianKernel() if retriever_cfg["kernel"] == "Gaussian" else LaplacianKernel())
     else:
         raise ValueError("The {} is not supported currently.".format(retriever_type))
     

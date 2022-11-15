@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 from typing import List
 from torch.utils.data import Dataset
-from src.helps import load_config, make_model_dir, make_logger, log_cfg, check_retrieval_cfg
+from src.helps import load_config, make_model_dir, make_logger, log_cfg
 from src.helps import set_seed, parse_train_arguments, load_model_checkpoint
 from src.helps import symlink_update, delete_ckpt, write_validation_output_to_file
 from src.prediction import predict
@@ -27,13 +27,10 @@ def retrieval_train(cfg_file: str) -> None:
     cfg = load_config(Path(cfg_file))
 
     # make model dir
-    model_dir = make_model_dir(Path(cfg["training"]["model_dir"]),overwrite=cfg["training"].get("overwrite",False))
+    model_dir = cfg["retriever"].get("retrieval_model_dir", None)
 
     # make logger
     make_logger(model_dir, mode="retrieval_train")
-
-    # check retrieval cfg
-    # check_retrieval_cfg(retrieval_cfg=cfg["retriever"])
 
     # write all entries of config to the log file.
     log_cfg(cfg)
@@ -162,7 +159,6 @@ class RetrievalTrainManager(object):
         score: Validation score which is used as key of heap queue.
         """
         model_path = Path(self.model_dir) / f"{self.stats.steps}.ckpt"
-        # FIXME for multi gpu
         model_state_dict = self.model.state_dict()
         global_state = {
             "steps": self.stats.steps,
@@ -256,9 +252,6 @@ class RetrievalTrainManager(object):
         """
         self.train_iter = make_data_iter(dataset=train_data, sampler_seed=self.seed, shuffle=self.shuffle, batch_type=self.batch_type,
                                          batch_size=self.batch_size, num_workers=self.num_workers)
-
-        # if self.train_iter_state is not None:
-        #     self.train_iter.batch_sampler.sampler.generator.set_state(self.train_iter_state.cpu())
         
         # train and validate main loop
         logger.info("Train stats:\n"
@@ -296,7 +289,6 @@ class RetrievalTrainManager(object):
                     for (name, param) in self.model.retriever.named_parameters():
                         logger.debug("Name = {}, Param={}".format(name, param))
                         logger.debug("Gradient {}".format(param.grad))
-
 
                     # reset gradients
                     self.model.retriever.zero_grad()
@@ -380,7 +372,7 @@ class RetrievalTrainManager(object):
 
         # normalization = 'batch' means final loss is average-sentence level loss in batch
         # normalization = 'tokens' means final loss is average-token level loss in batch
-        normalized_batch_loss = batch_data.normalize(batch_loss, self.normalization)
+        normalized_batch_loss = batch_data.normalize(batch_loss, "sum")
         return normalized_batch_loss
 
     def validate(self, valid_data: Dataset):

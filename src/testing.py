@@ -22,7 +22,7 @@ def test(cfg_file: str, ckpt_path:str=None) -> None:
     assert model_dir is not None 
 
     # make logger
-    make_logger(Path(model_dir), mode="test_beam_nounk")
+    make_logger(Path(model_dir), mode="test")
 
     load_model = cfg["training"].get("load_model", None)
     use_cuda = cfg["training"].get("use_cuda", False) and torch.cuda.is_available()
@@ -57,14 +57,16 @@ def test(cfg_file: str, ckpt_path:str=None) -> None:
             (valid_scores, valid_references, valid_hypotheses, valid_sentences_scores, 
             valid_attention_scores) = predict(model=model, data=dataset, device=device, compute_loss=True, 
             normalization=normalization, num_workers=num_workers, test_cfg=cfg["testing"])
+
             for eval_metric, score in valid_scores.items():
                 if eval_metric in ["loss", "ppl"]:
                     logger.info("eval metric {} = {}".format(eval_metric, score))
                 else:
                     logger.info("eval metric {} = {}".format(eval_metric, score*100))
+                    
             if valid_hypotheses is not None:
                 # save final model outputs.
-                test_output_path = Path(model_dir) / "output_beam_nounk.{}".format(dataset_name)
+                test_output_path = Path(model_dir) / "output_.{}".format(dataset_name)
                 write_list_to_file(file_path=test_output_path, array=valid_hypotheses)
                 logger.info("Results saved to: %s.", test_output_path)
         else:

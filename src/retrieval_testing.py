@@ -4,7 +4,7 @@ from pathlib import Path
 from src.datas import load_data
 from src.model import build_model
 from src.retrieval_prediction import predict
-from src.helps import load_config, make_logger, resolve_ckpt_path
+from src.helps import load_config, make_logger
 from src.helps import load_model_checkpoint, write_list_to_file
 from src.retriever import build_retriever
 
@@ -20,6 +20,7 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
     cfg = load_config(Path(cfg_file))
 
     model_dir = cfg["retriever"].get("retrieval_model_dir", None)
+    use_code_representation = cfg["retriever"]["use_code_representation"]
     assert model_dir is not None 
 
     # make logger
@@ -36,9 +37,8 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
     # build an transformer(encoder-decoder) model
     model = build_model(model_cfg=cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab)
 
-    logger.info("ckpt_path = {}".format(ckpt_path))
-
     # load model checkpoint
+    logger.info("ckpt_path = {}".format(ckpt_path))
     model_checkpoint = load_model_checkpoint(path=Path(ckpt_path), device=device)
 
     #restore model and optimizer parameters
@@ -67,13 +67,16 @@ def retrieval_test(cfg_file: str, ckpt_path:str=None) -> None:
                     if dataset is not None:
                         logger.info("Testing on %s set...", dataset_name)
                         (valid_scores, valid_references, valid_hypotheses, valid_sentences_scores, 
-                        valid_attention_scores) = predict(model=model, data=dataset, device=device, compute_loss=True, 
-                        normalization=normalization, num_workers=num_workers, test_cfg=cfg["testing"])
+                        valid_attention_scores) = predict(model=model, data=dataset, device=device, compute_loss=False, 
+                        normalization=normalization, num_workers=num_workers, test_cfg=cfg["testing"],
+                        use_code_representation=use_code_representation)
+
                         for eval_metric, score in valid_scores.items():
                             if eval_metric in ["loss", "ppl"]:
                                 logger.info("eval metric {} = {}".format(eval_metric, score))
                             else:
                                 logger.info("eval metric {} = {}".format(eval_metric, score*100))
+
                         if valid_hypotheses is not None:
                             # save final model outputs.
                             test_output_path = Path(model_dir) / "output_analysis_beam_mx={}bandwidth={}topk={}".format(mixing_weight, bandwidth, top_k)

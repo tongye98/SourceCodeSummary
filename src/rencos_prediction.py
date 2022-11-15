@@ -32,7 +32,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
     """
     (batch_size, batch_type, max_output_length, min_output_length,
      eval_metrics, beam_size, beam_alpha, n_best, return_attention, 
-     return_prob, generate_unk) = parse_test_arguments(test_cfg)
+     return_prob, generate_unk, repetition_penalty) = parse_test_arguments(test_cfg)
     
     if beam_size > 1:
         logger.warning("Rencos test, beam_size should be 1.")
@@ -72,7 +72,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
         valid_attention_scores.extend(attention_scores if attention_scores is not None else [])
     end_time = time.time()
     logger.info("Predicte time = {}".format(end_time - start_time))
-    assert False
+
     assert total_nseqs == len(data)
     assert len(all_outputs) == len(data) * n_best
     
@@ -93,10 +93,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
         if eval_metric == "bleu":  # geometric mean of bleu scores
             valid_scores[eval_metric], bleu_order = Bleu().corpus_bleu(hypotheses=predictions_dict, references=references_dict)
         elif eval_metric == "meteor":
-            try:
-                valid_scores[eval_metric] = Meteor().compute_score(gts=references_dict, res=predictions_dict)[0]
-            except:
-                logger.warning("meteor compute has something wrong!")
+            valid_scores[eval_metric] = 0
         elif eval_metric == "rouge-l":
             valid_scores[eval_metric] = Rouge().compute_score(gts=references_dict, res=predictions_dict)[0]
     
@@ -243,15 +240,13 @@ def greedy_search(model, output, mask, similarity_score, max_output_length, min_
             output_syntax = F.softmax(output_syntax, dim=-1)
             output_semantic = F.softmax(output_semantic, dim=-1)
             
-            # NOTE
             # src_syntax_similarity_score (batch_size, 1)
-            output = output + 3*src_syntax_similarity_score*output_syntax + 3*src_semantic_similarity_score*output_semantic
-            # output = output + src_semantic_similarity_score*output_semantic
-            # output = output + src_syntax_similarity_score*output_syntax
+            lamda = 3
+            output = output + lamda*src_syntax_similarity_score*output_syntax + lamda*src_semantic_similarity_score*output_semantic
+
         # take the most likely token
-        prob, next_words = torch.max(output, dim=-1)
         # prob [batch_size]  next_words [batch_size]
-        
+        prob, next_words = torch.max(output, dim=-1)
         prob_syntax, syntax_next_words = torch.max(output_syntax, dim=-1)
         prob_semantic, semantic_next_words = torch.max(output_semantic, dim=-1)
 
