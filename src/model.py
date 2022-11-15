@@ -9,8 +9,9 @@ import numpy as np
 from src.transformer_layers import TransformerEncoderLayer, PositionalEncoding
 from src.transformer_layers import TransformerDecoderLayer, LearnablePositionalEncoding
 from src.vocabulary import Vocabulary
-from src.helps import ConfigurationError, freeze_params, subsequent_mask, retrieval_accuracy, actually_help_analysis
-from src.loss import XentLoss, XentLoss_joeynmt
+from src.helps import ConfigurationError, freeze_params, subsequent_mask
+from src.helps import retrieval_accuracy, actually_help_analysis
+from src.loss import XentLoss
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +120,6 @@ class TransformerEncoder(nn.Module):
             embed_src = self.pe(embed_src)  # add absolute position encoding
         elif self.src_pos_emb == "learnable":
             embed_src = self.lpe(embed_src)
-            # FIXME should layer_norm?
         else:
             embed_src = embed_src
             
@@ -161,7 +161,6 @@ class TransformerDecoder(nn.Module):
             logger.warning("self.trg_pos_emb value need double check")
 
         self.layer_norm = nn.LayerNorm(model_dim) if layer_norm_position == 'pre' else None
-        # self.emb_layer_norm = nn.LayerNorm(model_dim) if self.trg_pos_emb == "learnable" else None
         self.emb_dropout = nn.Dropout(emb_dropout)
         
         self.head_count = head_count
@@ -187,7 +186,6 @@ class TransformerDecoder(nn.Module):
             embed_trg = self.pe(embed_trg)
         elif self.trg_pos_emb == "learnable":
             embed_trg = self.lpe(embed_trg)
-            # FIXME should layer_norm?
         else:
             embed_trg = embed_trg
 
@@ -258,8 +256,8 @@ class Transformer(nn.Module):
             logits = self.output_layer(decode_output)
             # logits [batch_size, trg_len, trg_vocab_size]
             log_probs = F.log_softmax(logits, dim=-1)
+            # NOTE batch loss = sum over all sentences of all tokens in the batch that are not pad
             batch_loss = self.loss_function(log_probs, target=trg_truth)
-            # return batch loss = sum over all sentences of all tokens in the batch that are not pad
             return batch_loss
 
         elif return_type == "encode":
@@ -275,23 +273,7 @@ class Transformer(nn.Module):
             assert trg_input is not None and trg_mask is not None 
             encode_output = self.encode(src_input, src_mask)
             decode_output, penultimate_representation, cross_attention_weight = self.decode(trg_input, encode_output, src_mask, trg_mask)
-            return decode_output, penultimate_representation, encode_output
-
-        elif return_type == "retrieval_loss":
-            assert self.retriever is not None 
-            encode_output = self.encode(src_input, src_mask)
-            decode_output, penultimate_representation, cross_attention_weight = self.decode(trg_input, encode_output, src_mask, trg_mask)
-            logits = self.output_layer(decode_output)
-            log_probs, _= self.retriever(hidden=penultimate_representation, logits=logits)
-            batch_loss = self.loss_function(log_probs, target=trg_truth)
-            # hits, hits_first_place, token_numbers = retrieval_accuracy(analysis["token_indices"], trg_truth)
-            # help_analysis = actually_help_analysis(analysis, trg_truth)
-            # retrieval_analysis = dict()
-            # retrieval_analysis["token_indices"]  = analysis["token_indices"]
-            # retrieval_analysis["hits"] = hits
-            # retrieval_analysis["hits_first_place"] =  hits_first_place
-            # retrieval_analysis["token_numbers"] = token_numbers
-            return batch_loss
+            return decode_output, penultimate_representation, cross_attention_weight, encode_output
 
         else:
             raise ValueError("return_type must be one of {'loss', 'encode', 'decode', 'encode_decode', 'retrieval_loss'}")
@@ -478,3 +460,4 @@ def Initialize_model(model: nn.Module, model_cfg:dict,
         # zero out paddings
         model.src_embed.lut.weight.data[src_pad_index].zero_()
         model.trg_embed.lut.weight.data[trg_pad_index].zero_()
+        

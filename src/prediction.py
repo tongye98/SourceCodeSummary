@@ -13,7 +13,6 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 from typing import Dict, List, Tuple
 from src.helps import parse_test_arguments, tile
-from src.helps import collapse_copy_scores, tensor2sentence_copy, cut_off
 from src.datas import Batch, make_data_iter
 from src.metrics import Bleu, Meteor, Rouge
 
@@ -33,7 +32,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
     """
     (batch_size, batch_type, max_output_length, min_output_length,
      eval_metrics, beam_size, beam_alpha, n_best, return_attention, 
-     return_prob, generate_unk, _) = parse_test_arguments(test_cfg)
+     return_prob, generate_unk, repetition_penalty) = parse_test_arguments(test_cfg)
 
     decoding_description = ("(Greedy decoding with " if beam_size < 2 else f"(Beam search with "
                             f"beam_size={beam_size}, beam_alpha={beam_alpha}, n_best={n_best}")
@@ -82,15 +81,14 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
         output, hyp_scores, attention_scores = search(model=model, batch_data=batch_data,
                 beam_size=beam_size, beam_alpha=beam_alpha, max_output_length=max_output_length, 
                 min_output_length=min_output_length, n_best=n_best, return_attention=return_attention,
-                return_prob=return_prob, generate_unk=generate_unk)
+                return_prob=return_prob, generate_unk=generate_unk, repetition_penalty=repetition_penalty)
 
         all_outputs.extend(output)
         valid_sentences_scores.extend(hyp_scores if hyp_scores is not None else [])
         valid_attention_scores.extend(attention_scores if attention_scores is not None else [])
 
     assert total_nseqs == len(data)
-    # NOTE all_outputs is a list of np.ndarray
-    assert len(all_outputs) == len(data) * n_best
+    assert len(all_outputs) == len(data) * n_best   # NOTE all_outputs is a list of np.ndarray
 
     if compute_loss:
         if normalization == "batch":
@@ -121,10 +119,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
         if eval_metric == "bleu":  # geometric mean of bleu scores
             valid_scores[eval_metric], bleu_order = Bleu().corpus_bleu(hypotheses=predictions_dict, references=references_dict)
         elif eval_metric == "meteor":
-            try:
-                valid_scores[eval_metric] = Meteor().compute_score(gts=references_dict, res=predictions_dict)[0]
-            except:
-                logger.warning("meteor compute has something wrong!")
+            valid_scores[eval_metric] = 0
         elif eval_metric == "rouge-l":
             valid_scores[eval_metric] = Rouge().compute_score(gts=references_dict, res=predictions_dict)[0]
     eval_duration = time.time() - eval_metric_start_time
@@ -137,9 +132,9 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
 
     return (valid_scores, valid_references, valid_hypotheses, valid_sentences_scores, valid_attention_scores)
 
-def search(model, batch_data: Batch, beam_size: int, beam_alpha: float, 
-           max_output_length: int, min_output_length: int, n_best: int,
-           return_attention: bool, return_prob: str, generate_unk: bool) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def search(model, batch_data: Batch, beam_size: int, beam_alpha: float, max_output_length: int, 
+           min_output_length: int, n_best: int, return_attention: bool, return_prob: str, 
+           generate_unk: bool, repetition_penalty: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Get outputs and attention scores for a given batch.
     return:
@@ -158,10 +153,10 @@ def search(model, batch_data: Batch, beam_size: int, beam_alpha: float,
         src_input = batch_data.src
         src_mask = batch_data.src_mask
         encoder_output = model(return_type="encode", src_input=src_input, src_mask=src_mask)
-        if beam_size < 2: # Greedy Strategy
+        if beam_size < 2:   # Greedy Strategy
             stacked_output, stacked_scores, stacked_attention_scores = greedy_search(model, encoder_output, src_mask, 
                                     max_output_length, min_output_length, generate_unk, return_attention, return_prob)
-        else:   # Beam Search
+        else:               # Beam Search
             stacked_output, stacked_scores, stacked_attention_scores = beam_search(model, encoder_output, src_mask, 
             max_output_length, min_output_length, beam_size, beam_alpha, n_best, generate_unk, return_attention, return_prob)
         

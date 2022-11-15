@@ -18,7 +18,6 @@ def build_gradient_clipper(train_cfg: dict):
         clip_grad_norm: clip the gradients if they norm exceeds this value
             torch.nn.utils.clip_grad_norm_
     """
-
     clip_grad_function = None
     if "clip_grad_val" in train_cfg.keys():
         clip_grad_function = partial(nn.utils.clip_grad_value_, clip_value=train_cfg["clip_grad_val"])
@@ -78,3 +77,4 @@ def build_scheduler(train_cfg:dict, optimizer:Optimizer):
     
     logger.info("Scheduler = %s", scheduler.__class__.__name__)
     return scheduler, scheduler_step_at
+    

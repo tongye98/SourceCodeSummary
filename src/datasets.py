@@ -243,10 +243,6 @@ class RencosDataset(BaseDataset):
         self.tokernized_data_ids["semantic_code"] = src_vocab.sentencens_to_ids(self.tokernized_data["semantic_code"], bos=False, eos=True)
         self.tokernized_data_ids[self.trg_language] = trg_vocab.sentencens_to_ids(self.tokernized_data[self.trg_language], bos=True, eos=True)
 
-        # logger.info(self.tokernized_data_ids["code"][1])
-        # logger.info(self.tokernized_data_ids["syntax_code"][1])
-        # logger.info(self.tokernized_data_ids["semantic_code"][1])
-
     def __len__(self) -> int:
         return len(self.original_data[self.src_language])
     

@@ -9,7 +9,6 @@ from src.tokenizers import build_tokenizer
 from src.datasets import build_dataset
 from src.vocabulary import build_vocab
 from src.helps import ConfigurationError, log_data_info
-from src.helps import make_src_map, align
 from src.constants import PAD_ID
 from torch.utils.data import Dataset, Sampler, DataLoader
 from torch.utils.data import SequentialSampler, RandomSampler, BatchSampler
@@ -101,6 +100,7 @@ def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,
         raise NotImplementedError("This batch_type Not Implementation.")
     else:
         raise ConfigurationError("Invalid batch_type.")
+
     if use_rencos:
         return DataLoader(dataset, batch_sampler=batch_sampler, num_workers=num_workers,
                           pin_memory=True, collate_fn=rencos_collate_fn)
@@ -136,16 +136,13 @@ def collate_fn(batch: List[Tuple]):
     DataLoader every iter result is collate_fn's return value -> Batch.
     :param batch [(src,trg), (src,trg), ...]
     """
-    src_list, trg_list= zip(*batch)  
-    # src_list: Tuple[List[id]] || trg_list: Tuple[List[id]]
+    src_list, trg_list= zip(*batch)  # src_list: Tuple[List[id]] || trg_list: Tuple[List[id]]
     assert len(src_list) == len(trg_list)
-
     return Batch(src_list, trg_list)
 
 def rencos_collate_fn(batch: List[Tuple]):
     src, src_syntax, src_semantic, trg, src_syntax_score, src_semantic_score = zip(*batch)
     assert len(src) == len(trg) == len(src_syntax) == len(src_semantic) == len(src_syntax_score) == len(src_semantic_score)
-
     return RencosBatch(src, src_syntax, src_semantic, trg, src_syntax_score, src_semantic_score)
 
 class Batch(object):
@@ -216,7 +213,6 @@ class Batch(object):
     
     def __repr__(self) -> str:
         return (f"{self.__class__.__name__}(nseqs={self.nseqs}, ntokens={self.ntokens}.)")
-
 
 class RencosBatch(object):
     """

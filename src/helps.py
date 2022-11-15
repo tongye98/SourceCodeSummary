@@ -1,25 +1,21 @@
-import enum
+import os
 import functools
-from lib2to3.pgen2 import token
-from os import cpu_count
-from tokenize import TokenInfo
-import torch.nn as nn
-from torch import Tensor 
 import torch
-from typing import Union, Dict, Tuple, List
-from pathlib import Path
 import shutil
 import logging
 import yaml
 import random
 import numpy as np
 import operator
+import torch.nn as nn
+from pathlib import Path
+from os import cpu_count
+from torch import Tensor 
 from collections import Counter
+from typing import Union, Dict, Tuple, List
 from src.constants import EOS_TOKEN, PAD_TOKEN, UNK_ID
-import os
 
 logger = logging.getLogger(__name__)
-
 
 def freeze_params(module: nn.Module) -> None:
     """
@@ -203,12 +199,10 @@ def parse_test_arguments(test_cfg:dict) -> Tuple:
 
     # control options
     return_attention = test_cfg.get("return_attention", False)
-    # FIXME what is return prob?
     return_prob = test_cfg.get("return_prob", "none")
     if return_prob not in ["hypotheses","references","none"]:
         raise ConfigurationError("Invalid return_prob")
     generate_unk = test_cfg.get("generate_unk", True)
-
     repetition_penalty = test_cfg.get("repetition_penalty", -1)
 
     return (batch_size, batch_type, max_output_length, min_output_length,
@@ -374,90 +368,6 @@ def generate_relative_position_matrix(length, max_relative_position, use_negativ
 
     return final_matrix
 
-def make_src_map(source_map):
-    """
-    Pad to make a tensor.
-    return a tensor.
-    """
-    src_size = max([src_sentence.size(0) for src_sentence in source_map])
-    src_vocab_size = max([src_sentence.max() for src_sentence in source_map]) + 1
-    alignment = torch.zeros(len(source_map), src_size, src_vocab_size)
-    for i, src_sentence in enumerate(source_map):
-        for j, t in enumerate(src_sentence):
-            alignment[i, j, t] = 1
-    return alignment
-
-def align(alignments):
-    """
-    Pad to make a tensor.
-    """
-    trg_size = max([t.size(0) for t in alignments])
-    align = torch.zeros(len(alignments), trg_size, dtype=torch.int64)
-    for i, sentence in enumerate(alignments):
-        align[i, :sentence.size(0)] = sentence 
-    return align
-
-def collapse_copy_scores(trg_vocab, src_vocabs):
-    """
-    For probability add (for prediction)
-    """
-    offset = len(trg_vocab)
-    blank_arr = []
-    fill_arr = []
-    for src_vocab in src_vocabs:
-        blank = []
-        fill = []
-        # start from 2 to ignore unk and pad token
-        for id in range(2, len(src_vocab)):
-            src_token = src_vocab._itos[id]  #FIXME api
-            trg_vocab_id = trg_vocab.lookup(src_token)
-            if trg_vocab_id != UNK_ID:
-                # src token in trg vocab
-                blank.append(offset + id) # blank: src 词出现在 trg 字典中
-                fill.append(trg_vocab_id) # fill: 记录下 trg 字典中的 id
-
-        blank_arr.append(blank)
-        fill_arr.append(fill)
-
-    return blank_arr, fill_arr
-
-def tensor2sentence_copy(generated_tokens_copy, trg_vocab, src_vocabs):
-    """
-    generated_tokens_copy [batch_size, len]
-    return batch_words List[List[token]]
-    """
-    batch_size = generated_tokens_copy.size(0)
-    assert batch_size == len(src_vocabs)
-    batch_words = []
-    for i in range(batch_size):
-        words_per_sentence = []
-        tokens_id = generated_tokens_copy[i]
-        src_vocab = src_vocabs[i]
-        for id in tokens_id:
-            if id < len(trg_vocab):
-                words_per_sentence.append(trg_vocab._itos[id])
-            else:
-                id = id - len(trg_vocab)
-                words_per_sentence.append(src_vocab._itos[id])
-        batch_words.append(words_per_sentence)
-    return batch_words
-
-def cut_off(all_batch_words, cut_at_eos:bool=True, skip_pad=True):
-    """
-    return sentences [[token1, token2], [token3, token4]]
-    """
-    sentences = []
-    for sentence_tokens in all_batch_words:
-        sentence = []
-        for token in sentence_tokens:
-            if skip_pad and token == PAD_TOKEN:
-                continue
-            sentence.append(token)
-            if cut_at_eos and token == EOS_TOKEN:
-                break
-        sentences.append(sentence)
-    return sentences
-
 def check_retrieval_cfg(retrieval_cfg: dict) -> None:
     """
     This function is used to validate that the merged retrieval config is valid.
@@ -527,12 +437,11 @@ def actually_help_analysis(analysis, trg_truth):
     example_probs, example_words = torch.max(example_based_distribution,dim=-1)
 
     mixed_probs, mixed_words = torch.max(mixed_distribution, dim=-1)
-
-
-    # step1 本来是对的， 引入检索之后 还是对
-    # step2 本来是对的， 引入检索之后 变为错
-    # step3 本来是错的， 引入检索之后 变为对
-    # step4 本来是错的， 引入检索之后 还是错
+    # step1 original is right, after retriever still right
+    # step2 original is right, after retriever become false
+    # step3 original is false, after retriever become right
+    # step4 original is false, after retriever become false
+    
     token_num = 0
     model_true_mix_true_num = 0
     model_true_mix_false_num = 0
@@ -563,5 +472,4 @@ def actually_help_analysis(analysis, trg_truth):
     help_analysis["model_true_mix_false_num"] = model_true_mix_false_num
     help_analysis["model_false_mix_true_num"] = model_false_mix_true_num
     help_analysis["model_false_mix_false_num"] = model_false_mix_false_num
-
     return help_analysis

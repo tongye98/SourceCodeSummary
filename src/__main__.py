@@ -26,9 +26,7 @@ def main():
         test(cfg_file=args.config_path, ckpt_path=args.ckpt)
 
     elif args.mode == "build_database":
-        build_database(cfg_file=args.config_path, division="train", ckpt=args.ckpt,
-         hidden_representation_path=args.hidden_representation_path, 
-         token_map_path=args.token_map_path, index_path=args.index_path, data_dtype=args.data_dtype)
+        build_database(cfg_file=args.config_path)
 
     elif args.mode == "retrieval_train":
         retrieval_train(cfg_file=args.config_path)
