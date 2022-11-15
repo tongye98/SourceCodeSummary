@@ -275,7 +275,7 @@ class Transformer(nn.Module):
             assert trg_input is not None and trg_mask is not None 
             encode_output = self.encode(src_input, src_mask)
             decode_output, penultimate_representation, cross_attention_weight = self.decode(trg_input, encode_output, src_mask, trg_mask)
-            return decode_output, penultimate_representation, cross_attention_weight
+            return decode_output, penultimate_representation, encode_output
 
         elif return_type == "retrieval_loss":
             assert self.retriever is not None 

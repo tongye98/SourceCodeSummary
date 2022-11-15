@@ -209,9 +209,11 @@ def parse_test_arguments(test_cfg:dict) -> Tuple:
         raise ConfigurationError("Invalid return_prob")
     generate_unk = test_cfg.get("generate_unk", True)
 
+    repetition_penalty = test_cfg.get("repetition_penalty", -1)
+
     return (batch_size, batch_type, max_output_length, min_output_length,
             eval_metrics, beam_size, beam_alpah, n_best, return_attention, 
-            return_prob, generate_unk)
+            return_prob, generate_unk, repetition_penalty)
 
 def load_model_checkpoint(path:Path, device:torch.device) -> Dict:
     """

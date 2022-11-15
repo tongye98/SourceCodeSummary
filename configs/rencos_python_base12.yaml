@@ -76,12 +76,12 @@ testing:
     min_output_length: 1
     eval_metrics: ['bleu','rouge-l']
     n_best: 1
-    beam_size: 1
+    beam_size: 4
     beam_alpha: -1
     return_attention: False
     return_prob: "hypotheses"   # hypotheses, references, none
     generate_unk: True
-    repetition_penalty: 2       # >1, -1 means no repetition penalty. # no implemented
+    repetition_penalty: -1       # >1, -1 means no repetition penalty. # no implemented
     no_repeat_ngram_size: -1    # no implemented
 
 
@@ -129,16 +129,16 @@ model:
 
 
 retriever:
-    # retrieval_model_dir: "models/rencos_python/transformer_base12_static"
+    retrieval_model_dir: "saved/transformer_base12/datastore_401683/inner3/"
     pre_trained_model_path: "saved/transformer_base12/401683.ckpt"
-    type: "dynamic_retriever"                                    # [no_retriever, static_retriever, dynamic_retriever]
+    type: "static_retriever"                                    # [no_retriever, static_retriever, dynamic_retriever]
     index_type: "INNER"                                         # ["L2", "INNER"]
     kernel: "Gaussian"                                          # [Gaussian, Laplacian] for static_retriever, dynamic_retriever
     top_k: 16                                                    # for static_retriever, dynamic_retriever
-    index_path: "saved/datastore/base12_401683_inner/index"           # for static_retriever, dynamic_retriever
-    token_map_path: "saved/datastore/base12_401683_inner/token_map"   # for static_retriever, dynamic_retriever
+    index_path: "saved/transformer_base12/datastore_401683/inner3/index"           # for static_retriever, dynamic_retriever
+    token_map_path: "saved/transformer_base12/datastore_401683/inner3/token_map"   # for static_retriever, dynamic_retriever
     mixing_weight: 0.5                                          # for static_retriever
     bandwidth: 20                                               # for static_retriever
-    embedding_path: "saved/datastore/base12_401683_inner/embedding"   # for dynamic_retriever
+    embedding_path: "saved/transformer_base12/datastore_401683/inner3/embedding"   # for dynamic_retriever
     in_memory: True                                             # for dynamic_retriever
 

@@ -33,6 +33,7 @@ class FaissIndex(object):
         self.factory_template = factory_template
         self.gpu_num = faiss.get_num_gpus()
         self.use_gpu = use_gpu and (self.gpu_num > 0)
+        # self.use_gpu = False
         self.index_type= index_type
         assert self.index_type in {"L2", "INNER"}
         self._is_trained= False
@@ -107,7 +108,7 @@ class FaissIndex(object):
             faiss.normalize_L2(training_embeddings)
         return training_embeddings        
     
-    def add(self, hidden_representation_path: str, batch_size: int = 10000) -> None:
+    def add(self, hidden_representation_path: str, batch_size: int = 1000) -> None:
         assert self.is_trained
         embeddings = np.load(hidden_representation_path)
         total_samples = embeddings.shape[0]
@@ -222,7 +223,6 @@ def store_examples(model: Transformer, hidden_representation_path:str, token_map
     # Create Numpy NPY files by appending on the zero axis.
     npaa = NpyAppendArray(hidden_representation_path)
     token_map_file = open(token_map_path, "w", encoding="utf-8")
-    already_meet_log = set()
     total_tokens = 0
     total_sequence = 0
     total_original_tokens = 0
@@ -233,34 +233,49 @@ def store_examples(model: Transformer, hidden_representation_path:str, token_map
          for batch_data in tqdm.tqdm(data_iter, desc="Store"):
             batch_data.move2cuda(device)
             src_input = batch_data.src
+            src_lengths = batch_data.src_lengths
             trg_input = batch_data.trg_input
             src_mask = batch_data.src_mask
             trg_mask = batch_data.trg_mask
             trg_truth = batch_data.trg_truth
             trg_lengths = batch_data.trg_lengths
             total_sequence += batch_data.nseqs
-            decode_output, penultimate_representation, _ = model(return_type='encode_decode', src_input=src_input, 
+            decode_output, penultimate_representation, encode_output = model(return_type='encode_decode', src_input=src_input, 
                                         trg_input=trg_input, src_mask=src_mask, trg_mask=trg_mask)
+            # encode_output [batch_size, src_len, model_dim]
+            # src_mask [batch_size, 1, pad_src_length]
+            # penultimate_representation [batch_size, trg_len, model_dim]
             penultimate_representation = penultimate_representation.cpu().numpy().astype(data_dtype)
+
             
             for i in range(batch_data.nseqs):
                 # for each sentence
                 total_original_tokens += trg_lengths[i]
-                trg_tokens_id = trg_truth[i][0:trg_lengths[i]]   #include final <eos> token id(3)
+                trg_tokens_id = trg_truth[i][0:trg_lengths[i]]   #include final <eos> token id(3), sure? 
                 hidden_states = penultimate_representation[i][0:trg_lengths[i]]
-                # faiss.normalize_L2(hidden_states)
-                sequence = src_input[i].cpu().numpy().tolist() + [BOS_ID] # token id list
+                # hidden_states [real_trg_len, model_dim]
+                sentence_encode_output = encode_output[i]
+                sentence_src_length = src_lengths[i]
+                sentence_src_mask = src_mask[i]
+                # sentence_encode_output [src_len, model_dim]
+                # sentence_src_length is a number
+                # sentence_src_mask [1, src_len]
+                sentence_encode_output_select = sentence_encode_output[:sentence_src_length]
+                # sentence_encode_output_select2 = sentence_encode_output[sentence_src_mask.squeeze(0)]
+                # logger.warning("is equal = {}".format(torch.equal(sentence_encode_output_select, sentence_encode_output_select2)))
+                # logger.warning("touch here.")
+
+
+                sentence_encode_hidden = torch.mean(sentence_encode_output_select, dim=0)
+                # sentence_encode_hidden [model_dim]
+                sentence_encode_hidden = sentence_encode_hidden.cpu().numpy().astype(data_dtype)
+
 
                 for token_id, hidden_state in zip(trg_tokens_id, hidden_states):
-                    # meet_log = getmd5(sequence)
-                    # if meet_log in already_meet_log:
-                    #     logger.info(sequence)
-                    #     continue
-                    # else:
-                    #     already_meet_log.add(meet_log)
+                    # hidden_state = np.concatenate((sentence_encode_hidden, hidden_state), axis=0)
+                    # hidden_state = np.subtract(hidden_state, sentence_encode_hidden)
                     npaa.append(hidden_state[np.newaxis,:])
                     token_map_file.write(f"{token_id}\n")
-                    sequence += [token_id]
                     total_tokens += 1
             
     del npaa
@@ -280,9 +295,9 @@ def build_database(cfg_file: str, division:str, ckpt: str, hidden_representation
     index_path: where to store FAISS Index.
     """
     cfg = load_config(Path(cfg_file))
-    model_dir = cfg["training"].get("model_dir", None)
+    model_dir = cfg["retriever"].get("retrieval_model_dir", None)
 
-    make_logger(Path(model_dir), mode="build_database_inner")
+    make_logger(Path(model_dir), mode="build_database_inner_3")
 
     logger.info("Load config...")
     cfg = load_config(cfg_file)

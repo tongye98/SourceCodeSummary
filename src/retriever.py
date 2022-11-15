@@ -29,8 +29,10 @@ class Kernel(object):
         # sparse_distribution [batch_size*trg_len, top_k]        
         zeros = torch.zeros(size=(sparse_distribution.size(0), vocab_size), device=sparse_distribution.device, dtype=sparse_distribution.dtype)
         distribution = torch.scatter_add(zeros, -1, token_indices, sparse_distribution)
-        # FIXME probability may be > 1
+        # FIXME probability may be > 1, No
         # distribution [batch_size*trg_len, vocab_size]
+        # threshold = 0.7
+        # distribution = torch.where(distribution > threshold, distribution, 0)
         return distribution, sparse_distribution
 
 class GaussianKernel(Kernel):

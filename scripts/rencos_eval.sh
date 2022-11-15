@@ -1,5 +1,5 @@
 echo "Let's use rencos metrics!"
 python src/rencos_evaluation/evaluate.py \
-models/rencos_python/transformer_base12_static/output_static_retrieval_inner_03_analysis_beam_mx=0.5bandwidth=20topk=16 \
+saved/transformer_base12/datastore_401683/inner3/output_analysis_beam_mx=0.6bandwidth=20topk=32 \
 data/rencos_python/test.summary \
-50
+30

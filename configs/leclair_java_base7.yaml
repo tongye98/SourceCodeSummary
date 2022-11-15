@@ -30,7 +30,7 @@ data:
         filter_or_truncate: "truncate"
 
 training:
-    model_dir: "models/leclair_java/transformer_base5"
+    model_dir: "models/leclair_java/transformer_base7"
     overwrite: True
     random_seed: 3407
     use_cuda: True
@@ -78,7 +78,7 @@ testing:
     beam_alpha: -1
     return_attention: False
     return_prob: "hypotheses"   # hypotheses, references, none
-    generate_unk: False
+    generate_unk: True
     repetition_penalty: 2       # >1, -1 means no repetition penalty. # no implemented
     no_repeat_ngram_size: -1    # no implemented
 
@@ -91,7 +91,7 @@ model:
     encoder:
         model_dim: 768
         ff_dim: 3072
-        num_layers: 6
+        num_layers: 8
         head_count: 12
         layer_norm_position: "pre"
         freeze: False
@@ -102,14 +102,14 @@ model:
             freeze: False
             dropout: 0.2
             # load_pretrained
-        src_pos_emb: "learnable"         # encoder "absolute", "learnable", "relative"
-        max_src_len: 100                  # for learnable. Keep same with data segment
-        max_relative_position: 0       # only for relative position, else must be set to 0
-        use_negative_distance: False     # for relative position
+        src_pos_emb: "relative"         # encoder "absolute", "learnable", "relative"
+        max_src_len: 0                  # for learnable. Keep same with data segment
+        max_relative_position: 16       # only for relative position, else must be set to 0
+        use_negative_distance: True     # for relative position
     decoder:
         model_dim: 768
         ff_dim: 3072
-        num_layers: 6
+        num_layers: 8
         head_count: 12
         layer_norm_position: "pre"
         freeze: False

@@ -172,7 +172,7 @@ class Batch(object):
             padded_trg_sentences.append(sentence + [PAD_ID] * pad_number)
         
         self.src = torch.tensor(padded_src_sentences).long()
-        self.src_lengths = torch.tensor(src_lengths).long()
+        self.src_lengths = torch.tensor(src_lengths).long() # src_lengths Shape: (batch)
         self.src_mask = (self.src != PAD_ID).unsqueeze(1)
         # src_mask unpad is true, pad is false; Shape:(batch, 1, pad_src_length)
         self.nseqs = self.src.size(0)

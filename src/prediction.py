@@ -33,7 +33,7 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
     """
     (batch_size, batch_type, max_output_length, min_output_length,
      eval_metrics, beam_size, beam_alpha, n_best, return_attention, 
-     return_prob, generate_unk) = parse_test_arguments(test_cfg)
+     return_prob, generate_unk, _) = parse_test_arguments(test_cfg)
 
     decoding_description = ("(Greedy decoding with " if beam_size < 2 else f"(Beam search with "
                             f"beam_size={beam_size}, beam_alpha={beam_alpha}, n_best={n_best}")
