@@ -30,9 +30,9 @@ data:
         filter_or_truncate: "truncate"
 
 training:
-    model_dir: "models/rencos_java/transformer_base6"
+    model_dir: "models/rencos_java/repeat5"
     overwrite: True
-    random_seed: 625
+    random_seed: 20
     use_cuda: True
     num_workers: 4
     optimizer: "adam"

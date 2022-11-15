@@ -30,9 +30,9 @@ data:
         filter_or_truncate: "truncate"
 
 training:
-    model_dir: "models/rencos_java/transformer_base99"
+    model_dir: "models/rencos_java/repeat4"
     overwrite: True
-    random_seed: 3407
+    random_seed: 10
     use_cuda: True
     num_workers: 4
     optimizer: "adam"
@@ -55,9 +55,9 @@ training:
     log_valid_sentences: [0,1,2,3,4]
     early_stopping_metric: "bleu"
     shuffle: True
-    epochs: 600
-    max_updates: 8000000   
-    batch_size: 128
+    epochs: 200
+    max_updates: 800000   
+    batch_size: 32
     batch_type: "sentence"
     # load_model: None
     reset_best_ckpt: False
@@ -74,7 +74,7 @@ testing:
     min_output_length: 1
     eval_metrics: ['bleu','rouge-l']
     n_best: 1
-    beam_size: 1
+    beam_size: 4
     beam_alpha: -1
     return_attention: False
     return_prob: "hypotheses" # hypotheses, references, none
@@ -102,10 +102,10 @@ model:
             freeze: False
             dropout: 0.2
             # load_pretrained
-        src_pos_emb: "learnable"         # encoder "absolute", "learnable", "relative"
-        max_src_len: 200                  # for learnable. Keep same with data segment
-        max_relative_position: 0       # only for relative position, else must be set to 0
-        use_negative_distance: False     # for relative position
+        src_pos_emb: "relative"         # encoder "absolute", "learnable", "relative"
+        max_src_len: 0                  # for learnable. Keep same with data segment
+        max_relative_position: 16       # only for relative position, else must be set to 0
+        use_negative_distance: True     # for relative position
     decoder:
         model_dim: 512
         ff_dim: 2048
