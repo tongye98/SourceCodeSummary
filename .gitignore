@@ -3,3 +3,5 @@ models/
 src/__pycache__/
 test/
 data/
+datastore/
+builds/
