@@ -11,8 +11,8 @@ import tqdm
 import numpy as np
 import torch.nn.functional as F
 from torch.utils.data import Dataset
-from typing import Dict, Tuple
-from src.helps import parse_test_arguments
+from typing import Dict, Tuple, List
+from src.helps import parse_test_arguments, tile
 from src.datas import Batch, make_data_iter
 from src.metrics import Bleu, Meteor, Rouge
 
@@ -35,8 +35,9 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
      return_prob, generate_unk, repetition_penalty) = parse_test_arguments(test_cfg)
     
     if beam_size > 1:
-        logger.warning("Rencos test, beam_size should be 1.")
-        beam_size = 1
+        logger.warning("Rencos test, beam size = {}".format(beam_size))
+    else:
+        logger.warning("Rencos test with greedy search.")
 
     decoding_description = (f"Decoding with min_output_length={min_output_length}, "
                                 f"max_output_length={max_output_length}, return_prob={return_prob}, "
@@ -153,8 +154,13 @@ def search(model, batch_data: Batch, beam_size: int, beam_alpha: float,
         similarity_score["syntax_similarity_score"] = src_syntax_similarity_score
         similarity_score["semantic_similarity_score"] = src_semantic_similarity_score
 
-        stacked_output, stacked_scores, stacked_attention_scores = greedy_search(model, output, mask, similarity_score,
-                                max_output_length, min_output_length, generate_unk, return_attention, return_prob)
+        if beam_size < 2: # greedy search
+            stacked_output, stacked_scores, stacked_attention_scores = greedy_search(model, output, mask, similarity_score,
+                                    max_output_length, min_output_length, generate_unk, return_attention, return_prob)
+        else:
+            stacked_output, stacked_scores, stacked_attention_scores = beam_search(model, output, mask, similarity_score,
+                                    max_output_length, min_output_length, beam_size, beam_alpha, n_best,
+                                    generate_unk, return_attention, return_prob)
         
         return stacked_output, stacked_scores, stacked_attention_scores
 
@@ -211,48 +217,48 @@ def greedy_search(model, output, mask, similarity_score, max_output_length, min_
         with torch.no_grad():
             output, penultimate_representation, cross_attention_weight = model(return_type="decode", trg_input=generated_tokens, 
                                                             encoder_output=encoder_output, src_mask=src_mask, trg_mask=trg_mask)
-            output_syntax, penultimate_representation, cross_attention_weight_syntax = model(return_type="decode", trg_input=generated_syntax_tokens, 
-                                                            encoder_output=encoder_syntax_output, src_mask=src_syntax_mask, trg_mask=trg_mask)
+            # output_syntax, penultimate_representation, cross_attention_weight_syntax = model(return_type="decode", trg_input=generated_syntax_tokens, 
+            #                                                 encoder_output=encoder_syntax_output, src_mask=src_syntax_mask, trg_mask=trg_mask)
             output_semantic, penultimate_representation, cross_attention_weight_semantic = model(return_type="decode", trg_input=generated_semantic_tokens, 
                                                             encoder_output=encoder_semantic_output, src_mask=src_semantic_mask, trg_mask=trg_mask)                                                                        
             # output  [batch_size, step+1, model_dim]
             # penultimate_representation [batch_size, step+1, model_dim]
             output = model.output_layer(output)
             # output [batch_size, step+1, trg_vocab_size]
-            output_syntax = model.output_layer(output_syntax)
+            # output_syntax = model.output_layer(output_syntax)
             output_semantic = model.output_layer(output_semantic)
 
             output = output[:, -1] 
             # output [batch_size, trg_vocab_size]
-            output_syntax = output_syntax[:,-1]
+            # output_syntax = output_syntax[:,-1]
             output_semantic = output_semantic[:,-1]
             if not generate_unk:
                 output[:, unk_index] = float("-inf")
-                output_syntax[:, unk_index] = float("-inf")
+                # output_syntax[:, unk_index] = float("-inf")
                 output_semantic[:, unk_index] = float("-inf")
 
             if step < min_output_length:
                 output[:, eos_index] = float("-inf")
-                output_syntax[:, eos_index] = float("-inf")
+                # output_syntax[:, eos_index] = float("-inf")
                 output_semantic[:, eos_index] = float("-inf")
 
             output = F.softmax(output, dim=-1)
-            output_syntax = F.softmax(output_syntax, dim=-1)
+            # output_syntax = F.softmax(output_syntax, dim=-1)
             output_semantic = F.softmax(output_semantic, dim=-1)
             
             # src_syntax_similarity_score (batch_size, 1)
-            lamda = 3
-            output = output + lamda*src_syntax_similarity_score*output_syntax + lamda*src_semantic_similarity_score*output_semantic
-
+            lamda = 2
+            # output = output + lamda*src_syntax_similarity_score*output_syntax + lamda*src_semantic_similarity_score*output_semantic
+            output = output + lamda*src_semantic_similarity_score*output_semantic
         # take the most likely token
         # prob [batch_size]  next_words [batch_size]
         prob, next_words = torch.max(output, dim=-1)
-        prob_syntax, syntax_next_words = torch.max(output_syntax, dim=-1)
+        # prob_syntax, syntax_next_words = torch.max(output_syntax, dim=-1)
         prob_semantic, semantic_next_words = torch.max(output_semantic, dim=-1)
 
         generated_tokens = torch.cat([generated_tokens, next_words.unsqueeze(-1)], dim=-1) # [batch_size, step+2]
-        generated_syntax_tokens = torch.cat([generated_syntax_tokens, syntax_next_words.unsqueeze(-1)],dim=-1)
-        generated_semantic_tokens = torch.cat([generated_semantic_tokens, semantic_next_words.unsqueeze(-1)],dim=-1)
+        # generated_syntax_tokens = torch.cat([generated_syntax_tokens, next_words.unsqueeze(-1)],dim=-1)
+        generated_semantic_tokens = torch.cat([generated_semantic_tokens, next_words.unsqueeze(-1)],dim=-1)
 
         generated_scores = torch.cat([generated_scores, prob.unsqueeze(-1)], dim=-1) # [batch_size, step+2]
 
@@ -272,3 +278,229 @@ def greedy_search(model, output, mask, similarity_score, max_output_length, min_
     stacked_attention = generated_attention_weight[:, 1:, :].detach().cpu().numpy() if return_attention else None
 
     return stacked_output, stacked_scores, stacked_attention
+
+def beam_search(model, output, mask, similarity_score, max_output_length, min_output_length, beam_size, beam_alpha,
+                n_best, generate_unk, return_attention, return_prob):
+    assert beam_size > 0, "Beam size must be > 0."
+    assert n_best <= beam_size, f"Can only return {beam_size} best hypotheses."
+
+    unk_index = model.unk_index
+    pad_index = model.pad_index
+    bos_index = model.bos_index 
+    eos_index = model.eos_index
+    
+    encoder_output = output["encoder_output"]
+    encoder_syntax_output = output["encoder_syntax_output"]
+    encoder_semantic_output = output["encoder_semantic_output"]
+
+    src_mask = mask["src_mask"]
+    src_syntax_mask = mask["src_syntax_mask"]
+    src_semantic_mask = mask["src_semantic_mask"]
+
+    src_syntax_similarity_score = similarity_score["syntax_similarity_score"].unsqueeze(1)
+    src_semantic_similarity_score = similarity_score["semantic_similarity_score"].unsqueeze(1)
+
+    batch_size, _, src_length = src_mask.size()
+
+    trg_vocab_size = model.trg_vocab_size
+    trg_mask = None 
+    device = encoder_output.device
+
+    encoder_output = tile(encoder_output.contiguous(), beam_size, dim=0)
+    # encoder_output [batch_size*beam_size, src_len, model_dim] i.e. [a,a,a,b,b,b]
+    encoder_syntax_output = tile(encoder_syntax_output.contiguous(), beam_size, dim=0)
+    encoder_semantic_output = tile(encoder_semantic_output.contiguous(), beam_size, dim=0)
+
+    src_syntax_similarity_score = tile(src_syntax_similarity_score.contiguous(), beam_size, dim=0)
+    src_semantic_similarity_score = tile(src_semantic_similarity_score.contiguous(), beam_size, dim=0)
+
+    src_mask = tile(src_mask, beam_size, dim=0)
+    # src_mask [batch_size*beam_size, 1, src_len]
+    src_syntax_mask = tile(src_syntax_mask, beam_size, dim=0)
+    src_semantic_mask = tile(src_semantic_mask, beam_size, dim=0)
+
+    trg_mask = src_mask.new_ones((1,1,1))
+    trg_syntax_mask = src_syntax_mask.new_ones((1,1,1))
+    trg_semantic_mask = src_semantic_mask.new_ones((1,1,1))
+
+    batch_offset = torch.arange(batch_size, dtype=torch.long, device=device) # [0,1,2,... batch_size-1]
+    beam_offset = torch.arange(0, batch_size*beam_size, step=beam_size, dtype=torch.long, device=device)
+    # beam_offset [0,5,10,15,....] i.e. beam_size=5
+
+    # keep track of the top beam size hypotheses to expand for each element
+    # in the batch to be futher decoded (that are still "alive")
+    alive_sentences = torch.full((batch_size*beam_size, 1), bos_index, dtype=torch.long, device=device)
+    # alive_sentences [batch_size*beam_size, hyp_len] now is [batch_size*beam_size, 1]
+
+    top_k_log_probs = torch.zeros(batch_size, beam_size, device=device)
+    top_k_log_probs[:, 1:] = float("-inf")
+
+    # Structure that holds finished hypotheses.
+    hypotheses = [[] for _ in range(batch_size)]
+
+    results = {"predictions": [[] for _ in range(batch_size)], 
+                "scores": [[] for _ in range(batch_size)] }
+
+    # Indicator if the generation is finished.
+    is_finished = torch.full((batch_size, beam_size), False, dtype=torch.bool, device=device)
+
+    for step in range(max_output_length):
+        # feed the complete predicted sentences so far.
+        decoder_input = alive_sentences
+        with torch.no_grad():
+            output, penultimate_representation, cross_attention_weight = model(return_type="decode", trg_input=decoder_input, 
+                                                            encoder_output=encoder_output, src_mask=src_mask, trg_mask=trg_mask)
+            # output_syntax, _, _ = model(return_type="decode", trg_input=decoder_input, encoder_output=encoder_syntax_output,
+            #                             src_mask=src_syntax_mask, trg_mask=trg_syntax_mask)
+            output_semantic, _, _ = model(return_type="decode", trg_input=decoder_input, encoder_output=encoder_semantic_output,
+                                        src_mask=src_semantic_mask, trg_mask=trg_semantic_mask)
+            
+            output = model.output_layer(output)
+            # output_syntax = model.output_layer(output_syntax)
+            output_semantic = model.output_layer(output_semantic)
+            # output  [batch_size*beam_size, step+1, vocab_size]
+            # penultimate_representation [batch_size*beam_size, step+1, model_dim]
+            # cross_attention_weight  [batch_size*beam_size, step+1, src_len]
+
+            # for the transformer we made predictions for all time steps up to this point, so we only want to know about the last time step.
+            output = output[:, -1] # output [batch_size*beam_size, vocab_size]
+            # output_syntax = output_syntax[:, -1]
+            output_semantic = output_semantic[:, -1]
+
+        # compute log probability distribution over trg vocab
+        # log_probs = F.log_softmax(output, dim=-1)
+        # log_probs [batch_size*beam_size, vocab_size]
+        output = F.softmax(output, dim=-1)
+        # output_syntax = F.softmax(output_syntax, dim=-1)
+        output_semantic = F.softmax(output_semantic, dim=-1)
+
+        lamda = 1
+        # logger.warning("src syntax similarity score shape {}".format(src_syntax_similarity_score.shape))
+        # logger.warning("src semantic similarity score shape {}".format(src_semantic_similarity_score.shape))
+        # logger.warning("output shape {}".format(output.shape))
+        # output = output + lamda*src_syntax_similarity_score*output_syntax + lamda*src_semantic_similarity_score*output_semantic
+        output = output + lamda*src_semantic_similarity_score*output_semantic
+        log_probs = torch.log(output)
+        if not generate_unk:
+            log_probs[:, unk_index] = float("-inf")
+        if step < min_output_length:
+            log_probs[:, eos_index] = float("-inf")
+
+        # multiply probs by the beam probability (means add log_probs after log operation)
+        log_probs += top_k_log_probs.view(-1).unsqueeze(1)
+        current_scores = log_probs.clone()
+
+        # compute length penalty
+        if beam_alpha > 0:
+            length_penalty = ((5.0 + (step+1)) / 6.0)**beam_alpha
+            current_scores /= length_penalty
+        
+        # flatten log_probs into a list of possibilities
+        current_scores = current_scores.reshape(-1, beam_size*trg_vocab_size)
+        # current_scores [batch_size, beam_size*vocab_size]
+
+        # pick currently best top k hypotheses
+        topk_scores, topk_ids =current_scores.topk(beam_size, dim=-1)
+        # topk_scores [batch_size, beam_size]
+        # topk_ids [batch_size, beam_size]
+
+        if beam_alpha > 0:
+            top_k_log_probs = topk_scores * length_penalty
+        else: 
+            top_k_log_probs = topk_scores.clone()
+        
+        # Reconstruct beam origin and true word ids from flatten order
+        topk_beam_index = topk_ids.div(trg_vocab_size, rounding_mode="floor")
+        # topk_beam_index [batch_size, beam_size]
+        topk_ids = topk_ids.fmod(trg_vocab_size) # true word ids
+        # topk_ids [batch_size, beam_size]
+
+        # map topk_beam_index to batch_index in the flat representation
+        batch_index = topk_beam_index + beam_offset[:topk_ids.size(0)].unsqueeze(1)
+        # batch_index [batch_size, beam_size]
+        select_indices = batch_index.view(-1)
+        # select_indices [batch_size*beam_size]: the number of seleced index in the batch.
+
+        # append latest prediction
+        alive_sentences = torch.cat([alive_sentences.index_select(0, select_indices), topk_ids.view(-1, 1)], dim=-1)
+        # alive_sentences [batch_size*beam_size, hyp_len]
+
+        is_finished = topk_ids.eq(eos_index) | is_finished | topk_scores.eq(-np.inf)
+        # is_finished [batch_size, beam_size]
+        if step + 1 == max_output_length:
+            is_finished.fill_(True)
+        
+        # end condition is whether all beam candidates in each example are finished.
+        end_condition = is_finished.all(dim=-1)
+        # end_condition [batch_size]
+
+        # save finished hypotheses
+        if is_finished.any():
+            predictions = alive_sentences.view(-1, beam_size, alive_sentences.size(-1))
+            # predictions [batch_size, beam_size, hyp_len]
+
+            for sentence_idx in range(is_finished.size(0)): # look over sentences
+                b = batch_offset[sentence_idx].item() # index of that example in the batch
+                if end_condition[sentence_idx]:
+                    is_finished[sentence_idx].fill_(True)
+                
+                finished_hyp = is_finished[sentence_idx].nonzero(as_tuple=False).view(-1)
+                for sentence_beam_idx in finished_hyp: # look over finished beam candidates
+                    number_eos = (predictions[sentence_idx, sentence_beam_idx, 1:] == eos_index).count_nonzero().item()
+                    if number_eos > 1: # prediction should have already been added to the hypotheses
+                        continue
+                    elif (number_eos == 0 and step+1 == max_output_length) or (number_eos == 1 and predictions[sentence_idx, sentence_beam_idx, -1] == eos_index):
+                        hypotheses[b].append((topk_scores[sentence_idx, sentence_beam_idx], predictions[sentence_idx, sentence_beam_idx,1:]))
+
+                # if all n best candidates of the i-the example reached the end, save them
+                if end_condition[sentence_idx]:
+                    best_hyp = sorted(hypotheses[b], key=lambda x:x[0], reverse=True)
+                    for n, (score, pred) in enumerate(best_hyp):
+                        if n >= n_best:
+                            break 
+                        if len(pred) < max_output_length:
+                            assert pred[-1] == eos_index, "Add a candidate which doesn't end with eos."
+                        
+                        results['scores'][b].append(score)
+                        results['predictions'][b].append(pred)
+            
+            # batch indices of the examples which contain unfinished candidates.
+            unfinished = end_condition.eq(False).nonzero(as_tuple=False).view(-1)
+            # unfinished [batch_size]
+            if len(unfinished) == 0:
+                break
+            
+            # remove finished examples for the next steps.
+            # shape [remaining_batch_size, beam_size]
+            batch_index = batch_index.index_select(0, unfinished)
+            top_k_log_probs = top_k_log_probs.index_select(0, unfinished)
+            is_finished = is_finished.index_select(0, unfinished)
+            batch_offset = batch_offset.index_select(0, unfinished)
+
+            alive_sentences = predictions.index_select(0, unfinished).view(-1, alive_sentences.size(-1))
+
+        # Reorder indices, outputs and masks
+        select_indices = batch_index.view(-1)
+        encoder_output = encoder_output.index_select(0, select_indices)
+        # encoder_syntax_output = encoder_syntax_output.index_select(0, select_indices)
+        encoder_semantic_output = encoder_semantic_output.index_select(0, select_indices)
+        # src_syntax_similarity_score = src_syntax_similarity_score.index_select(0, select_indices)
+        src_semantic_similarity_score = src_semantic_similarity_score.index_select(0, select_indices)
+        src_mask = src_mask.index_select(0, select_indices)
+        # src_syntax_mask = src_syntax_mask.index_select(0, select_indices)
+        src_semantic_mask =src_semantic_mask.index_select(0, select_indices)
+
+    def pad_and_stack_hyps(hyps: List[np.ndarray]):
+        filled = (np.ones((len(hyps), max([h.shape[0]  for h in hyps])), dtype=int) * pad_index)
+        for j, h in enumerate(hyps):
+            for k, i in enumerate(h):
+                filled[j, k] = i
+        return filled
+
+    # from results to stacked output
+    # final_outputs [batch_size*n_best, hyp_len]
+    predictions_list = [u.cpu().numpy() for r in results["predictions"] for u in r]
+    final_outputs = pad_and_stack_hyps(predictions_list)
+    scores = (np.array([[u.item()] for r in results['scores'] for u in r]) if return_prob else None)
+
+    return final_outputs, scores, None
