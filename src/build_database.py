@@ -237,9 +237,10 @@ def store_examples(model: Transformer, hidden_representation_path:str, token_map
             trg_truth = batch_data.trg_truth
             trg_lengths = batch_data.trg_lengths
             total_sequence += batch_data.nseqs
-            decode_output, penultimate_representation, _, encode_output = model(return_type='encode_decode', src_input=src_input, 
+            decode_output, penultimate_representation, cross_attention_weight, encode_output = model(return_type='encode_decode', src_input=src_input, 
                                         trg_input=trg_input, src_mask=src_mask, trg_mask=trg_mask)
             # penultimate_representation [batch_size, trg_len, model_dim]
+            # cross_attention_weight [batch_size, trg_len, src_len] ([batch_size, query_len, key_len])
             # encode_output [batch_size, src_len, model_dim]
             penultimate_representation = penultimate_representation.cpu().numpy().astype("float32")
 
@@ -249,16 +250,21 @@ def store_examples(model: Transformer, hidden_representation_path:str, token_map
                 trg_tokens_id = trg_truth[i][0:trg_lengths[i]]   #include final <eos> token id(3)
                 hidden_states = penultimate_representation[i][0:trg_lengths[i]]
                 # hidden_states [real_trg_len, model_dim]
+                sentence_cross_attention_weight = cross_attention_weight[i][0:trg_lengths[i]]
+                # sentence_cross_attention_weight [real_trg_len, src_len]
 
                 sentence_encode_output = encode_output[i]  # shape [src_len, model_dim]
                 sentence_src_length = src_lengths[i]  # is a number
                 sentence_encode_output_select = sentence_encode_output[:sentence_src_length]
-                sentence_encode_hidden = torch.mean(sentence_encode_output_select, dim=0) # shape [model_dim]
+                sentence_cross_attentin_weight_select = sentence_cross_attention_weight[:,0:sentence_src_length]
+
+                # sentence_encode_hidden = torch.mean(sentence_encode_output_select, dim=0) # shape [model_dim]
+                sentence_encode_hidden = torch.matmul(sentence_cross_attentin_weight_select, sentence_encode_output_select) # shape [real_trg_len, model_dim]
                 sentence_encode_hidden = sentence_encode_hidden.cpu().numpy().astype("float32")
 
-                for token_id, hidden_state in zip(trg_tokens_id, hidden_states):
+                for token_id, hidden_state, token_encode_hidden in zip(trg_tokens_id, hidden_states, sentence_encode_hidden):
                     if use_code_representation is True:
-                        hidden_state = np.concatenate((sentence_encode_hidden, hidden_state), axis=0)
+                        hidden_state = np.concatenate((token_encode_hidden, hidden_state), axis=0)
                     npaa.append(hidden_state[np.newaxis,:])
                     token_map_file.write(f"{token_id}\n")
                     total_tokens += 1

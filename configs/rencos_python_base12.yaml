@@ -76,7 +76,7 @@ testing:
     min_output_length: 1
     eval_metrics: ['bleu','rouge-l']
     n_best: 1
-    beam_size: 1
+    beam_size: 4
     beam_alpha: -1
     return_attention: False
     return_prob: "hypotheses"   # hypotheses, references, none
@@ -129,11 +129,11 @@ model:
 
 
 retriever:
-    retriever_model_dir: "saved/transformer_base12/datastore_401683/inner3/"
-    pre_trained_model_path: "saved/transformer_base12/401683.ckpt"
-    embedding_path: "saved/transformer_base12/datastore_401683/inner3/embedding"   # for static_retriever, dynamic_retriever
-    token_map_path: "saved/transformer_base12/datastore_401683/inner3/token_map"   # for static_retriever, dynamic_retriever
-    index_path: "saved/transformer_base12/datastore_401683/inner3/index"           # for static_retriever, dynamic_retriever
+    retriever_model_dir: "datastore/datastore_rencos_python/transformer_base12/datastore_401683/inner_attention_encode/"
+    pre_trained_model_path: "datastore/datastore_rencos_python/transformer_base12/401683.ckpt"
+    embedding_path: "datastore/datastore_rencos_python/transformer_base12/datastore_401683/inner_attention_encode/embedding"   # for static_retriever, dynamic_retriever
+    token_map_path: "datastore/datastore_rencos_python/transformer_base12/datastore_401683/inner_attention_encode/token_map"   # for static_retriever, dynamic_retriever
+    index_path: "datastore/datastore_rencos_python/transformer_base12/datastore_401683/inner_attention_encode/index"           # for static_retriever, dynamic_retriever
 
     type: "static_retriever"                                    # [no_retriever, static_retriever, dynamic_retriever]
     index_type: "INNER"                                         # ["L2", "INNER"]

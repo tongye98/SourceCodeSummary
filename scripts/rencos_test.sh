@@ -1,6 +1,6 @@
 # use rencos method.
 echo "Let's start check rencos method!"
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=1
 python -m src rencos_test models/rencos_python/repeat3/config.yaml \
         --ckpt models/rencos_python/repeat3/best.ckpt
 

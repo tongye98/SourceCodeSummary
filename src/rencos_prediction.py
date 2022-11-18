@@ -217,8 +217,8 @@ def greedy_search(model, output, mask, similarity_score, max_output_length, min_
         with torch.no_grad():
             output, penultimate_representation, cross_attention_weight = model(return_type="decode", trg_input=generated_tokens, 
                                                             encoder_output=encoder_output, src_mask=src_mask, trg_mask=trg_mask)
-            # output_syntax, penultimate_representation, cross_attention_weight_syntax = model(return_type="decode", trg_input=generated_syntax_tokens, 
-            #                                                 encoder_output=encoder_syntax_output, src_mask=src_syntax_mask, trg_mask=trg_mask)
+            output_syntax, penultimate_representation, cross_attention_weight_syntax = model(return_type="decode", trg_input=generated_syntax_tokens, 
+                                                             encoder_output=encoder_syntax_output, src_mask=src_syntax_mask, trg_mask=trg_mask)
             output_semantic, penultimate_representation, cross_attention_weight_semantic = model(return_type="decode", trg_input=generated_semantic_tokens, 
                                                             encoder_output=encoder_semantic_output, src_mask=src_semantic_mask, trg_mask=trg_mask)                                                                        
             # output  [batch_size, step+1, model_dim]
@@ -234,12 +234,12 @@ def greedy_search(model, output, mask, similarity_score, max_output_length, min_
             output_semantic = output_semantic[:,-1]
             if not generate_unk:
                 output[:, unk_index] = float("-inf")
-                # output_syntax[:, unk_index] = float("-inf")
+                output_syntax[:, unk_index] = float("-inf")
                 output_semantic[:, unk_index] = float("-inf")
 
             if step < min_output_length:
                 output[:, eos_index] = float("-inf")
-                # output_syntax[:, eos_index] = float("-inf")
+                output_syntax[:, eos_index] = float("-inf")
                 output_semantic[:, eos_index] = float("-inf")
 
             output = F.softmax(output, dim=-1)
@@ -247,17 +247,17 @@ def greedy_search(model, output, mask, similarity_score, max_output_length, min_
             output_semantic = F.softmax(output_semantic, dim=-1)
             
             # src_syntax_similarity_score (batch_size, 1)
-            lamda = 2
-            # output = output + lamda*src_syntax_similarity_score*output_syntax + lamda*src_semantic_similarity_score*output_semantic
-            output = output + lamda*src_semantic_similarity_score*output_semantic
+            lamda = 1
+            output = output + lamda*src_syntax_similarity_score*output_syntax + lamda*src_semantic_similarity_score*output_semantic
+            # output = output + lamda*src_semantic_similarity_score*output_semantic
         # take the most likely token
         # prob [batch_size]  next_words [batch_size]
         prob, next_words = torch.max(output, dim=-1)
-        # prob_syntax, syntax_next_words = torch.max(output_syntax, dim=-1)
+        prob_syntax, syntax_next_words = torch.max(output_syntax, dim=-1)
         prob_semantic, semantic_next_words = torch.max(output_semantic, dim=-1)
 
         generated_tokens = torch.cat([generated_tokens, next_words.unsqueeze(-1)], dim=-1) # [batch_size, step+2]
-        # generated_syntax_tokens = torch.cat([generated_syntax_tokens, next_words.unsqueeze(-1)],dim=-1)
+        generated_syntax_tokens = torch.cat([generated_syntax_tokens, next_words.unsqueeze(-1)],dim=-1)
         generated_semantic_tokens = torch.cat([generated_semantic_tokens, next_words.unsqueeze(-1)],dim=-1)
 
         generated_scores = torch.cat([generated_scores, prob.unsqueeze(-1)], dim=-1) # [batch_size, step+2]

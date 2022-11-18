@@ -361,21 +361,26 @@ def beam_search(model, encoder_output, src_mask, max_output_length, min_output_l
             # for the transformer we made predictions for all time steps up to this point, so we only want to know about the last time step.
             # output = output[:, -1] # output [batch_size*beam_size, vocab_size]
             output = output[:, -1].unsqueeze(1) # [batch_size*beam_size, 1, vocab_size]
+            cross_attention_weight = cross_attention_weight[:, -1].unsqueeze(1)
             penultimate_representation = penultimate_representation[:, -1].unsqueeze(1) # [batch_size*beam_size, 1, model_dim]
 
             # encode_output (selected, src_len, model_dim)
             # src_mask (seleced, 1, src_len)
             concat_list = []
-            for sentence_encode_output, sentence_src_mask in zip(encoder_output, src_mask):
+            for sentence_encode_output, sentence_src_mask, sentence_cross_attention_weight in zip(encoder_output, src_mask, cross_attention_weight):
                 #sentence_encode_output [src_len, model_dim]
                 #sentence src_mask [1, src_len]
-                selected_sentence_src_output = sentence_encode_output[sentence_src_mask.squeeze(0)]
-                mean = torch.mean(selected_sentence_src_output, dim=0, keepdim=True)
+                #sentence cross attention weight [1, src_len]
+                # selected_sentence_src_output = sentence_encode_output[sentence_src_mask.squeeze(0)]
+                # mean = torch.mean(selected_sentence_src_output, dim=0, keepdim=True)
                 # mean [1, model_dim]
-                concat_list.append(mean.unsqueeze(0))
+                # concat_list.append(mean.unsqueeze(0))
+                attention_mean = torch.matmul(sentence_cross_attention_weight, sentence_encode_output)
+                concat_list.append(attention_mean.unsqueeze(0))
             encode_concat = torch.cat(concat_list, dim=0)
             # encode_concat [selected, 1, model_dim]
-            
+            # logger.warning("encode concat shape = {}".format(encode_concat.shape))
+            # logger.warning("penultimate representation = {}".format(penultimate_representation.shape))
             if use_code_representation:
                 hidden = torch.cat((encode_concat, penultimate_representation), dim=-1)
             else:
