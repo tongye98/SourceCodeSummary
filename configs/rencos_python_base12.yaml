@@ -130,10 +130,13 @@ model:
 
 retriever:
     retriever_model_dir: "datastore/datastore_rencos_python/transformer_base12/datastore_401683/inner_attention_encode/"
+    code_semantic_dir: "datastore/datastore_rencos_python/transformer_base12/datastore_401683/code_semantic/"
+    code_semantic_path: "datastore/datastore_rencos_python/transformer_base12/datastore_401683/code_semantic/embedding"
     pre_trained_model_path: "datastore/datastore_rencos_python/transformer_base12/401683.ckpt"
     embedding_path: "datastore/datastore_rencos_python/transformer_base12/datastore_401683/inner_attention_encode/embedding"   # for static_retriever, dynamic_retriever
     token_map_path: "datastore/datastore_rencos_python/transformer_base12/datastore_401683/inner_attention_encode/token_map"   # for static_retriever, dynamic_retriever
     index_path: "datastore/datastore_rencos_python/transformer_base12/datastore_401683/inner_attention_encode/index"           # for static_retriever, dynamic_retriever
+    code_index_path: "datastore/datastore_rencos_python/transformer_base12/datastore_401683/code_semantic/code_index"
 
     type: "static_retriever"                                    # [no_retriever, static_retriever, dynamic_retriever]
     index_type: "INNER"                                         # ["L2", "INNER"]

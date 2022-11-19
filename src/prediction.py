@@ -14,7 +14,7 @@ from torch.utils.data import Dataset
 from typing import Dict, List, Tuple
 from src.helps import parse_test_arguments, tile
 from src.datas import Batch, make_data_iter
-from src.metrics import Bleu, Meteor, Rouge
+from src.metrics_old import Bleu, Meteor, Rouge
 
 logger = logging.getLogger(__name__)
 

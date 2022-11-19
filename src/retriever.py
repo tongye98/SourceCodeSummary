@@ -108,6 +108,8 @@ class StaticRetriever(Retriever):
         # token_indices [batch_size*trg_len, top_k] id
         distances = torch.FloatTensor(distances).to(hidden.device)
         token_indices = torch.LongTensor(token_indices).to(hidden.device)
+        distances = distances[:, 2:]
+        token_indices = token_indices[:, 2:]
         example_based_distribution, _ = self.kernel.compute_example_based_distribution(distances, self.bandwidth, token_indices, vocab_size)
         # example_based_distribution [batch_size*trg_len, trg_vocab_size]
 

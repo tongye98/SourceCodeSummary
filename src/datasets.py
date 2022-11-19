@@ -200,13 +200,13 @@ class RencosDataset(BaseDataset):
         data["syntax_code_similarity_score"] = [float(item) for item in src_syntax_similarity_score]
 
         # semantic similar code
-        src_semantic_file = path.with_name("test_ref_semantic.code")
+        src_semantic_file = path.with_name("train_similar3.code")
         logger.info("src_semantic_file = {}".format(src_semantic_file))
         assert src_semantic_file.is_file(), "src semantic not found"
         src_semantic_list = read_list_from_file(src_semantic_file)
         data["semantic_code"] = pre_process(src_semantic_list, self.src_language)
 
-        src_semantic_similarity_score_file = path.with_name("test_semantic_similarity_score")
+        src_semantic_similarity_score_file = path.with_name("distance3_map_file")
         logger.info("src_semantic_similarity_score_file = {}".format(src_semantic_similarity_score_file))
         assert src_semantic_similarity_score_file.is_file(), "src semantic similarity score not found"
         src_semantic_similarity_score = read_list_from_file(src_semantic_similarity_score_file)

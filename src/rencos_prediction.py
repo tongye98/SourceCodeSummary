@@ -14,7 +14,7 @@ from torch.utils.data import Dataset
 from typing import Dict, Tuple, List
 from src.helps import parse_test_arguments, tile
 from src.datas import Batch, make_data_iter
-from src.metrics import Bleu, Meteor, Rouge
+from src.metrics_old import Bleu, Meteor, Rouge
 
 logger = logging.getLogger(__name__)
 
@@ -234,12 +234,12 @@ def greedy_search(model, output, mask, similarity_score, max_output_length, min_
             output_semantic = output_semantic[:,-1]
             if not generate_unk:
                 output[:, unk_index] = float("-inf")
-                output_syntax[:, unk_index] = float("-inf")
+                # output_syntax[:, unk_index] = float("-inf")
                 output_semantic[:, unk_index] = float("-inf")
 
             if step < min_output_length:
                 output[:, eos_index] = float("-inf")
-                output_syntax[:, eos_index] = float("-inf")
+                # output_syntax[:, eos_index] = float("-inf")
                 output_semantic[:, eos_index] = float("-inf")
 
             output = F.softmax(output, dim=-1)
@@ -248,8 +248,8 @@ def greedy_search(model, output, mask, similarity_score, max_output_length, min_
             
             # src_syntax_similarity_score (batch_size, 1)
             lamda = 1
-            output = output + lamda*src_syntax_similarity_score*output_syntax + lamda*src_semantic_similarity_score*output_semantic
-            # output = output + lamda*src_semantic_similarity_score*output_semantic
+            # output = output + lamda*src_syntax_similarity_score*output_syntax + lamda*src_semantic_similarity_score*output_semantic
+            output = output + lamda*src_semantic_similarity_score*output_semantic
         # take the most likely token
         # prob [batch_size]  next_words [batch_size]
         prob, next_words = torch.max(output, dim=-1)
