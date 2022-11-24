@@ -14,7 +14,7 @@ from torch.utils.data import Dataset
 from typing import Dict, List, Tuple
 from src.helps import parse_test_arguments, tile
 from src.datas import Batch, make_data_iter
-from src.metrics_old import Bleu, Meteor, Rouge
+from src.metrics import eval_accuracies
 
 logger = logging.getLogger(__name__)
 
@@ -115,20 +115,21 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
     # 0: ['partitions a list of suite from a interval .']
 
     eval_metric_start_time = time.time()
-    for eval_metric in eval_metrics:
-        if eval_metric == "bleu":  # geometric mean of bleu scores
-            valid_scores[eval_metric], bleu_order = Bleu().corpus_bleu(hypotheses=predictions_dict, references=references_dict)
-        elif eval_metric == "meteor":
-            valid_scores[eval_metric] = 0
-        elif eval_metric == "rouge-l":
-            valid_scores[eval_metric] = Rouge().compute_score(gts=references_dict, res=predictions_dict)[0]
+    #for eval_metric in eval_metrics:
+        # if eval_metric == "bleu":  # geometric mean of bleu scores
+        #     valid_scores[eval_metric], bleu_order = Bleu().corpus_bleu(hypotheses=predictions_dict, references=references_dict)
+        # elif eval_metric == "meteor":
+        #     valid_scores[eval_metric] = 0
+        # elif eval_metric == "rouge-l":
+        #     valid_scores[eval_metric] = Rouge().compute_score(gts=references_dict, res=predictions_dict)[0]
+    bleu, rouge_l, meteor = eval_accuracies(hypotheses=predictions_dict, references=references_dict)
     eval_duration = time.time() - eval_metric_start_time
-    eval_metrics_string = ", ".join([f"{eval_metric}:{valid_scores[eval_metric]:6.3f}" for eval_metric in 
-                                        eval_metrics+["loss","ppl"]])
+    # eval_metrics_string = ", ".join([f"{eval_metric}:{valid_scores[eval_metric]:6.3f}" for eval_metric in 
+    #                                     eval_metrics+["loss","ppl"]])
+    eval_metrics_string = "bleu = {}, rouge_l = {}, meteor = {}".format(bleu, rouge_l, meteor)
 
     logger.info("Evaluation result({}) {}, evaluation time: {:.2f}[sec]".format("Beam Search" if beam_size > 1 else "Greedy Search",
                     eval_metrics_string, eval_duration))
-    logger.info("Bleu 1-4 order = {}".format(bleu_order))
 
     return (valid_scores, valid_references, valid_hypotheses, valid_sentences_scores, valid_attention_scores)
 

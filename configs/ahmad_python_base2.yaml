@@ -74,7 +74,7 @@ testing:
     min_output_length: 1
     eval_metrics: ['bleu','rouge-l']
     n_best: 1
-    beam_size: 1
+    beam_size: 4
     beam_alpha: -1
     return_attention: False
     return_prob: "hypotheses" # hypotheses, references, none
@@ -124,3 +124,20 @@ model:
         max_trg_len: 30                 # for learnable. keep same with data segment
         max_relative_position: 0        # only for relative position, else must be set to 0
         use_negative_distance: False    # for relative position
+
+retriever:
+    retriever_model_dir: "datastore/datastore_ahmad_python/l2/"
+    pre_trained_model_path: "datastore/datastore_ahmad_python/335048.ckpt"
+
+    embedding_path: "datastore/datastore_ahmad_python/l2/embedding"
+    token_map_path: "datastore/datastore_ahmad_python/l2/token_map"
+    index_path: "datastore/datastore_ahmad_python/l2/index"
+
+    type: "static_retriever"
+    index_type: "L2"
+    use_code_representation: False 
+    kernel: "Gaussian"
+    top_k: 8
+    mixing_weight: 0.5
+    bandwidth: 20
+    in_memory: True

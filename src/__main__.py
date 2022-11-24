@@ -6,11 +6,12 @@ from src.build_code_semantic import build_code_semantic_database
 from src.retrieval_training import retrieval_train
 from src.retrieval_testing import retrieval_test
 from src.rencos_test import rencos_test
+from src.metrics import test_metrics
 
 def main():
     parser = argparse.ArgumentParser("Transformer")
 
-    parser.add_argument("mode", choices=["train","test","build_database","build_code_semantic","retrieval_train","retrieval_test","rencos_test"])
+    parser.add_argument("mode", choices=["train","test","build_database","build_code_semantic","retrieval_train","retrieval_test","rencos_test", "test_metrics"])
     parser.add_argument("config_path", type=str, help="path to a config yaml file")
     parser.add_argument("--ckpt", type=str, help="model checkpoint for prediction")
     parser.add_argument("--hidden_representation_path", type=str, help="where to store the hidden state")
@@ -41,6 +42,8 @@ def main():
     elif args.mode == "rencos_test":
         rencos_test(cfg_file=args.config_path, ckpt_path=args.ckpt)
     
+    elif args.mode == "test_metrics":
+        test_metrics()
         
     else:
         raise ValueError("Unkonwn mode!")

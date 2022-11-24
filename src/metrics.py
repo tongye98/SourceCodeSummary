@@ -1,6 +1,6 @@
-from eval.bleu import corpus_bleu
-from eval.rouge import Rouge
-from eval.meteor import Meteor
+from src.eval.bleu import corpus_bleu
+from src.eval.rouge import Rouge
+from src.eval.meteor import Meteor
 
 def eval_accuracies(hypotheses, references):
     """An unofficial evalutation helper.
@@ -31,7 +31,7 @@ def eval_accuracies(hypotheses, references):
 
     return bleu * 100, rouge_l * 100, meteor * 100
 
-if __name__ == "__main__":
+def test_metrics():
     predictions_path = "data/rencos_python/rencos.out"
     references_path = "data/rencos_python/test.summary"
     with open(predictions_path,"r") as p, open(references_path, "r") as r:
