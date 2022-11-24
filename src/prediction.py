@@ -123,6 +123,9 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
         # elif eval_metric == "rouge-l":
         #     valid_scores[eval_metric] = Rouge().compute_score(gts=references_dict, res=predictions_dict)[0]
     bleu, rouge_l, meteor = eval_accuracies(hypotheses=predictions_dict, references=references_dict)
+    valid_scores["bleu"] = bleu
+    valid_scores["rouge-l"] = rouge_l
+    valid_scores["meteor"] = meteor
     eval_duration = time.time() - eval_metric_start_time
     # eval_metrics_string = ", ".join([f"{eval_metric}:{valid_scores[eval_metric]:6.3f}" for eval_metric in 
     #                                     eval_metrics+["loss","ppl"]])

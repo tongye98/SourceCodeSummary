@@ -26,10 +26,10 @@ def eval_accuracies(hypotheses, references):
     rouge_l, ind_rouge = rouge_calculator.compute_score(references, hypotheses)
 
     # Compute METEOR scores
-    meteor_calculator = Meteor()
-    meteor, _ = meteor_calculator.compute_score(references, hypotheses)
+    # meteor_calculator = Meteor()
+    # meteor, _ = meteor_calculator.compute_score(references, hypotheses)
 
-    return bleu * 100, rouge_l * 100, meteor * 100
+    return bleu * 100, rouge_l * 100, 0
 
 def test_metrics():
     predictions_path = "data/rencos_python/rencos.out"
