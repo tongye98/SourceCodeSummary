@@ -9,13 +9,13 @@ from src.vocabulary import Vocabulary
 logger = logging.getLogger(__name__)
 
 def build_dataset(dataset_type: str, path:str, split_mode:str,
-                  src_language: str, trg_language: str, tokenizer: Dict) -> Dataset:
+                  src_language: str, trg_language: str, tokenizer: Dict, codebert_tokenizer=None) -> Dataset:
     """
     Build a dataset.
     """
     dataset = None 
     if dataset_type == "plain":
-        dataset = PlaintextDataset(path, split_mode, src_language, trg_language, tokenizer)
+        dataset = PlaintextDataset(path, split_mode, src_language, trg_language, tokenizer, codebert_tokenizer)
     elif dataset_type == "rencos_retrieval":
         logger.warning("We use rencos test dataset...")
         dataset = RencosDataset(path, split_mode, src_language, trg_language, tokenizer)
@@ -50,20 +50,20 @@ class BaseDataset(Dataset):
 
 class PlaintextDataset(BaseDataset):
     def __init__(self, path: str, split_mode: str, src_language: str, 
-                 trg_language: str, tokenizer: Dict) -> None:
+                 trg_language: str, tokenizer: Dict, codebert_tokenizer=None) -> None:
         super().__init__(path, split_mode, src_language, trg_language)
 
         self.tokenizer = tokenizer
         self.original_data = self.load_data(path)
         self.tokernized_data = self.tokenize_data()
-        # self.src_vocabs, self.src_maps, self.alignments = self.get_src_vocabs_source_maps_alignments()
         self.tokernized_data_ids = None # Place_holder
+        self.codebert_tokenizer = codebert_tokenizer
     
     def load_data(self, path:str):
         """"
         loda data and tokenize data.
         return data (is a dict)
-            data["en"] = ["hello world","xxx"]
+            data["en"] = ["hello world","xxx"] low-cased
             data["de"] = ["i am", "xxx"]
         """
         def pre_process(sentences_list, language):
@@ -104,22 +104,7 @@ class PlaintextDataset(BaseDataset):
         self.tokernized_data_ids = dict()
         self.tokernized_data_ids[self.src_language] = src_vocab.sentencens_to_ids(self.tokernized_data[self.src_language], bos=False, eos=True)
         self.tokernized_data_ids[self.trg_language] = trg_vocab.sentencens_to_ids(self.tokernized_data[self.trg_language], bos=True, eos=True)
-
-    def get_src_vocabs_source_maps_alignments(self):
-        src_vocabs = list()
-        src_maps = list()
-        alignments = list()
-
-        src_tokernized_data = self.tokernized_data[self.src_language]
-        for i, sentence_tokens in enumerate(src_tokernized_data):
-            src_vocab = Vocabulary(tokens=sentence_tokens, has_bos_eos=False)
-            src_vocabs.append(src_vocab)
-            src_map = [src_vocab.lookup(token) for token in sentence_tokens + [EOS_TOKEN]] # no bos, has eos.
-            src_maps.append(src_map)
-            alignment = [src_vocab.lookup(token) for token in self.tokernized_data[self.trg_language][i] + [EOS_TOKEN]] # no bos, has eos.
-            alignments.append(alignment)
-
-        return src_vocabs, src_maps, alignments
+        # self.tokernized_data_ids["src"] = self.codebert_tokenizer(self.original_data[self.src_language], max_length=300, truncation=True)
 
     def __getitem__(self, index):
         """
@@ -128,13 +113,8 @@ class PlaintextDataset(BaseDataset):
         return (src, trg)
         """
         src = self.tokernized_data_ids[self.src_language][index]
+        # src = self.tokernized_data_ids["src"]["input_ids"][index]
         trg = self.tokernized_data_ids[self.trg_language][index]
-
-        # used for copy mechanism
-        # copy_param = dict()
-        # copy_param["src_vocab"] = self.src_vocabs[index]
-        # copy_param["src_map"] = self.src_maps[index]
-        # copy_param["alignment"] = self.alignments[index]
 
         return (src, trg)
     
@@ -156,6 +136,9 @@ class PlaintextDataset(BaseDataset):
             sentence = self.original_data[self.trg_language][i]
             sentence_list.append(sentence)
         return sentence_list
+
+    def lengths(self):
+        return [(len(code), len(summary)) for code,summary in zip(self.tokernized_data_ids["src"]["input_ids"], self.tokernized_data_ids[self.trg_language])]
 
 class RencosDataset(BaseDataset):
     def __init__(self, path: str, split_mode: str, src_language: str, 
@@ -187,26 +170,26 @@ class RencosDataset(BaseDataset):
         data = {self.src_language: pre_process(src_list, self.src_language)}
 
         # syntax similar code
-        src_syntax_file = path.with_name("test_ref_syntax.code")
+        src_syntax_file = path.with_name("train_similar0.code")
         logger.info("src_syntax_file = {}".format(src_syntax_file))
         assert src_syntax_file.is_file(), "src syntax not found"
         src_syntax_list = read_list_from_file(src_syntax_file)
         data["syntax_code"] = pre_process(src_syntax_list, self.src_language)
 
-        src_syntax_similarity_score_file = path.with_name("test_syntax_similarity_score")
+        src_syntax_similarity_score_file = path.with_name("distance0_map_file")
         logger.info("src_syntax_similarity_score_file = {}".format(src_syntax_similarity_score_file))
         assert src_syntax_similarity_score_file.is_file(), "src syntax similarity score not found"
         src_syntax_similarity_score = read_list_from_file(src_syntax_similarity_score_file)
         data["syntax_code_similarity_score"] = [float(item) for item in src_syntax_similarity_score]
 
         # semantic similar code
-        src_semantic_file = path.with_name("train_similar3.code")
+        src_semantic_file = path.with_name("train_similar0.code")
         logger.info("src_semantic_file = {}".format(src_semantic_file))
         assert src_semantic_file.is_file(), "src semantic not found"
         src_semantic_list = read_list_from_file(src_semantic_file)
         data["semantic_code"] = pre_process(src_semantic_list, self.src_language)
 
-        src_semantic_similarity_score_file = path.with_name("distance3_map_file")
+        src_semantic_similarity_score_file = path.with_name("distance0_map_file")
         logger.info("src_semantic_similarity_score_file = {}".format(src_semantic_similarity_score_file))
         assert src_semantic_similarity_score_file.is_file(), "src semantic similarity score not found"
         src_semantic_similarity_score = read_list_from_file(src_semantic_similarity_score_file)

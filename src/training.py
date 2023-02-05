@@ -16,6 +16,7 @@ from src.builders import build_gradient_clipper, build_optimizer, build_schedule
 import heapq
 import math
 import time
+from transformers import AutoTokenizer, AutoModel
 
 logger = logging.getLogger(__name__) 
 
@@ -41,6 +42,10 @@ def train(cfg_file: str) -> None:
     # set the whole random seed
     set_seed(seed=int(cfg["training"].get("random_seed", 980820)))
 
+    # codebert_tokenizer = AutoTokenizer.from_pretrained("microsoft/codebert-base")
+    # codebert_encode = AutoModel.from_pretrained("microsoft/codebert-base")
+    # logger.warning("Load codebert base done!")
+
     # load the data
     train_data, dev_data, test_data, src_vocab, trg_vocab = load_data(data_cfg=cfg["data"])
 
@@ -48,9 +53,19 @@ def train(cfg_file: str) -> None:
     src_vocab.to_file(model_dir / "src_vocab.txt")
     trg_vocab.to_file(model_dir / "trg_vocab.txt")
 
+    # logger.warning(train_data.tokernized_data_ids["src"])
+
     # build an transformer(encoder-decoder) model
     model = build_model(model_cfg=cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab)
+    
+    # for name, param in model.named_parameters():
+    #     # logger.info("name = {}, param data shape ={}".format(name, param.data.shape))
+    #     if "encoder" in name:
+    #         param.requires_grad = False
 
+    # for name, param in model.named_parameters():
+    #     print("name = {}, requires_grad = {}".format(name, param.requires_grad))
+    
     # for training management.
     trainer = TrainManager(model=model, cfg=cfg)
 
@@ -160,7 +175,8 @@ class TrainManager(object):
             "model_state": model_state_dict,
             "optimizer_state": self.optimizer.state_dict(),
             "scheduler_state": self.scheduler.state_dict(),
-            "train_iter_state":self.train_iter.batch_sampler.sampler.generator.get_state(),
+            # "train_iter_state":self.train_iter.batch_sampler.sampler.generator.get_state(),
+            "train_iter_state": None
         }
         torch.save(global_state, model_path.as_posix())
         
@@ -269,10 +285,10 @@ class TrainManager(object):
                 for batch_data in self.train_iter:
                     batch_data.move2cuda(self.device)
                     normalized_batch_loss = self.train_step(batch_data)
-
-                    # reset gradients
-                    self.model.zero_grad()
                     
+                    # reset gradients
+                    self.optimizer.zero_grad()
+
                     normalized_batch_loss.backward()
 
                     # clip gradients (in-place)
@@ -331,7 +347,7 @@ class TrainManager(object):
                 if self.stats.is_min_lr or self.stats.is_max_update:
                     log_string = (f"minimum learning rate {self.learning_rate_min}" if self.stats.is_min_lr else 
                                     f"maximun number of updates(steps) {self.max_updates}")
-                    logger.info("Training enede since %s was reached!", log_string)
+                    logger.info("Training end since %s was reached!", log_string)
                     break 
             else: # normal ended after training.
                 logger.info("Training ended after %3d epoches!", epoch_no + 1)
@@ -354,6 +370,9 @@ class TrainManager(object):
         src_mask = batch_data.src_mask
         trg_mask = batch_data.trg_mask
         trg_truth = batch_data.trg_truth
+
+        # logger.warning("src_input = {}".format(src_input))
+        # logger.warning("src_mask = {}".format(src_mask))
 
         # get loss (run as during training with teacher forcing)
         batch_loss = self.model(return_type="loss", src_input=src_input, trg_input=trg_input,

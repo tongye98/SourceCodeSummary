@@ -10,7 +10,6 @@ from src.transformer_layers import TransformerEncoderLayer, PositionalEncoding
 from src.transformer_layers import TransformerDecoderLayer, LearnablePositionalEncoding
 from src.vocabulary import Vocabulary
 from src.helps import ConfigurationError, freeze_params, subsequent_mask
-from src.helps import retrieval_accuracy, actually_help_analysis
 from src.loss import XentLoss
 
 logger = logging.getLogger(__name__)
@@ -232,6 +231,7 @@ class Transformer(nn.Module):
         self.eos_index = self.trg_vocab.eos_index
         self.trg_vocab_size = len(trg_vocab)
         self.model_dim = self.decoder.model_dim
+        # self.reduce_dimension = nn.Linear(768, self.model_dim, bias=False)
         self.output_layer = nn.Linear(self.model_dim, self.trg_vocab_size, bias=False)
 
         self.loss_function = XentLoss(pad_index=self.pad_index, smoothing=0)
@@ -258,11 +258,14 @@ class Transformer(nn.Module):
             log_probs = F.log_softmax(logits, dim=-1)
             # NOTE batch loss = sum over all sentences of all tokens in the batch that are not pad
             batch_loss = self.loss_function(log_probs, target=trg_truth)
+            # logger.warning("batch_loss = {}".format(batch_loss))
+            # assert False
             return batch_loss
 
         elif return_type == "encode":
             assert src_input is not None and src_mask is not None
             return self.encode(src_input, src_mask)
+        
 
         elif return_type == "decode":
             assert trg_input is not None and trg_mask is not None
@@ -278,6 +281,18 @@ class Transformer(nn.Module):
         else:
             raise ValueError("return_type must be one of {'loss', 'encode', 'decode', 'encode_decode', 'retrieval_loss'}")
     
+    def codebert_encode(self, src_input: Tensor, src_mask: Tensor):
+        input = dict()
+        input["input_ids"] = src_input
+        input["attention_mask"] = src_mask
+        codebert_output = self.encoder(**input)
+        # logger.warning("encode output shape = {}".format(output))
+        # logger.warning("last_hidden_state = {}".format(output.last_hidden_state.shape))
+        # logger.warning("pooler output = {}".format(output.pooler_output.shape)) # [batch_size, 768]
+        output = codebert_output.last_hidden_state 
+        # [batch_size, src_length, 768]
+        return self.reduce_dimension(output)
+
     def encode(self, src_input: Tensor, src_mask:Tensor):
         """
         src_input: [batch_size, src_len]
@@ -328,7 +343,7 @@ class Transformer(nn.Module):
         assert trainable_parameters
 
 def build_model(model_cfg: dict=None, src_vocab: Vocabulary=None,
-                trg_vocab: Vocabulary=None) -> Transformer:
+                trg_vocab: Vocabulary=None, codebert_encode=None) -> Transformer:
     """
     Build and initialize the transformer according to the configuration.
     cfg: yaml model part.
@@ -338,6 +353,7 @@ def build_model(model_cfg: dict=None, src_vocab: Vocabulary=None,
     decoder_cfg = model_cfg["decoder"]
 
     src_pad_index = src_vocab.pad_index
+    # src_pad_index = src_vocab.pad_token_id
     trg_pad_index = trg_vocab.pad_index
     assert src_pad_index == trg_pad_index
 
@@ -367,6 +383,8 @@ def build_model(model_cfg: dict=None, src_vocab: Vocabulary=None,
                                 max_src_len=encoder_cfg["max_src_len"],freeze=encoder_cfg["freeze"],
                                 max_relative_position=encoder_cfg["max_relative_position"],
                                 use_negative_distance=encoder_cfg["use_negative_distance"])
+    # encoder = codebert_encode
+    assert encoder
     
     # Build decoder
     decoder_dropout = decoder_cfg.get("dropout", 0.1)
@@ -407,7 +425,7 @@ def build_model(model_cfg: dict=None, src_vocab: Vocabulary=None,
         model.trg_embed.load_from_file(Path(decoder_embed_path), trg_vocab)
     
     logger.info("Transformer model is built.")
-    logger.info(model)
+    # logger.info(model)
     model.log_parameters_list()
     return model
 

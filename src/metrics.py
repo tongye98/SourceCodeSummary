@@ -1,6 +1,7 @@
 from src.eval.bleu import corpus_bleu
 from src.eval.rouge import Rouge
 from src.eval.meteor import Meteor
+from src.metrics_old import Bleu
 
 def eval_accuracies(hypotheses, references):
     """An unofficial evalutation helper.
@@ -19,24 +20,29 @@ def eval_accuracies(hypotheses, references):
     # _, _, bleu = bleu_scorer.compute_score(references, hypotheses, verbose=0)
     # bleu = compute_bleu(references, hypotheses, max_order=4)['bleu']
     # _, bleu, _ = nltk_corpus_bleu(hypotheses, references)
-    _, bleu, ind_bleu = corpus_bleu(hypotheses, references)
+    corpus_bleu_r, bleu, ind_bleu, bleu_4 = corpus_bleu(hypotheses, references)
+
+    # bleu_calculator = Bleu()
+    # corpus_bleu, bleu_order = bleu_calculator.corpus_bleu(hypotheses=hypotheses, references=references)
 
     # Compute ROUGE scores
     rouge_calculator = Rouge()
     rouge_l, ind_rouge = rouge_calculator.compute_score(references, hypotheses)
 
     # Compute METEOR scores
-    # meteor_calculator = Meteor()
-    # meteor, _ = meteor_calculator.compute_score(references, hypotheses)
+    meteor_calculator = Meteor()
+    meteor, _ = meteor_calculator.compute_score(references, hypotheses)
 
-    return bleu * 100, rouge_l * 100, 0
+    return bleu*100 , rouge_l * 100, meteor*100
+    # return ind_bleu, rouge_l * 100, meteor * 100
 
 def test_metrics():
-    predictions_path = "data/rencos_python/rencos.out"
-    references_path = "data/rencos_python/test.summary"
+    predictions_path = "data/codescribe_java/codescribe_java_result_dup"
+    references_path = "data/codescribe_java/test_dup.summary"
     with open(predictions_path,"r") as p, open(references_path, "r") as r:
         predictions = p.read().splitlines()  # list of string/sentence
         references = r.read().splitlines()  # list of string/sentence
+        length = len(predictions)
         assert len(predictions) == len(references)
 
         predictions_dict = {k: [v.strip().lower()] for k,v in enumerate(predictions)}

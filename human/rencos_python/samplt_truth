@@ -1,0 +1,100 @@
+returns a list of available indexes .
+attaches deserializers to a method .
+get a user for the given id token .
+convert logic .
+decodes text thats html quoted .
+retrieve enrollment attribute array .
+used to remove a service .
+create the subtitle path from the given video path using language if multi .
+create or update the resource if appropriate .
+returns a table field definition that can be passed to database .
+given a iterable of messages and reactions stitch reactions into messages .
+retrieve the highstate data from the salt master to analyse used and unused states custom pillar data can be passed with the pillar kwarg .
+decorator to smartly _sympify function arguments @ _sympifyit def add : in add .
+add specific user to a list .
+automatically fill out the legend based on series labels .
+ascii pretty-printing .
+return a list of fixed points for the discrete dynamical system represented by the digraph g .
+custom method to select recipients for an alert .
+stores password as system_metadata items .
+lookup an aaaa record for a given *name* .
+convert the `` offset or limit '' clause of a select construct to an integer .
+this function is called from scheduler deletes backups older than 7 days takes backup .
+find all flaky tests in the given suites .
+we only deal with solaris specific version of at .
+yaml : env-file add or override environment variables to the whole build process requires the jenkins : jenkins-wiki : environment file plugin < envfile+plugin > .
+make the input impossible to broadcast in the specified axes .
+read the flags from a dictionary and return them in a usable form .
+tries to get the pid of a server .
+get issues list .
+construct new rational function field returning .
+variadic version of concat .
+initialize newconfig from a deprecated configuration file possible changes : * * * .
+format and print header block sized to length of line .
+create a new jinja2 environment .
+post-load hook function to be called after each page is loaded .
+this test that the gemm optimizer remove the dot22 that was present in the graph .
+return a list of normalized combinations for a bcp 47 language tag .
+get the widened loop .
+get the repository constructor .
+parse a bytes string into a message object model .
+replacement for django .
+converts plain text into html with links .
+template settings for philippines - designed to be used in a cascade with an application template .
+return the nth moment of a random expression about c i .
+build a deeper cnn model .
+generate the .
+move tasks by matching from a task_name : queue mapping .
+returns a tuple 9onrows .
+breaks seq into a generator of lists with length size .
+make sure directory exists with proper permissions .
+make the signal .
+determines if expiration is about to occur .
+given a list x a sample of length n of that list is returned .
+check a wamp connecting endpoint configuration .
+common code for config .
+perform a full-text search on the musicbrainz search server .
+returns an icon name based on the filename .
+return *true* if all elements of *seq* compare equal .
+convert a document into a list of tokens .
+get new derivation .
+writes /usbkey/config .
+compile a function that calls fnclex to workround URL .
+return an html document that renders zero or more bokeh documents or models .
+returns list of all language objects filled up by default values .
+returns the table object for the images table that corresponds to the images table definition of this version .
+show details about the given keypair .
+display the currently set network time server .
+return a |document| object loaded from *docx* .
+recursively convert item to a string .
+load module only if cx_oracle installed .
+decrypt with aes in cbc mode .
+returns true if the we can write a file to the supplied path and subsequently write a xattr to that file .
+creates the inception v4 model .
+return all job queues currently in use .
+utility method for ssh .
+retrieve pickle from pickled string .
+returns encoding from given http header dict .
+create a new .
+check to see if a file storage is local .
+compare the current sessions against the given template .
+deserialize data from file .
+return a lower bound on the number of cones needed to represent the tuple .
+displays all alleyoop compatible workflows .
+fetches all composite indices in the datastore for this app .
+return referer http header suitable for logging .
+return the .
+get all instance actions for the provided instance .
+generate client and server curve certificate files .
+get user information .
+add the object info if it is carvable .
+test the included api_key based header to ensure it works as expected to allow x-api-key based authentication .
+yaml : text a text parameter .
+mangle attributes .
+check the arity of a relation .
+compute the various forms of knowledge compilation used by the assumptions system .
+single transaction view page .
+implements the main method running this http lb test .
+returns the wsgi filter for use with paste .
+returns true if given task should be run in parallel mode .
+converts x into a .

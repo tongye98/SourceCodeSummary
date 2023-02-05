@@ -219,7 +219,7 @@ def greedy_search(model, output, mask, similarity_score, max_output_length, min_
                                                             encoder_output=encoder_output, src_mask=src_mask, trg_mask=trg_mask)
             output_syntax, penultimate_representation, cross_attention_weight_syntax = model(return_type="decode", trg_input=generated_syntax_tokens, 
                                                              encoder_output=encoder_syntax_output, src_mask=src_syntax_mask, trg_mask=trg_mask)
-            output_semantic, penultimate_representation, cross_attention_weight_semantic = model(return_type="decode", trg_input=generated_semantic_tokens, 
+            output_semantic, penultimate_representation, cross_attention_weight_semantic = model(return_type="decode", trg_input=generated_tokens, 
                                                             encoder_output=encoder_semantic_output, src_mask=src_semantic_mask, trg_mask=trg_mask)                                                                        
             # output  [batch_size, step+1, model_dim]
             # penultimate_representation [batch_size, step+1, model_dim]
@@ -351,12 +351,14 @@ def beam_search(model, output, mask, similarity_score, max_output_length, min_ou
             output, penultimate_representation, cross_attention_weight = model(return_type="decode", trg_input=decoder_input, 
                                                             encoder_output=encoder_output, src_mask=src_mask, trg_mask=trg_mask)
             # output_syntax, _, _ = model(return_type="decode", trg_input=decoder_input, encoder_output=encoder_syntax_output,
-            #                             src_mask=src_syntax_mask, trg_mask=trg_syntax_mask)
+            #                            src_mask=src_syntax_mask, trg_mask=trg_syntax_mask)
+            output_syntax, _, _ = model(return_type="decode", trg_input=decoder_input, encoder_output=encoder_semantic_output,
+                                        src_mask=src_semantic_mask, trg_mask=trg_semantic_mask)            
             output_semantic, _, _ = model(return_type="decode", trg_input=decoder_input, encoder_output=encoder_semantic_output,
                                         src_mask=src_semantic_mask, trg_mask=trg_semantic_mask)
             
             output = model.output_layer(output)
-            # output_syntax = model.output_layer(output_syntax)
+            output_syntax = model.output_layer(output_syntax)
             output_semantic = model.output_layer(output_semantic)
             # output  [batch_size*beam_size, step+1, vocab_size]
             # penultimate_representation [batch_size*beam_size, step+1, model_dim]
@@ -364,22 +366,22 @@ def beam_search(model, output, mask, similarity_score, max_output_length, min_ou
 
             # for the transformer we made predictions for all time steps up to this point, so we only want to know about the last time step.
             output = output[:, -1] # output [batch_size*beam_size, vocab_size]
-            # output_syntax = output_syntax[:, -1]
+            output_syntax = output_syntax[:, -1]
             output_semantic = output_semantic[:, -1]
 
         # compute log probability distribution over trg vocab
         # log_probs = F.log_softmax(output, dim=-1)
         # log_probs [batch_size*beam_size, vocab_size]
         output = F.softmax(output, dim=-1)
-        # output_syntax = F.softmax(output_syntax, dim=-1)
+        output_syntax = F.softmax(output_syntax, dim=-1)
         output_semantic = F.softmax(output_semantic, dim=-1)
 
         lamda = 1
         # logger.warning("src syntax similarity score shape {}".format(src_syntax_similarity_score.shape))
         # logger.warning("src semantic similarity score shape {}".format(src_semantic_similarity_score.shape))
         # logger.warning("output shape {}".format(output.shape))
-        # output = output + lamda*src_syntax_similarity_score*output_syntax + lamda*src_semantic_similarity_score*output_semantic
-        output = output + lamda*src_semantic_similarity_score*output_semantic
+        output = output + lamda*src_semantic_similarity_score*output_syntax + lamda*src_semantic_similarity_score*output_semantic
+        # output = output + lamda*src_semantic_similarity_score*output_semantic
         log_probs = torch.log(output)
         if not generate_unk:
             log_probs[:, unk_index] = float("-inf")

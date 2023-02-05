@@ -130,4 +130,5 @@ def corpus_bleu(hypotheses, references):
 
     avg_score = total_score / count
     corpus_bleu = compute_bleu(refs, hyps, smooth=True)[0]
-    return corpus_bleu, avg_score, ind_score
+    bleu_4 = compute_bleu(refs, hyps, smooth=True)[1][3] * compute_bleu(refs, hyps, smooth=True)[2]
+    return corpus_bleu, avg_score, ind_score, bleu_4

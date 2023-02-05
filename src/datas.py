@@ -5,6 +5,7 @@ Implementation: load_data(); make_data_iter(); collate_fn(); Batch
 """
 import logging
 import torch 
+import numpy as np
 from src.tokenizers import build_tokenizer
 from src.datasets import build_dataset
 from src.vocabulary import build_vocab
@@ -16,7 +17,7 @@ from typing import List, Union, Tuple, Iterator, Iterable
 
 logger = logging.getLogger(__name__)
 
-def load_data(data_cfg: dict, use_rencos=False):
+def load_data(data_cfg: dict, use_rencos=False, codebert_tokenizer=None):
     """
     Load train, dev and test data as specified in configuration.
     Vocabularies are created from the training dataset with a limit of 'vocab_limit' tokens
@@ -53,22 +54,23 @@ def load_data(data_cfg: dict, use_rencos=False):
     train_data = None 
     logger.info("Loading train dataset...")
     train_data = build_dataset(dataset_type=dataset_type,path=train_data_path, split_mode="train",
-                                src_language=src_language, trg_language=trg_language, tokenizer=tokenizer)
+                                src_language=src_language, trg_language=trg_language, tokenizer=tokenizer, codebert_tokenizer=codebert_tokenizer)
     # dev data
     dev_data = None
     logger.info("Loading dev dataset...")
     dev_data = build_dataset(dataset_type=dataset_type, path=dev_data_path, split_mode="dev",
-                             src_language=src_language, trg_language=trg_language, tokenizer=tokenizer)
+                             src_language=src_language, trg_language=trg_language, tokenizer=tokenizer, codebert_tokenizer=codebert_tokenizer)
     # test data
     logger.info("Loading test dataset...")
     if use_rencos:
         dataset_type = "rencos_retrieval"
     test_data = build_dataset(dataset_type=dataset_type, path=test_data_path, split_mode="test",
-                              src_language=src_language, trg_language=trg_language, tokenizer=tokenizer)
+                              src_language=src_language, trg_language=trg_language, tokenizer=tokenizer, codebert_tokenizer=codebert_tokenizer)
     
     # build vocabulary
     logger.info("Building vocabulary...")
     src_vocab, trg_vocab = build_vocab(data_cfg, datasets=[train_data, dev_data])
+    # src_vocab = codebert_tokenizer
 
     train_data.tokernized_data_to_ids(src_vocab, trg_vocab)
     dev_data.tokernized_data_to_ids(src_vocab, trg_vocab)
@@ -91,6 +93,7 @@ def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,
         generator = torch.Generator()
         generator.manual_seed(sampler_seed)
         sampler = RandomSampler(dataset, replacement=False, generator=generator)
+        # sampler = SortedBatchSampler(dataset.lengths(), batch_size, shuffle=True)
     else:
         sampler = SequentialSampler(dataset)
     
@@ -105,9 +108,30 @@ def make_data_iter(dataset:Dataset, sampler_seed, shuffle, batch_type,
         return DataLoader(dataset, batch_sampler=batch_sampler, num_workers=num_workers,
                           pin_memory=True, collate_fn=rencos_collate_fn)
     else:
-        return DataLoader(dataset, batch_sampler=batch_sampler, num_workers=num_workers,
+        return DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=num_workers,
                           pin_memory=True, collate_fn=collate_fn)
 
+    
+class SortedBatchSampler(Sampler):
+    def __init__(self, lengths, batch_size, shuffle=True):
+        self.lengths = lengths
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+
+    def __iter__(self):
+        lengths = np.array(
+            [(-l[0], -l[1], np.random.random()) for l in self.lengths],
+            dtype=[('l1', np.int_), ('l2', np.int_), ('rand', np.float_)]
+        )
+        indices = np.argsort(lengths, order=('l1', 'l2', 'rand'))
+        batches = [indices[i:i + self.batch_size]
+                   for i in range(0, len(indices), self.batch_size)]
+        if self.shuffle:
+            np.random.shuffle(batches)
+        return iter([i for batch in batches for i in batch])
+
+    def __len__(self):
+        return len(self.lengths)
 
 class SentenceBatchSampler(BatchSampler):
     """

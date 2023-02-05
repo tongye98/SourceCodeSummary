@@ -56,26 +56,27 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
     hyp_scores = None
     attention_scores = None
 
+    inference_start_time = time.time()
     for batch_data in tqdm.tqdm(data_iter, desc="Validating"):
         batch_data.move2cuda(device)
         total_nseqs += batch_data.nseqs 
 
-        if compute_loss: 
-            # don't track gradients during validation 
-            with torch.no_grad():
-                src_input = batch_data.src
-                trg_input = batch_data.trg_input
-                src_mask = batch_data.src_mask
-                trg_mask = batch_data.trg_mask
-                trg_truth = batch_data.trg_truth
+        # if compute_loss: 
+        #     # don't track gradients during validation 
+        #     with torch.no_grad():
+        #         src_input = batch_data.src
+        #         trg_input = batch_data.trg_input
+        #         src_mask = batch_data.src_mask
+        #         trg_mask = batch_data.trg_mask
+        #         trg_truth = batch_data.trg_truth
 
-                batch_loss = model(return_type="loss", src_input=src_input, trg_input=trg_input,
-                src_mask=src_mask, trg_mask=trg_mask, encoder_output=None, trg_truth=trg_truth)
+        #         batch_loss = model(return_type="loss", src_input=src_input, trg_input=trg_input,
+        #         src_mask=src_mask, trg_mask=trg_mask, encoder_output=None, trg_truth=trg_truth)
                 
-                batch_loss = batch_data.normalize(batch_loss, "sum")
+        #         batch_loss = batch_data.normalize(batch_loss, "sum")
 
-            total_loss += batch_loss.item()
-            total_ntokens += batch_data.ntokens
+        #     total_loss += batch_loss.item()
+        #     total_ntokens += batch_data.ntokens
 
         # run search as during inference to produce translations (summary).
         output, hyp_scores, attention_scores = search(model=model, batch_data=batch_data,
@@ -86,19 +87,20 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
         all_outputs.extend(output)
         valid_sentences_scores.extend(hyp_scores if hyp_scores is not None else [])
         valid_attention_scores.extend(attention_scores if attention_scores is not None else [])
-
+    inference_end_time = time.time()
+    logger.warning("Inference cost time = {}".format(inference_end_time-inference_start_time))
     assert total_nseqs == len(data)
     assert len(all_outputs) == len(data) * n_best   # NOTE all_outputs is a list of np.ndarray
 
-    if compute_loss:
-        if normalization == "batch":
-            normalizer = total_nseqs
-        elif normalization == "tokens":
-            normalizer = total_ntokens
-        elif normalization == "none":
-            normalizer = 1
-        valid_scores["loss"] = total_loss / normalizer
-        valid_scores["ppl"] = math.exp(total_loss / total_ntokens)
+    # if compute_loss:
+    #     if normalization == "batch":
+    #         normalizer = total_nseqs
+    #     elif normalization == "tokens":
+    #         normalizer = total_ntokens
+    #     elif normalization == "none":
+    #         normalizer = 1
+    #     valid_scores["loss"] = total_loss / normalizer
+    #     valid_scores["ppl"] = math.exp(total_loss / total_ntokens)
     
     decoded_valid = model.trg_vocab.arrays_to_sentences(arrays=all_outputs, cut_at_eos=True)
 

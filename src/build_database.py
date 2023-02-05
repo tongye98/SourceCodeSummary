@@ -256,10 +256,10 @@ def store_examples(model: Transformer, hidden_representation_path:str, token_map
                 sentence_encode_output = encode_output[i]  # shape [src_len, model_dim]
                 sentence_src_length = src_lengths[i]  # is a number
                 sentence_encode_output_select = sentence_encode_output[:sentence_src_length]
-                sentence_cross_attentin_weight_select = sentence_cross_attention_weight[:,0:sentence_src_length]
+                sentence_cross_attention_weight_select = sentence_cross_attention_weight[:,0:sentence_src_length]
 
                 # sentence_encode_hidden = torch.mean(sentence_encode_output_select, dim=0) # shape [model_dim]
-                sentence_encode_hidden = torch.matmul(sentence_cross_attentin_weight_select, sentence_encode_output_select) # shape [real_trg_len, model_dim]
+                sentence_encode_hidden = torch.matmul(sentence_cross_attention_weight, sentence_encode_output) # shape [real_trg_len, model_dim]
                 sentence_encode_hidden = sentence_encode_hidden.cpu().numpy().astype("float32")
 
                 for token_id, hidden_state, token_encode_hidden in zip(trg_tokens_id, hidden_states, sentence_encode_hidden):
@@ -285,7 +285,7 @@ def build_database(cfg_file: str):
     """
     cfg = load_config(Path(cfg_file))
     model_dir = cfg["retriever"].get("retriever_model_dir", None)
-    make_logger(Path(model_dir), mode="build_database")
+    make_logger(Path(model_dir), mode="build_database_inner")
 
     use_cuda = cfg["training"]["use_cuda"]
     device = torch.device("cuda" if use_cuda else "cpu")

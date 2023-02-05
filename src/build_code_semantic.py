@@ -263,7 +263,7 @@ def build_code_semantic_database(cfg_file: str):
     """
     cfg = load_config(Path(cfg_file))
     model_dir = cfg["retriever"].get("code_semantic_dir", None)
-    make_logger(Path(model_dir), mode="test_index3")
+    make_logger(Path(model_dir), mode="test_index")
 
     use_cuda = cfg["training"]["use_cuda"]
     device = torch.device("cuda" if use_cuda else "cpu")
@@ -289,25 +289,24 @@ def build_code_semantic_database(cfg_file: str):
     if use_cuda:
         model.to(device)
 
-    # logger.info("Store train examples code semantic...")
-    # code_semantic_path = cfg["retriever"]["code_semantic_path"]
-    # # use_code_representation = cfg["retriever"]["use_code_representation"]
-    # store_code_semantic(model, code_semantic_path=code_semantic_path,
-    #                 data=train_data, batch_size=batch_size, batch_type=batch_type, seed=seed,
-    #                 shuffle=shuffle, num_workers=num_workers, device=device)
-    # logger.info("Store train examples code semantic done!")
+    logger.info("Store train examples code semantic...")
+    code_semantic_path = cfg["retriever"]["code_semantic_path"]
+    # use_code_representation = cfg["retriever"]["use_code_representation"]
+    store_code_semantic(model, code_semantic_path=code_semantic_path,
+                    data=train_data, batch_size=batch_size, batch_type=batch_type, seed=seed,
+                    shuffle=shuffle, num_workers=num_workers, device=device)
+    logger.info("Store train examples code semantic done!")
 
     # logger.info("train index...")
     code_index_path = cfg["retriever"]["code_index_path"]
-    # code_semantic_path = cfg["retriever"]["code_semantic_path"]
     index_type = cfg["retriever"]["index_type"]
-    # index = FaissIndex(index_type=index_type)
-    # index.train(code_semantic_path)
-    # index.add(code_semantic_path)
-    # index.export(code_index_path)
-    # logger.info("train index done!")
+    index = FaissIndex(index_type=index_type)
+    index.train(code_semantic_path)
+    index.add(code_semantic_path)
+    index.export(code_index_path)
+    logger.info("train index done!")
 
-    # del index
+    del index
 
 
     
@@ -363,11 +362,11 @@ def build_code_semantic_database(cfg_file: str):
     logger.info("whole distances shape = {}".format(whole_distances.shape)) # [21745, 4]
     logger.info("whole indices shape = {}".format(whole_indices.shape)) # [21745, 4]
 
-    distances = whole_distances[:, 2]
-    indices = whole_indices[:, 2]
+    distances = whole_distances[:, 0]
+    indices = whole_indices[:, 0]
 
-    distance_map_file = open("distance3_map_file", "w", encoding="utf-8")
-    indice_map_file = open("indice3_map_file","w",encoding="utf-8")
+    distance_map_file = open("datastore/datastore_liu_c/base3/code_semantic/distance0_map_file", "w", encoding="utf-8")
+    indice_map_file = open("datastore/datastore_liu_c/base3/code_semantic/indice0_map_file","w",encoding="utf-8")
 
     for distance, indice in zip(distances, indices):
         distance_map_file.write(f"{distance}\n")
