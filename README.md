@@ -10,8 +10,7 @@ Automatically generating human-readable text describing the functionality of a p
 
 ## Architecture
 
-![datas](../figs/architecure.pdf)
-![datas2](../figs/image.png)
+![architecture](figs/image.png)
 
 
 ## Dependency
