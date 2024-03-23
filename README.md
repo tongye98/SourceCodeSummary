@@ -10,7 +10,7 @@ Automatically generating human-readable text describing the functionality of a p
 
 ## Architecture
 
-![architecture](figs/image.png)
+![architecture](figs/architecture.png)
 
 
 ## Dependency
