@@ -3,4 +3,4 @@
 
 echo "Let's start do something interesting!"
 export CUDA_VISIBLE_DEVICES=1
-python -m src train configs/codescribe_python_base1.yaml
+python -m src train configs/codescribe_python.yaml

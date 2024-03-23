@@ -6,6 +6,7 @@ import math
 import torch
 import torch.nn as nn
 from torch import Tensor
+from torch_geometric.nn import SAGEConv, GCNConv, GATConv
 from src.helps import generate_relative_position_matrix
 import logging
 from src.vocabulary import Vocabulary 
@@ -233,6 +234,49 @@ class TransformerEncoderLayer(nn.Module):
         output = self.feed_forward(feedforward_input)
         return output
 
+class GNNEncoderLayer(nn.Module):
+    """
+    Classical GNN model encoder layer.
+    """
+    def __init__(self, model_dim=512, GNN=None, aggr=None, residual=False) -> None:
+        super().__init__()
+
+        assert GNN in {"SAGEConv", "GCNConv", "GATConv"}
+        self.gnn = None 
+        if GNN == "SAGEConv":
+            self.gnn = SAGEConv(in_channels=model_dim, out_channels=model_dim, aggr=aggr)
+        elif GNN == "GCNConv":
+            self.gnn = GCNConv(in_channels=model_dim, out_channels=model_dim, aggr=aggr)
+        elif GNN == "GATConv":
+            self.gnn = GATConv(in_channels=model_dim, out_channels=model_dim, aggr=aggr)
+        
+        self.relu = nn.ReLU()
+        # self.dropout= nn.Dropout(0.2)
+        self.layer_norm = nn.LayerNorm(model_dim)
+        self.residual = residual
+    
+    def forward(self, node_feature, edge_index):
+        """
+        Input:
+            node_emb [batch, node_emb_dim] / node feature tensor
+            edge_index: Adj [2, edge_num] 
+        Return: 
+            node_encode [batch, node_num, node_dim]
+        """
+        if self.residual is False:
+            residual = node_feature 
+            node_feature = self.layer_norm(node_feature)
+            node_enc_ = self.gnn(x=node_feature, edge_index=edge_index)
+            node_enc_ = self.relu(node_enc_)
+            # node_encode = node_enc_ + residual
+            return node_enc_
+        else:
+            residual = node_feature
+            node_feature = self.layer_norm(node_feature)
+            node_enc_ = self.gnn(x=node_feature, edge_index=edge_index)
+            node_enc_ = self.relu(node_enc_)
+            node_encode = node_enc_ + residual
+            return node_encode
 
 class TransformerDecoderLayer(nn.Module):
     """

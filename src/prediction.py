@@ -117,20 +117,13 @@ def predict(model, data:Dataset, device:torch.device, compute_loss:bool=False,
     # 0: ['partitions a list of suite from a interval .']
 
     eval_metric_start_time = time.time()
-    #for eval_metric in eval_metrics:
-        # if eval_metric == "bleu":  # geometric mean of bleu scores
-        #     valid_scores[eval_metric], bleu_order = Bleu().corpus_bleu(hypotheses=predictions_dict, references=references_dict)
-        # elif eval_metric == "meteor":
-        #     valid_scores[eval_metric] = 0
-        # elif eval_metric == "rouge-l":
-        #     valid_scores[eval_metric] = Rouge().compute_score(gts=references_dict, res=predictions_dict)[0]
+
     bleu, rouge_l, meteor = eval_accuracies(hypotheses=predictions_dict, references=references_dict)
     valid_scores["bleu"] = bleu
     valid_scores["rouge-l"] = rouge_l
     valid_scores["meteor"] = meteor
     eval_duration = time.time() - eval_metric_start_time
-    # eval_metrics_string = ", ".join([f"{eval_metric}:{valid_scores[eval_metric]:6.3f}" for eval_metric in 
-    #                                     eval_metrics+["loss","ppl"]])
+
     eval_metrics_string = "bleu = {}, rouge_l = {}, meteor = {}".format(bleu, rouge_l, meteor)
 
     logger.info("Evaluation result({}) {}, evaluation time: {:.2f}[sec]".format("Beam Search" if beam_size > 1 else "Greedy Search",

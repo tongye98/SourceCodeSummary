@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 from src.transformer_layers import TransformerEncoderLayer, PositionalEncoding
 from src.transformer_layers import TransformerDecoderLayer, LearnablePositionalEncoding
+from src.transformer_layers import GNNEncoderLayer
 from src.vocabulary import Vocabulary
 from src.helps import ConfigurationError, freeze_params, subsequent_mask
 from src.loss import XentLoss
@@ -135,6 +136,40 @@ class TransformerEncoder(nn.Module):
         return (f"{self.__class__.__name__}(num_layers={len(self.layers)}, "
                 f"head_count={self.head_count}, " 
                 f"layer_norm_position={self.layer_norm_position})")
+
+class GNNEncoder(nn.Module):
+    def __init__(self, gnn_type, aggr, model_dim, num_layers, emb_dropout=0.2, residual=False) -> None:
+        super().__init__()
+        self.layers = nn.ModuleList([GNNEncoderLayer(model_dim=model_dim, GNN=gnn_type, aggr=aggr, residual=residual)
+                                      for _ in range(num_layers)])
+        
+        self.emb_dropout = nn.Dropout(emb_dropout)
+        self.layernorm = nn.LayerNorm(model_dim)
+    
+    def forward(self, node_feature, edge_index, node_batch):
+        """
+        Input: 
+            node_feature: [node_number, node_dim]
+            edge_index: [2, edge_number]
+            node_batch: {0,0, 1, ..., B-1} | indicate node in which graph. 
+                        B: the batch_size or graphs.
+        Return 
+            output: [batch, Nmax, node_dim]
+            mask: [batch, Nmax] bool
+            Nmax: max node number in a batch.
+        """
+        node_feature = self.emb_dropout(node_feature)
+
+        for layer in self.layers:
+            node_feature = layer(node_feature, edge_index)
+        
+        node_feature = self.layernorm(node_feature)
+
+        if node_batch is not None:
+            output, mask = to_dense_batch(node_feature, batch=node_batch)
+
+        return output, mask
+
 
 class TransformerDecoder(nn.Module):
     """
